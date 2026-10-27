@@ -4,12 +4,54 @@
 // En production, le serveur Next.js (build standalone) est lance en
 // processus embarque, puis une fenetre pointe vers http://127.0.0.1:PORT.
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  appendFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, dialog } from "electron";
 
 const isDev = process.env.ELECTRON_DEV === "1";
+
+// Journal de demarrage : %APPDATA%/Employee/startup.log (Windows).
+// Sans lui, un echec de boot est invisible (processus vivant, pas de fenetre).
+let logFile = "";
+
+function log(message: string): void {
+  console.log(`[employee-desktop] ${message}`);
+  if (logFile) {
+    try {
+      appendFileSync(logFile, `[${new Date().toISOString()}] ${message}\n`);
+    } catch {
+      // Log fichier best-effort (console en secours).
+    }
+  }
+}
+
+function initLogFile(): string {
+  try {
+    const file = path.join(app.getPath("userData"), "startup.log");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, `Employee startup log — ${new Date().toISOString()}\n`);
+    return file;
+  } catch {
+    return "";
+  }
+}
+
+// Le serveur embarque tourne dans CE processus : ses crashs async (WASM,
+// PGlite, listen) arrivent ici. On les journalise au lieu de mourir en silence
+// (le timeout de waitForServer affichera ensuite le dialogue d'erreur).
+process.on("unhandledRejection", (reason: unknown) => {
+  log(`UNHANDLED REJECTION: ${String(reason)}`);
+});
+process.on("uncaughtException", (error: Error) => {
+  log(`UNCAUGHT EXCEPTION: ${error.stack ?? error.message}`);
+});
 
 interface DesktopSettingsFile {
   llmApiKey?: string;
@@ -74,14 +116,19 @@ function getFreePort(): Promise<number> {
 
 async function waitForServer(url: string, timeoutMs: number): Promise<void> {
   const start = Date.now();
-  for (;;) {
+  log(`waiting for embedded server: ${url}`);
+  for (let attempt = 0; ; attempt++) {
     try {
       // Toute reponse HTTP (y compris 401/404) prouve que le serveur repond.
       await fetch(url);
+      log(`embedded server answered after ${attempt + 1} attempt(s)`);
       return;
     } catch {
       if (Date.now() - start > timeoutMs) {
         throw new Error(`Embedded server did not start in time (${url})`);
+      }
+      if (attempt > 0 && attempt % 40 === 0) {
+        log(`still waiting for embedded server (${attempt + 1} attempts)...`);
       }
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
@@ -97,6 +144,9 @@ async function startEmbeddedServer(
 
   (process.env as Record<string, string | undefined>).NODE_ENV = "production";
   process.env.PORT = String(port);
+  // Force : le server.js standalone Next lit process.env.HOSTNAME au require
+  // (defaut '0.0.0.0'). Boucle locale uniquement : Electron et le serveur
+  // sont co-localises, rien ne doit ecouter sur le reseau.
   process.env.HOSTNAME = "127.0.0.1";
   process.env.DESKTOP = "1";
   process.env.DESKTOP_DATA_DIR = dataDir;
@@ -120,9 +170,11 @@ async function startEmbeddedServer(
   if (!existsSync(entry)) {
     throw new Error(`Embedded server not found: ${entry}`);
   }
+  log(`requiring embedded server: ${entry} (port=${port})`);
 
   // Le serveur standalone Next.js ecoute des son chargement.
   require(entry);
+  log("embedded server module loaded");
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -144,6 +196,10 @@ function createWindow(url: string): void {
   mainWindow.on("closed", () => {
     mainWindow = null;
   });
+  mainWindow.webContents.on("did-fail-load", (_event, code, desc, failedUrl) => {
+    log(`did-fail-load: ${code} ${desc} (${failedUrl})`);
+  });
+  log(`window created for ${url}`);
 }
 
 if (!app.requestSingleInstanceLock()) {
@@ -163,8 +219,15 @@ async function main(): Promise<void> {
   await app.whenReady();
   app.setAppUserModelId("com.employee.app");
 
+  logFile = initLogFile();
+  log(
+    `starting: app=${app.getVersion()} electron=${process.versions.electron} ` +
+      `node=${process.versions.node} platform=${process.platform} resources=${process.resourcesPath}`
+  );
+
   const dataDir = getDataDir();
   mkdirSync(dataDir, { recursive: true });
+  log(`data dir: ${dataDir}`);
 
   if (isDev) {
     const port = Number(process.env.PORT ?? 3000);
@@ -174,10 +237,12 @@ async function main(): Promise<void> {
     return;
   }
 
+  log("allocating a free loopback port...");
   const port = await getFreePort();
   if (!port) {
     throw new Error("Could not allocate a free port");
   }
+  log(`port allocated: ${port}`);
   await startEmbeddedServer(port, dataDir);
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitForServer(`${baseUrl}/api/models`, 120_000);
@@ -185,7 +250,18 @@ async function main(): Promise<void> {
 }
 
 main().catch((error: unknown) => {
-  console.error("[employee-desktop]", error);
+  const message = error instanceof Error ? error.message : String(error);
+  const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
+  log(`FATAL: ${detail}`);
+  try {
+    // Bloquant : l'utilisateur lit l'erreur avant que l'app ne quitte.
+    dialog.showErrorBox(
+      "Employee failed to start",
+      `${message}\n\nDetails: ${logFile || "(log unavailable)"}`
+    );
+  } catch {
+    // ignore (fallback : process.exit ci-dessous)
+  }
   app.exit(1);
 });
 
