@@ -1,0 +1,581 @@
+{
+  "sidebar": {
+    "newChat": "Nouveau chat",
+    "history": "Sessions",
+    "websites": "Sites web",
+    "simulations": "Simulations",
+    "toggleSidebar": "Basculer la sidebar",
+    "openSidebar": "Ouvrir la sidebar",
+    "search": "Rechercher",
+    "deepResearch": "Deep Research",
+    "artefacts": "Artefacts"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "general": "Général",
+    "engine": "Moteur de modèle",
+    "memory": "Mémoire",
+    "tools": "Outils",
+    "security": "Sécurité",
+    "billing": "Facturation",
+    "profile": "Profil",
+    "profileDescription": "Votre photo, nom et bio.",
+    "setYourName": "Définissez votre nom",
+    "addBio": "Ajoutez une bio…",
+    "memberSince": "Membre depuis",
+    "localization": "Localisation",
+    "localizationDescription": "Détecté depuis votre système.",
+    "language": "Langue",
+    "timezone": "Fuseau horaire",
+    "appearance": "Apparence",
+    "appearanceDescription": "Choisissez l'apparence de Employee.",
+    "theme": "Thème",
+    "system": "Système",
+    "light": "Clair",
+    "dark": "Sombre",
+    "dangerZone": "Zone de danger",
+    "dangerZoneDescription": "Actions irréversibles.",
+    "deleteAllChats": "Supprimer tous les chats",
+    "deleteAllChatsDescription": "Supprimez définitivement tout votre historique de chat.",
+    "deleteAll": "Tout supprimer",
+    "deleteAllConfirmTitle": "Supprimer tous les chats ?",
+    "deleteAllConfirmDescription": "Cette action est irréversible.",
+    "cancel": "Annuler",
+    "save": "Enregistrer",
+    "change": "Changer",
+    "remove": "Retirer",
+    "uploadPhoto": "Télécharger une photo",
+    "viewPhoto": "Voir la photo",
+    "precisionCreativity": "Précision et créativité",
+    "precisionCreativityDescription": "Contrôlez comment Employee équilibre précision et créativité.",
+    "temperature": "Température",
+    "precise": "Précis",
+    "creative": "Créatif",
+    "speedVsQuality": "Vitesse vs Qualité",
+    "speed": "Vitesse",
+    "quality": "Qualité",
+    "contextSampling": "Contexte et échantillonnage",
+    "contextSamplingDescription": "Affinez la façon dont Employee traite et génère les réponses.",
+    "maxContext": "Contexte max",
+    "repetitionPenalty": "Pénalité de répétition",
+    "topP": "Top-P (échantillonnage par noyau)",
+    "features": "Fonctionnalités",
+    "featuresDescription": "Activez ou désactivez les capacités principales du moteur.",
+    "deepReasoning": "Raisonnement profond",
+    "deepReasoningDescription": "Raisonnement multi-étapes pour les tâches complexes",
+    "streaming": "Streaming",
+    "streamingDescription": "Afficher les réponses en temps réel",
+    "responseCache": "Cache de réponses",
+    "responseCacheDescription": "Mettre en cache les réponses fréquentes",
+    "costControl": "Contrôle des coûts",
+    "costControlDescription": "Définissez une limite de dépenses mensuelles.",
+    "monthlyComputeLimit": "Limite mensuelle de calcul",
+    "memoryUsage": "Utilisation mémoire",
+    "memoryUsageDescription": "Consommation mémoire actuelle sur toutes les couches.",
+    "totalMemory": "Mémoire totale",
+    "shortTermMem": "Court terme",
+    "longTermMem": "Long terme",
+    "projectMem": "Projet",
+    "embeddingsMem": "Embeddings",
+    "memoryLayers": "Couches mémoire",
+    "memoryLayersDescription": "Configurez comment Employee stocke et récupère le contexte.",
+    "shortTermMemory": "Mémoire à court terme",
+    "shortTermMemoryDescription": "Contexte de conversation récent pour un rappel immédiat",
+    "longTermMemory": "Mémoire à long terme",
+    "longTermMemoryDescription": "Connaissances persistantes entre les sessions et conversations",
+    "autoSummarization": "Résumé automatique",
+    "autoSummarizationDescription": "Compresser et résumer automatiquement les anciennes conversations",
+    "compressionLimits": "Compression et limites",
+    "compressionLimitsDescription": "Contrôlez l'utilisation mémoire et les politiques de rétention.",
+    "memoryCompression": "Compression mémoire",
+    "memoryCompressionDescription": "Réduire l'empreinte mémoire en compressant le contexte ancien",
+    "compressionLevel": "Niveau de compression",
+    "aggressive": "Agressif",
+    "memoryExpiration": "Expiration de la mémoire",
+    "memoryExpirationDescription": "Effacer automatiquement les anciens souvenirs après une période définie",
+    "7days": "7 jours",
+    "30days": "30 jours",
+    "90days": "90 jours",
+    "never": "Jamais",
+    "syncMemory": "Synchroniser la mémoire",
+    "syncMemoryDescription": "Synchroniser la mémoire sur toutes vos sessions et appareils",
+    "shortTermMemoryLimit": "Limite de mémoire à court terme",
+    "shortTermMemoryLimitDescription": "Nombre maximum de messages conservés en contexte court terme.",
+    "messages": "Messages",
+    "connectedIntegrations": "Intégrations connectées",
+    "connectedIntegrationsDescription": "Connectez des services externes que vos agents peuvent utiliser.",
+    "disconnect": "Déconnecter",
+    "connect": "Connecter",
+    "connected": "Connecté",
+    "notConnected": "Non connecté",
+    "toolPermissions": "Permissions des outils",
+    "toolPermissionsDescription": "Définissez les niveaux d'accès pour chaque outil connecté.",
+    "read": "Lecture",
+    "write": "Écriture",
+    "admin": "Admin",
+    "noToolsConnected": "Aucun outil connecté.",
+    "limitsSafety": "Limites et sécurité",
+    "limitsSafetyDescription": "Configurez les limites d'exécution des outils.",
+    "executionTimeout": "Délai d'exécution",
+    "executionTimeoutDescription": "Temps maximum d'exécution d'un outil avant d'être arrêté",
+    "sec": "sec",
+    "dailyCallQuota": "Quota d'appels quotidien",
+    "dailyCallQuotaDescription": "Nombre maximum d'appels d'outils par jour",
+    "perDay": "/jour",
+    "sandboxMode": "Mode bac à sable",
+    "sandboxModeDescription": "Exécuter les outils dans un environnement isolé pour plus de sécurité",
+    "toolExecutionLogs": "Journaux d'exécution",
+    "toolExecutionLogsDescription": "Conserver des journaux détaillés de toutes les exécutions d'outils",
+    "authentication": "Authentification",
+    "authenticationDescription": "Protégez votre compte avec des couches de sécurité supplémentaires.",
+    "twoFactorAuth": "Authentification à deux facteurs",
+    "twoFactorEnabled": "Activée — Votre compte est protégé",
+    "twoFactorDisabled": "Ajoutez une couche de sécurité supplémentaire à votre compte",
+    "ipRestriction": "Restriction IP",
+    "accessLimitedTo": "Accès limité à ",
+    "allowAnyIp": "Autoriser l'accès depuis n'importe quelle adresse IP",
+    "addIpAddress": "Ajouter une adresse IP...",
+    "activeSessions": "Sessions actives",
+    "activeSessionsDescription": "Gérez les appareils actuellement connectés à votre compte.",
+    "current": "Actuelle",
+    "revoke": "Révoquer",
+    "apiKeys": "Clés API",
+    "apiKeysDescription": "Gérez les clés pour l'accès programmatique.",
+    "lastUsed": "Dernière utilisation",
+    "auditLogs": "Journaux d'audit",
+    "auditLogsDescription": "Activité récente sur votre compte.",
+    "tokens": "Tokens",
+    "estCost": "Coût estimé",
+    "thisMonth": "ce mois",
+    "limit": "Limite",
+    "perMonth": "par mois",
+    "monthlyConsumption": "Consommation mensuelle",
+    "monthlyConsumptionDescription": "Suivez votre consommation de tokens et de stockage.",
+    "tokensConsumed": "Tokens consommés",
+    "spending": "Dépenses",
+    "storage": "Stockage",
+    "costBreakdown": "Détail des coûts",
+    "costBreakdownDescription": "Coûts estimés par service.",
+    "memoryStorage": "Stockage mémoire",
+    "used": "utilisé",
+    "documents": "Documents",
+    "totalEstimated": "Total estimé",
+    "spendingControls": "Contrôle des dépenses",
+    "spendingControlsDescription": "Définissez des limites et des alertes pour contrôler les coûts.",
+    "monthlySpendingLimit": "Limite de dépenses mensuelle",
+    "alertAt": "Alerte à ",
+    "of": "sur",
+    "linkSafety": "Avertissement liens externes",
+    "linkSafetyDescription": "Afficher une confirmation avant d'ouvrir des liens externes.",
+    "enabled": "Activé",
+    "disabled": "Désactivé"
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "Inscription",
+    "signOut": "Déconnexion",
+    "loginToAccount": "Connectez-vous à votre compte",
+    "viewProfile": "Voir le profil",
+    "settings": "Paramètres",
+    "switchToLight": "Passer en mode clair",
+    "switchToDark": "Passer en mode sombre",
+    "welcomeBackLine1": "Bon retour. Entrez vos identifiants",
+    "welcomeBackLine2": "pour accéder à votre espace.",
+    "continueWithGithub": "Continuer avec GitHub",
+    "continueWithGoogle": "Continuer avec Google",
+    "orByEmail": "ou par e-mail",
+    "emailPlaceholder": "Adresse e-mail",
+    "passwordPlaceholder": "Mot de passe",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
+    "forgotPassword": "Mot de passe oublié ?",
+    "signIn": "Se connecter",
+    "signUp": "S'inscrire",
+    "noAccount": "Pas encore de compte ?",
+    "invalidCredentials": "Identifiants invalides.",
+    "invalidData": "Veuillez vérifier vos informations.",
+    "createAccount": "Créez votre compte",
+    "createAccountLine": "Commencez à travailler avec vos employés IA.",
+    "signUpButton": "Créer un compte",
+    "haveAccount": "Vous avez déjà un compte ?",
+    "pleaseWait": "Veuillez patienter...",
+    "errors": {
+      "invalid_email": "Veuillez entrer une adresse email valide.",
+      "password_too_short": "Le mot de passe doit contenir au moins 6 caractères.",
+      "user_not_found": "Aucun compte trouvé avec cet email.",
+      "no_password": "Ce compte n'a pas de mot de passe.",
+      "wrong_password": "Mot de passe incorrect.",
+      "server_error": "Une erreur est survenue. Veuillez réessayer.",
+      "network_error": "Connexion perdue. Vérifiez votre internet."
+    }
+  },
+  "chat": {
+    "placeholder": "Posez votre question...",
+    "editMessage": "Modifiez votre message...",
+    "cancel": "Annuler",
+    "history": "Sessions",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "lastWeek": "7 derniers jours",
+    "lastMonth": "30 derniers jours",
+    "older": "Plus ancien",
+    "loading": "Chargement...",
+    "noChats": "Vos conversations apparaîtront ici dès que vous commencerez à chatter !",
+    "loginToSave": "Connectez-vous pour sauvegarder et retrouver vos chats !",
+    "greeting1": "Avec qui apprenons-nous aujourd'hui ?",
+    "greeting2": "Qu'explorons-nous aujourd'hui ?",
+    "greeting3": "Prêt à apprendre quelque chose de nouveau ?",
+    "greeting4": "Quelle curiosité vous amène ici ?",
+    "greeting5": "Que devrions-nous découvrir ensemble ?",
+    "greeting6": "Par où commencer aujourd'hui ?",
+    "greeting7": "Qu'avez-vous en tête ?",
+    "greeting8": "Que voudriez-vous comprendre ?",
+    "greeting9": "Plongeons dans quelque chose de grand.",
+    "greeting10": "Quelle connaissance recherchez-vous ?",
+    "morning1": "Bonjour ! Avec qui apprenons-nous aujourd'hui ?",
+    "morning2": "Bonjour ! Prêt à commencer la journée ?",
+    "morning3": "Bonjour ! Qu'allons-nous explorer ?",
+    "afternoon1": "Bon après-midi ! Qu'apprenons-nous aujourd'hui ?",
+    "afternoon2": "Bon après-midi ! Qu'est-ce qui éveille votre curiosité ?",
+    "afternoon3": "Bon après-midi ! Prêt à plonger ?",
+    "evening1": "Bonsoir ! Avec qui apprenons-nous ce soir ?",
+    "evening2": "Bonsoir ! Qu'avez-vous en tête ?",
+    "evening3": "Bonsoir ! Explorons quelque chose ensemble.",
+    "night1": "Une curiosité tardive ? Je suis là pour ça.",
+    "night2": "Vous brûlez l'huile de minuit ? Apprenons.",
+    "night3": "La nuit est jeune. Que devrions-nous découvrir ?",
+    "askAnything": "Posez votre question...",
+    "editingMessage": "Modification du message",
+    "learnPlaceholder": "Apprenez-moi...",
+    "solvePlaceholder": "Résolvez ceci pour moi...",
+    "codePlaceholder": "Codez-moi...",
+    "learn": "Apprendre",
+    "solve": "Résoudre",
+    "code": "Coder",
+    "back": "Retour",
+    "private": "Privé",
+    "privateDescription": "Seul vous pouvez accéder à ce chat",
+    "public": "Public",
+    "publicDescription": "Toute personne avec le lien peut accéder à ce chat",
+    "laboratory": "Laboratoire",
+    "laboratoryDescription": "Simulez des expériences scientifiques",
+    "development": "Développement",
+    "developmentDescription": "Créez des applications avec des agents IA",
+    "learning": "Apprentissage",
+    "learningDescription": "Maîtrisez des concepts complexes",
+    "learnPrompt1": "Expliquez l'intrication quantique en termes simples",
+    "learnPrompt2": "Apprenez-moi les bases de l'algèbre linéaire",
+    "learnPrompt3": "Quelle est l'histoire de l'intelligence artificielle ?",
+    "learnPrompt4": "Comment fonctionne l'édition génétique CRISPR ?",
+    "solvePrompt1": "Résolvez cette équation différentielle : dy/dx = y + x²",
+    "solvePrompt2": "Calculez la probabilité d'obtenir deux six",
+    "solvePrompt3": "Équilibrez cette équation chimique : H₂ + O₂ → H₂O",
+    "solvePrompt4": "Trouvez les valeurs propres de cette matrice 3x3",
+    "codePrompt1": "Écrivez une fonction Python pour trier une liste",
+    "codePrompt2": "Créez un réseau de neurones simple from scratch",
+    "codePrompt3": "Débuggez cette fonction de Fibonacci récursive",
+    "codePrompt4": "Implémentez un algorithme de recherche binaire",
+    "commands": "Commandes",
+    "slashNew": "Démarrer un nouveau chat",
+    "slashClear": "Effacer le chat actuel",
+    "slashRename": "Renommer le chat actuel",
+    "slashModel": "Changer le modèle IA",
+    "slashTheme": "Basculer mode sombre/clair",
+    "slashDelete": "Supprimer le chat actuel",
+    "slashPurge": "Supprimer tous les chats",
+    "chooseFile": "Choisir un fichier",
+    "deepResearch": "Recherche approfondie",
+    "reasoning": "Raisonnement",
+    "course": "Cours",
+    "search": "Recherche",
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "fullstack": "Full Stack",
+    "debug": "Déboguer",
+    "optimize": "Optimiser",
+    "deploy": "Déployer",
+    "categoryLearnTitle": "Que voulez-vous apprendre ?",
+    "categorySolveTitle": "Que voulez-vous résoudre ?",
+    "categoryCodeTitle": "Que voulez-vous coder ?"
+  },
+  "search": {
+    "placeholder": "Rechercher dans vos conversations...",
+    "startTyping": "Commencez à taper pour rechercher dans vos conversations.",
+    "searching": "Recherche en cours...",
+    "noResults": "Aucun résultat trouvé. Essayez un autre terme de recherche.",
+    "loadingHistory": "Chargement des conversations...",
+    "title": "Recherche"
+  },
+  "websites": {
+    "greeting": "Déployez vos travaux de recherche sur le web",
+    "placeholder": "Décrivez le projet de recherche, le laboratoire ou le jeu de données à mettre en ligne...",
+    "labWebsite": "Site de Laboratoire",
+    "labWebsitePrompt": "Crée un site web pour un laboratoire de recherche avec équipe, publications et projets",
+    "labWebsiteSystemPrompt": "Tu es un expert en développement web scientifique et en design d'interface. Crée un site web de laboratoire de recherche professionnel et premium avec un fond bleu nuit profond, des cartes en glassmorphism, des profils de chercheurs avec portraits, des listes de publications avec résumés, et une navigation académique moderne. Utilise un fond marine profond, des accents indigo-violet, du texte blanc, et une atmosphère scientifique calme et prestigieuse. Inclus : un conteneur en verre centré, une barre de navigation avec Accueil/Offres/Contrat, une grille de cartes de chercheurs avec photos et rôles (Chercheur Principal, Bioinformaticien Senior, Scientifique des Matériaux, etc.), et une section Publications Récentes avec des cartes horizontales. Style : mode sombre, effet verre, bruit minimal, pas de néon, pas d'esthétique gaming, pas de bleu électrique. Typographie : sans-serif moderne, hiérarchie claire, espace ample.",
+    "dataDashboard": "Dashboard de Données",
+    "dataDashboardPrompt": "Crée un dashboard interactif pour visualiser et explorer des données scientifiques",
+    "dataDashboardSystemPrompt": "Tu es un expert en visualisation de données scientifiques et en conception de dashboards. Crée un dashboard de données scientifique professionnel en mode clair avec un fond blanc cassé, une couleur d'accent violette, et un style SaaS premium. Inclus : une barre latérale gauche avec navigation (Aperçu, Jeux de données, Visualisations, Analyse, Rapports, Exports, Paramètres), des cartes statistiques en haut avec des métriques scientifiques et des sparklines, une zone principale multi-panneaux avec des graphiques en dispersion, des diagrammes à barres et des courbes de distribution dans des tons violets, un tableau de données avec colonnes triables, et un panneau droit avec filtres actifs et inspecteur de variables. Style : mode clair, fond blanc cassé, violet comme accent principal, séparateurs gris subtils, pas de mode sombre, pas de néon, pas d'orange. Typographie : sans-serif moderne, alignement propre, sensation d'outil scientifique professionnel.",
+    "researcherPortfolio": "Portfolio de Chercheur",
+    "researcherPortfolioPrompt": "Crée un portfolio académique avec publications, citations et biographie",
+    "researcherPortfolioSystemPrompt": "Tu es un expert en conception de portfolios académiques. Crée un site CV de chercheur premium avec un fond ivoire chaud, des accents violets élégants, et une esthétique académique propre. Inclus : une barre de navigation supérieure (Profil, Carrière, Citations, Publications, Compétences) avec indicateur actif violet, une barre latérale gauche avec portrait professionnel du chercheur, nom (Dr. Antoine Moreau), titre (Chercheur en IA & Apprentissage Machine), coordonnées, tags de domaines de recherche (Apprentissage Profond, Réseaux Neuronaux, Vision par Ordinateur, NLP, Auto-Supervisé), et affiliations de laboratoire, une zone de contenu principale avec chronologie de carrière (Doctorat 2012-2016, Postdoctorat 2016-2018, Maître de Conférences 2018-2021, Professeur 2021-Présent), section citations sélectionnées avec guillemets, liste numérotée de publications (Self-Supervised Learning of Visual Features, Contrastive Representation Learning, Deep Metric Learning, Generative Models) avec conférence et année, et une barre de statistiques en bas (60+ Publications, 3200+ Citations, h-index 24). Style : fond clair chaud, violet comme accent principal, touches pastel rose et vert pour les indicateurs, pas de mode sombre, pas de néon, pas de bleu électrique, pas d'apparence dashboard financier. Typographie : élégante avec ou sans empattement, grande respiration, style Notion + site universitaire.",
+    "labNotebook": "Cahier de Laboratoire",
+    "labNotebookPrompt": "Crée un cahier de laboratoire numérique avec protocoles, résultats et notes",
+    "labNotebookSystemPrompt": "Tu es un expert en conception de documentation technique. Crée un site de documentation développeur premium avec un fond blanc cassé, des accents vert émeraude, et une esthétique de documentation SaaS propre. Inclus : une barre latérale gauche fixe avec logo d'outil développeur, nom du produit, barre de recherche, sections de navigation organisées (Introduction, Premiers Pas, Architecture, Composants, API, Protocoles, Sécurité, Déploiement, Bonnes Pratiques, FAQ) avec élément actif surligné en vert pâle, une zone de contenu centrale avec titre 'Vue d'ensemble de l'architecture', sous-titre expliquant l'architecture logicielle modulaire, un grand diagramme d'architecture propre avec des boîtes (Clients, Passerelle API, Services, Base de données, Stockage, Courtier de messages) reliées par des flèches fines dans un style documentation cloud professionnel, un tableau 'Composants Principaux' avec colonnes Composant et Description, une liste numérotée 'Flux de données', et une barre latérale droite avec table des matières et bloc aide/support. Style : fond clair blanc cassé, vert émeraude comme accent principal, touches violettes subtiles pour éléments techniques, pas de mode sombre, pas de néon, pas de glow, pas de cyberpunk, pas de dégradés flashy. Typographie : sans-serif moderne, alignement précis, coins légèrement arrondis, style documentation officielle d'entreprise.",
+    "keplerDashboardSystemPrompt": "Tu es un expert en visualisation de données astronomiques et physiques. Crée un dashboard d'astrophysique professionnel en mode sombre avec un fond charcoal profond, une couleur d'accent orange représentant l'énergie stellaire, et un style scientifique premium. Inclus : une barre latérale gauche avec navigation (Aperçu, Observations, Spectres, Courbes de lumière, Simulations, Exports, Paramètres), des cartes KPI en haut (Total Observations, Cibles Actives, Points de données, Heures Télescope) avec sparklines orange, un graphique principal de courbe de lumière avec ligne orange et remplissage subtil représentant la variabilité stellaire, un graphique de distribution spectrale, une carte de chaleur des coordonnées célestes, un panneau droit avec filtres d'observation et liste de cibles avec barres de progression, et un tableau de journal d'observation en bas. Style : mode sombre, fond noir charcoal, orange comme accent principal, texte blanc/cassé, ombres subtiles, pas de bleu, pas de violet, pas de néon, pas d'esthétique gaming. Typographie : sans-serif moderne, alignement propre, coins légèrement arrondis, style outil d'observatoire astronomique professionnel, présentation de données style NASA.",
+    "mendelGenomixSystemPrompt": "Tu es un expert en visualisation bioinformatique et interfaces de données génomiques. Crée un dashboard bioinformatique professionnel avec un fond blanc lumineux, le vert émeraude comme accent principal, et une esthétique SaaS scientifique propre. Inclus : une barre latérale gauche avec logo Genovista BioInformatics et navigation (Aperçu, Projets, Analyses, Séquences, Variants, Annotations, Comparaisons, Visualisations, Rapports, Paramètres), une barre supérieure avec titre du projet 'BRCA_Study_2025' et boutons d'action, des cartes statistiques (Séquences Analysées, Variants Détectés, Variants Annotés, Gènes Impactés) avec sparklines, un panneau de séquence ADN pour BRCA1 (NM_007294.4) avec blocs A/C/G/T stylisés, ligne de position génomique, traduction protéique, et domaines fonctionnels (RING, Domaine BRCT 1, Domaine BRCT 2), un graphique circulaire de distribution des types de variants (Faux-sens, Synonyme, Non-sens, Décalage de cadre, Autres), un diagramme à barres d'impact des variants, un histogramme de position génomique, un diagramme circulaire transitions/transversions, et un grand tableau de variants avec colonnes (Position, Référence, Alternative, Type, Impact, Gène, Transcript, Annotation, Fréquence). Style : fond blanc lumineux, vert émeraude comme principal, touches menthe douces, petites touches orange/rouge pour niveaux d'impact, pas de mode sombre, pas de néon, pas de gaming, pas de dominance violette. Typographie : sans-serif moderne, clarté scientifique, style logiciel de laboratoire professionnel.",
+    "turingNotebookSystemPrompt": "Tu es un expert en interfaces de science computationnelle et conception de notebooks de données. Crée une interface de notebook interactive professionnelle similaire à Jupyter avec un fond blanc lumineux/blanc cassé, des accents bleu profond, et une esthétique SaaS de data science propre. Inclus : une barre latérale gauche avec logo DataNotebook, bouton 'Nouveau Notebook', barre de recherche, section Espaces de travail avec liste de notebooks (Analyse des ventes, Prédiction de churn, ETL clients, Dashboard KPI), sections Jeux de données, Connexions, Modèles, Scripts, Exports, et profil utilisateur ; une barre supérieure avec nom du notebook 'Analyse des ventes', badge environnement 'Python 3.11', menus (Fichier, Édition, Affichage, Exécuter, Insérer, Aide), et boutons d'action ; une zone principale avec cellule Markdown titrée 'Analyse exploratoire des données de vente', cellule de code Python avec coloration syntaxique importations pandas/numpy/matplotlib, un tableau de sortie DataFrame avec colonnes (date, produit, catégorie, région, quantité, prix_unitaire, prix_total), un graphique en courbe 'Tendance des revenus' avec courbe bleue propre et grille subtile ; et un panneau droit avec liste de Variables et miniatures de Visualisations. Style : fond blanc lumineux, bleu profond comme accent principal, touches vertes subtiles pour les graphiques, pas de mode sombre, pas de néon, pas d'esthétique gaming, pas d'effets 3D. Typographie : sans-serif moderne, blocs de code propres, style outil de data science professionnel.",
+    "newtonCalculSystemPrompt": "Tu es un expert en documentation mathématique et interfaces de calcul scientifique. Crée un site de documentation mathématique premium avec un fond blanc cassé, des accents violets élégants, et une esthétique scientifique propre style Apple + Notion. Inclus : une barre latérale gauche avec logo mathématique violet, barre de recherche, et navigation (Introduction, Analyse, Dérivées, Intégrales, Statistiques, Transformées, Annexes) ; une zone centrale avec titre 'Dérivées partielles d'ordre supérieur', paragraphes académiques, définitions, théorèmes, et équations LaTeX magnifiquement rendues dans des blocs de formule bordés avec ombre légère ; des expressions mathématiques complexes centrées avec une typographie LaTeX propre ; et une barre latérale droite avec table des matières de la page, bloc Notation avec symboles mathématiques, et raccourcis clavier. Style : fond clair blanc cassé, violet élégant comme accent principal, pas de mode sombre, pas de néon, pas de glow violet intense, pas de cyberpunk, pas de surcharge graphique, pas d'effets futuristes. Typographie : sans-serif élégante, hiérarchie visuelle claire, style documentation scientifique Apple + Notion, calme et précis."
+  },
+  "linkSafety": {
+    "title": "Ouvrir le lien externe ?",
+    "description": "Vous allez être redirigé vers un site externe.",
+    "copyLink": "Copier le lien",
+    "copied": "Copié",
+    "openLink": "Ouvrir le lien",
+    "dontAskAgain": "Ne plus afficher ce message"
+  },
+  "artefacts": {
+    "title": "Artefacts",
+    "newArtefact": "Nouvel artefact",
+    "searchPlaceholder": "Rechercher un artefact...",
+    "types": {
+      "text": "Texte",
+      "code": "Code",
+      "image": "Image",
+      "sheet": "Tableur",
+      "site": "Site",
+      "search": "Recherche"
+    }
+  },
+  "connectors": {
+    "title": "Connecteurs",
+    "subtitle": "Connectez des services pour qu'Employee puisse accéder à vos données et agir dessus.",
+    "searchPlaceholder": "Rechercher un connecteur",
+    "empty": "Aucun connecteur trouvé.",
+    "consent": {
+      "title": "Connexion à {provider}",
+      "description": "Employee Computer souhaite accéder à votre compte {provider}.",
+      "permissionsTitle": "Employee pourra",
+      "cancel": "Annuler",
+      "continue": "Continuer"
+    },
+    "disconnect": {
+      "title": "Déconnexion de {provider}",
+      "description": "Voulez-vous vous déconnecter de {provider} ? Employee ne pourra plus accéder à votre compte {provider} et devra vous redemander l'autorisation la prochaine fois.",
+      "cancel": "Annuler",
+      "confirm": "Déconnecter",
+      "loading": "Déconnexion..."
+    },
+    "toast": {
+      "disconnected": "{provider} déconnecté",
+      "notConfigured": "{provider} n'est pas encore configuré",
+      "error": "Une erreur est survenue",
+      "connected": "{provider} connecté"
+    },
+    "categories": {
+      "popular": "Populaire",
+      "productivity": "Productivité",
+      "developer": "Développeur",
+      "communication": "Communication",
+      "finance": "Finance",
+      "data": "Données & Analytique",
+      "creative": "Créatif"
+    },
+    "providers": {
+      "github": {
+        "description": "Gérer vos dépôts, issues et pull requests",
+        "permissions": {
+          "readProfile": "Lire votre profil public (nom, bio, avatar)",
+          "readEmail": "Lire votre adresse email",
+          "seePublicRepos": "Voir vos dépôts publics",
+          "seeOrgs": "Voir vos organisations"
+        }
+      },
+      "notion": {
+        "description": "Rechercher, créer et modifier vos pages et bases de données",
+        "permissions": {
+          "readPages": "Lire vos pages",
+          "writePages": "Créer et modifier des pages"
+        }
+      },
+      "gmail": {
+        "description": "Rechercher, créer et gérer vos emails et événements de calendrier",
+        "permissions": {
+          "readEmails": "Lire vos emails",
+          "sendEmails": "Envoyer des emails"
+        }
+      },
+      "slack": {
+        "description": "Rechercher des conversations et envoyer des messages à votre équipe",
+        "permissions": {
+          "readMessages": "Lire vos messages",
+          "sendMessages": "Envoyer des messages"
+        }
+      },
+      "drive": {
+        "description": "Rechercher, lire et gérer vos fichiers et dossiers",
+        "permissions": {
+          "readFiles": "Lire vos fichiers",
+          "writeFiles": "Créer et modifier des fichiers"
+        }
+      },
+      "figma": {
+        "description": "Gérer vos fichiers, projets, équipes, commentaires et composants",
+        "permissions": {
+          "readFiles": "Lire vos fichiers",
+          "comment": "Commenter"
+        }
+      },
+      "vercel": {
+        "description": "Gérer vos équipes, projets et déploiements",
+        "permissions": {
+          "readProjects": "Lire vos projets",
+          "deploy": "Déployer"
+        }
+      },
+      "supabase": {
+        "description": "Construire et gérer la base de données, l'authentification et le stockage de votre application",
+        "permissions": {
+          "readDatabase": "Lire votre base de données"
+        }
+      },
+      "sentry": {
+        "description": "Accéder aux issues, erreurs et projets ; analyser les stack traces",
+        "permissions": {
+          "readIssues": "Lire vos erreurs",
+          "readProjects": "Lire vos projets"
+        }
+      },
+      "neon": {
+        "description": "Gérer vos projets et bases de données Postgres serverless",
+        "permissions": {
+          "readDatabases": "Lire vos bases de données"
+        }
+      },
+      "todoist": {
+        "description": "Gérer vos tâches et listes de tâches",
+        "permissions": {
+          "readTasks": "Lire vos tâches",
+          "writeTasks": "Créer et modifier des tâches"
+        }
+      },
+      "cal": {
+        "description": "Un logiciel de planification entièrement personnalisable",
+        "permissions": {
+          "readEvents": "Lire vos événements"
+        }
+      },
+      "evernote": {
+        "description": "Rechercher, lire et créer des notes, carnets et tags",
+        "permissions": {
+          "readNotes": "Lire vos notes",
+          "writeNotes": "Créer et modifier des notes"
+        }
+      },
+      "zoom": {
+        "description": "Visioconférence et gestion de réunions",
+        "permissions": {
+          "readMeetings": "Lire vos réunions"
+        }
+      },
+      "intercom": {
+        "description": "Rechercher des conversations et contacts, accéder aux tickets de support",
+        "permissions": {
+          "readConversations": "Lire vos conversations"
+        }
+      },
+      "stripe": {
+        "description": "Gérer les paiements, la facturation, les abonnements et les virements",
+        "permissions": {
+          "readPayments": "Lire vos paiements"
+        }
+      },
+      "crunchbase": {
+        "description": "Rechercher des entreprises, tours de financement, investisseurs et personnes",
+        "permissions": {
+          "readPublicData": "Lire les données publiques"
+        }
+      },
+      "motherduck": {
+        "description": "Rechercher et analyser des données dans votre entrepôt DuckDB",
+        "permissions": {
+          "readData": "Lire vos données"
+        }
+      },
+      "amplitude": {
+        "description": "Plateforme d'analyse IA pour l'analytique digitale moderne",
+        "permissions": {
+          "readAnalytics": "Lire vos analyses"
+        }
+      },
+      "snowflake": {
+        "description": "Exécuter des requêtes SQL et gérer les objets de base de données",
+        "permissions": {
+          "readData": "Lire vos données"
+        }
+      },
+      "canva": {
+        "description": "Créer, collaborer et publier du contenu visuel",
+        "permissions": {
+          "readDesigns": "Lire vos designs"
+        }
+      },
+      "vimeo": {
+        "description": "Uploader, enregistrer, diffuser en direct, éditer et partager des vidéos",
+        "permissions": {
+          "readVideos": "Lire vos vidéos"
+        }
+      }
+    },
+    "callback": {
+      "success": "Connexion réussie",
+      "error": "Échec de la connexion"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "Aucune notification pour l'instant.",
+    "markAllRead": "Tout marquer comme lu",
+    "viewAll": "Voir tout",
+    "unread": "non lues",
+    "events": {
+      "oauthConnected": "{provider} connecté",
+      "oauthDisconnected": "{provider} déconnecté",
+      "oauthError": "Échec de connexion à {provider}"
+    },
+    "time": {
+      "justNow": "à l'instant",
+      "minutesAgo": "il y a {count} min",
+      "hoursAgo": "il y a {count} h",
+      "yesterday": "hier",
+      "daysAgo": "il y a {count} j"
+    },
+    "back": "Retour"
+  },
+  "errors": {
+    "notFoundTitle": "Page introuvable",
+    "notFoundDescription": "La page que vous cherchez n'existe pas ou a été déplacée.",
+    "serverErrorTitle": "Une erreur est survenue",
+    "serverErrorDescription": "Une erreur inattendue s'est produite. Veuillez réessayer.",
+    "forbiddenTitle": "Accès refusé",
+    "forbiddenDescription": "Vous n'avez pas la permission d'accéder à cette page.",
+    "offlineTitle": "Vous êtes hors ligne",
+    "offlineDescription": "Vérifiez votre connexion internet et réessayez.",
+    "back": "Retour",
+    "home": "Accueil",
+    "retry": "Réessayer"
+  },
+  "userMenu": {
+    "settings": "Paramètres",
+    "language": "Langue",
+    "getHelp": "Obtenir de l'aide",
+    "upgrade": "Mettre à niveau",
+    "learnMore": "En savoir plus",
+    "terms": "Conditions",
+    "privacy": "Confidentialité",
+    "dpa": "DPA",
+    "subProcessors": "Sous-traitants",
+    "logOut": "Se déconnecter",
+    "authCheckError": "Vérification de l'authentification, veuillez réessayer."
+  }
+}
