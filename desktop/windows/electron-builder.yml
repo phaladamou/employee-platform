@@ -1,0 +1,24 @@
+# electron-builder.yml — packaging de l'application bureau (Windows).
+appId: com.employee.app
+productName: Employee
+directories:
+  output: release
+files:
+  - electron/dist/**/*
+  - package.json
+extraResources:
+  - from: .next/standalone
+    to: standalone
+asar: true
+# Pas de modules natifs au runtime (PGlite = WASM, bcrypt-ts = pur JS) :
+# inutile de recompiler, et cross-compilation Linux -> Windows impossible.
+npmRebuild: false
+win:
+  target:
+    - nsis
+  artifactName: Employee-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true

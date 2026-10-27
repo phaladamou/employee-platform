@@ -1,0 +1,45 @@
+name: Desktop (Windows)
+
+# NOTE : GitHub n'execute que les workflows a la racine du depot.
+# Tout le code bureau vit dans desktop/windows ; ce fichier ne fait
+# que lancer ses scripts (ne jamais y mettre de logique desktop).
+on:
+  push:
+    tags: ["desktop-v*"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop/windows
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.32.1
+
+      - name: Use Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: desktop/windows/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck (web + electron)
+        run: pnpm desktop:typecheck
+
+      - name: Build Windows installer
+        run: pnpm desktop:dist
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: Employee-Windows
+          path: desktop/windows/release/*.exe

@@ -1,0 +1,19 @@
+<svg
+  height="400"
+  viewBox="0 0 100 100"
+  width="400"
+  xmlns="http://www.w3.org/2000/svg"
+>
+  <rect fill="#FFFFFF" height="100%" width="100%" />
+  <g
+    fill="none"
+    stroke="#000000"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    stroke-width="6.5"
+  >
+    <path d="M36 32 L18 50 L36 68" />
+    <line x1="57" x2="43" y1="24" y2="76" />
+    <path d="M64 32 L82 50 L64 68" />
+  </g>
+</svg>

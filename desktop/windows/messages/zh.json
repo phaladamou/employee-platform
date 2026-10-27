@@ -1,0 +1,594 @@
+{
+  "sidebar": {
+    "newChat": "新对话",
+    "history": "会话",
+    "websites": "网站",
+    "simulations": "模拟",
+    "toggleSidebar": "切换侧边栏",
+    "openSidebar": "打开侧边栏",
+    "search": "搜索",
+    "deepResearch": "Deep Research",
+    "artefacts": "构件"
+  },
+  "settings": {
+    "title": "设置",
+    "general": "通用",
+    "engine": "模型引擎",
+    "memory": "记忆",
+    "tools": "工具",
+    "security": "安全",
+    "billing": "计费",
+    "profile": "个人资料",
+    "profileDescription": "您的照片、姓名和简介。",
+    "setYourName": "设置您的姓名",
+    "addBio": "添加简介…",
+    "memberSince": "注册时间",
+    "localization": "本地化",
+    "localizationDescription": "根据您的系统检测。",
+    "language": "语言",
+    "timezone": "时区",
+    "appearance": "外观",
+    "appearanceDescription": "选择 Employee 的外观。",
+    "theme": "主题",
+    "system": "系统",
+    "light": "浅色",
+    "dark": "深色",
+    "dangerZone": "危险区域",
+    "dangerZoneDescription": "不可逆操作。",
+    "deleteAllChats": "删除所有对话",
+    "deleteAllChatsDescription": "永久删除所有对话历史。",
+    "deleteAll": "全部删除",
+    "deleteAllConfirmTitle": "删除所有对话？",
+    "deleteAllConfirmDescription": "此操作无法撤销。",
+    "cancel": "取消",
+    "save": "保存",
+    "change": "更改",
+    "remove": "移除",
+    "uploadPhoto": "上传照片",
+    "viewPhoto": "查看照片",
+    "precisionCreativity": "精度与创造力",
+    "precisionCreativityDescription": "控制 Employee 如何平衡精度和创造力。",
+    "temperature": "温度",
+    "precise": "精确",
+    "creative": "创造",
+    "speedVsQuality": "速度与质量",
+    "speed": "速度",
+    "quality": "质量",
+    "contextSampling": "上下文与采样",
+    "contextSamplingDescription": "微调 Employee 处理和生成响应的方式。",
+    "maxContext": "最大上下文",
+    "repetitionPenalty": "重复惩罚",
+    "topP": "Top-P（核采样）",
+    "features": "功能",
+    "featuresDescription": "启用或禁用核心引擎功能。",
+    "deepReasoning": "深度推理",
+    "deepReasoningDescription": "用于复杂任务的多步推理",
+    "streaming": "流式传输",
+    "streamingDescription": "实时显示响应",
+    "responseCache": "响应缓存",
+    "responseCacheDescription": "缓存常见响应",
+    "costControl": "成本控制",
+    "costControlDescription": "设置每月计算支出限额。",
+    "monthlyComputeLimit": "每月计算限额",
+    "desktopApiTitle": "桌面 API 密钥",
+    "desktopApiDescription": "您的个人密钥，仅存储在此计算机本地。",
+    "desktopApiKeyConfigured": "已配置",
+    "desktopApiKeyMissing": "需要密钥",
+    "desktopApiKeyLabel": "LLM API 密钥",
+    "desktopApiKeyPlaceholder": "粘贴新密钥以替换当前密钥",
+    "desktopBaseUrlLabel": "API 基础 URL",
+    "desktopTavilyLabel": "Tavily API 密钥（网页搜索，可选）",
+    "desktopTavilyPlaceholder": "粘贴新密钥以替换当前密钥",
+    "desktopCurrentKey": "当前：{key}",
+    "desktopSave": "保存",
+    "desktopSaved": "已保存。",
+    "desktopSaveError": "保存失败。",
+    "memoryUsage": "内存使用",
+    "memoryUsageDescription": "所有层的当前内存消耗。",
+    "totalMemory": "总内存",
+    "shortTermMem": "短期",
+    "longTermMem": "长期",
+    "projectMem": "项目",
+    "embeddingsMem": "嵌入",
+    "memoryLayers": "记忆层",
+    "memoryLayersDescription": "配置 Employee 如何存储和检索上下文。",
+    "shortTermMemory": "短期记忆",
+    "shortTermMemoryDescription": "最近的对话上下文，用于即时回忆",
+    "longTermMemory": "长期记忆",
+    "longTermMemoryDescription": "跨会话和对话的持久知识",
+    "autoSummarization": "自动摘要",
+    "autoSummarizationDescription": "自动压缩和总结旧对话",
+    "compressionLimits": "压缩与限制",
+    "compressionLimitsDescription": "控制内存使用和保留策略。",
+    "memoryCompression": "内存压缩",
+    "memoryCompressionDescription": "通过压缩旧上下文来减少内存占用",
+    "compressionLevel": "压缩级别",
+    "aggressive": "激进",
+    "memoryExpiration": "记忆过期",
+    "memoryExpirationDescription": "在设定时间后自动清除旧记忆",
+    "7days": "7天",
+    "30days": "30天",
+    "90days": "90天",
+    "never": "永不",
+    "syncMemory": "同步记忆",
+    "syncMemoryDescription": "在所有会话和设备上同步记忆",
+    "shortTermMemoryLimit": "短期记忆限制",
+    "shortTermMemoryLimitDescription": "短期上下文中保留的最大消息数。",
+    "messages": "消息",
+    "connectedIntegrations": "已连接的集成",
+    "connectedIntegrationsDescription": "连接您的代理可以使用的外部服务。",
+    "disconnect": "断开连接",
+    "connect": "连接",
+    "connected": "已连接",
+    "notConnected": "未连接",
+    "toolPermissions": "工具权限",
+    "toolPermissionsDescription": "为每个已连接工具设置访问级别。",
+    "read": "读取",
+    "write": "写入",
+    "admin": "管理",
+    "noToolsConnected": "尚未连接任何工具。",
+    "limitsSafety": "限制与安全",
+    "limitsSafetyDescription": "配置工具的执行边界。",
+    "executionTimeout": "执行超时",
+    "executionTimeoutDescription": "工具在被停止前可以运行的最长时间",
+    "sec": "秒",
+    "dailyCallQuota": "每日调用配额",
+    "dailyCallQuotaDescription": "每天最大工具调用次数",
+    "perDay": "/天",
+    "sandboxMode": "沙盒模式",
+    "sandboxModeDescription": "在隔离环境中运行工具以确保安全",
+    "toolExecutionLogs": "工具执行日志",
+    "toolExecutionLogsDescription": "保留所有工具执行的详细日志",
+    "authentication": "身份验证",
+    "authenticationDescription": "通过额外的安全层保护您的帐户。",
+    "twoFactorAuth": "双因素认证",
+    "twoFactorEnabled": "已启用 — 您的帐户受到保护",
+    "twoFactorDisabled": "为您的帐户添加额外的安全层",
+    "ipRestriction": "IP 限制",
+    "accessLimitedTo": "访问限制至",
+    "allowAnyIp": "允许从任何 IP 地址访问",
+    "addIpAddress": "添加 IP 地址...",
+    "activeSessions": "活跃会话",
+    "activeSessionsDescription": "管理当前连接到您帐户的设备。",
+    "current": "当前",
+    "revoke": "撤销",
+    "apiKeys": "API 密钥",
+    "apiKeysDescription": "管理用于编程访问的密钥。",
+    "lastUsed": "上次使用",
+    "auditLogs": "审计日志",
+    "auditLogsDescription": "您帐户的最近活动。",
+    "tokens": "令牌",
+    "estCost": "预估费用",
+    "thisMonth": "本月",
+    "limit": "限额",
+    "perMonth": "每月",
+    "monthlyConsumption": "每月消耗",
+    "monthlyConsumptionDescription": "跟踪您的令牌和存储使用情况。",
+    "tokensConsumed": "已消耗令牌",
+    "spending": "支出",
+    "storage": "存储",
+    "costBreakdown": "费用明细",
+    "costBreakdownDescription": "按服务预估的费用。",
+    "memoryStorage": "记忆存储",
+    "used": "已使用",
+    "documents": "文档",
+    "totalEstimated": "预估总计",
+    "spendingControls": "支出控制",
+    "spendingControlsDescription": "设置限额和警报以控制成本。",
+    "monthlySpendingLimit": "每月支出限额",
+    "alertAt": "警报阈值",
+    "of": "/",
+    "linkSafety": "链接安全警告",
+    "linkSafetyDescription": "在打开外部链接前显示确认对话框。",
+    "enabled": "已启用",
+    "disabled": "已禁用"
+  },
+  "auth": {
+    "login": "登录",
+    "register": "注册",
+    "signOut": "退出登录",
+    "loginToAccount": "登录您的帐户",
+    "viewProfile": "查看资料",
+    "settings": "设置",
+    "switchToLight": "切换到浅色模式",
+    "switchToDark": "切换到深色模式",
+    "welcomeBackLine1": "欢迎回来。输入您的凭据",
+    "welcomeBackLine2": "以访问您的工作区。",
+    "continueWithGithub": "使用 GitHub 继续",
+    "continueWithGoogle": "使用 Google 继续",
+    "orByEmail": "或使用电子邮件",
+    "emailPlaceholder": "电子邮件地址",
+    "passwordPlaceholder": "密码",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "forgotPassword": "忘记密码？",
+    "signIn": "登录",
+    "signUp": "注册",
+    "noAccount": "还没有账户？",
+    "invalidCredentials": "凭据无效。",
+    "invalidData": "请检查您的信息。",
+    "createAccount": "创建您的账户",
+    "createAccountLine": "开始与您的 AI 员工一起工作。",
+    "signUpButton": "创建账户",
+    "haveAccount": "已经有账户？",
+    "pleaseWait": "请稍候...",
+    "errors": {
+      "invalid_email": "请输入有效的电子邮件地址。",
+      "password_too_short": "密码至少需要 6 个字符。",
+      "user_not_found": "未找到使用此电子邮件的账户。",
+      "no_password": "此账户没有密码。",
+      "wrong_password": "密码错误。",
+      "server_error": "出现错误。请重试。",
+      "network_error": "连接丢失。请检查您的网络。"
+    }
+  },
+  "chat": {
+    "placeholder": "提出任何问题...",
+    "editMessage": "编辑您的消息...",
+    "cancel": "取消",
+    "history": "会话",
+    "today": "今天",
+    "yesterday": "昨天",
+    "lastWeek": "最近7天",
+    "lastMonth": "最近30天",
+    "older": "更早",
+    "loading": "加载中...",
+    "noChats": "开始对话后，您的对话将显示在这里！",
+    "loginToSave": "登录以保存并查看之前的对话！",
+    "greeting1": "今天和谁一起学习？",
+    "greeting2": "今天探索什么？",
+    "greeting3": "准备好学习新东西了吗？",
+    "greeting4": "是什么好奇心把你带到这里的？",
+    "greeting5": "我们一起发现什么？",
+    "greeting6": "今天从哪里开始？",
+    "greeting7": "你在想什么？",
+    "greeting8": "你想了解什么？",
+    "greeting9": "让我们深入探索伟大的事物。",
+    "greeting10": "你在寻找什么知识？",
+    "morning1": "早上好！今天和谁一起学习？",
+    "morning2": "早上好！准备好开始新的一天了吗？",
+    "morning3": "早上好！我们探索什么？",
+    "afternoon1": "下午好！今天学什么？",
+    "afternoon2": "下午好！什么激发了你的好奇心？",
+    "afternoon3": "下午好！准备好深入了吗？",
+    "evening1": "晚上好！今晚和谁一起学习？",
+    "evening2": "晚上好！你在想什么？",
+    "evening3": "晚上好！让我们一起探索吧。",
+    "night1": "深夜好奇心？我在这里。",
+    "night2": "在熬夜苦读？一起学习吧。",
+    "night3": "夜还长。我们该发现什么？",
+    "askAnything": "提出任何问题...",
+    "editingMessage": "正在编辑消息",
+    "learnPlaceholder": "教我...",
+    "solvePlaceholder": "帮我解决...",
+    "codePlaceholder": "帮我构建...",
+    "learn": "学习",
+    "solve": "解决",
+    "code": "编码",
+    "back": "返回",
+    "private": "私有",
+    "privateDescription": "只有您可以访问此对话",
+    "public": "公开",
+    "publicDescription": "任何有链接的人都可以访问此对话",
+    "laboratory": "实验室",
+    "laboratoryDescription": "模拟科学实验",
+    "development": "开发",
+    "developmentDescription": "使用 AI 代理构建应用程序",
+    "learning": "学习",
+    "learningDescription": "掌握复杂概念",
+    "learnPrompt1": "用简单的术语解释量子纠缠",
+    "learnPrompt2": "教我线性代数的基础知识",
+    "learnPrompt3": "人工智能的历史是什么？",
+    "learnPrompt4": "CRISPR 基因编辑是如何工作的？",
+    "solvePrompt1": "解这个微分方程：dy/dx = y + x²",
+    "solvePrompt2": "计算掷出两个六点的概率",
+    "solvePrompt3": "配平这个化学方程式：H₂ + O₂ → H₂O",
+    "solvePrompt4": "求这个3x3矩阵的特征值",
+    "codePrompt1": "写一个 Python 函数来排序列表",
+    "codePrompt2": "从头创建一个简单的神经网络",
+    "codePrompt3": "调试这个递归斐波那契函数",
+    "codePrompt4": "实现二分查找算法",
+    "commands": "命令",
+    "slashNew": "开始新对话",
+    "slashClear": "清除当前对话",
+    "slashRename": "重命名当前对话",
+    "slashModel": "更改 AI 模型",
+    "slashTheme": "切换深色/浅色模式",
+    "slashDelete": "删除当前对话",
+    "slashPurge": "删除所有对话",
+    "chooseFile": "选择文件",
+    "deepResearch": "深度研究",
+    "reasoning": "推理",
+    "course": "课程",
+    "search": "搜索",
+    "frontend": "前端",
+    "backend": "后端",
+    "fullstack": "全栈",
+    "debug": "调试",
+    "optimize": "优化",
+    "deploy": "部署",
+    "categoryLearnTitle": "你想学什么？",
+    "categorySolveTitle": "你想解决什么？",
+    "categoryCodeTitle": "你想编写什么？"
+  },
+  "search": {
+    "placeholder": "搜索您的对话...",
+    "startTyping": "开始输入以搜索您的对话。",
+    "searching": "搜索中...",
+    "noResults": "未找到结果。请尝试其他搜索词。",
+    "loadingHistory": "加载对话中...",
+    "title": "研究"
+  },
+  "websites": {
+    "greeting": "将您的研究成果部署到网络上",
+    "placeholder": "描述要上线的研究项目、实验室或数据集...",
+    "labWebsite": "实验室网站",
+    "labWebsitePrompt": "创建一个包含团队、出版物和项目的研究实验室网站",
+    "labWebsiteSystemPrompt": "你是一位科学网站开发与UI设计专家。创建一个专业、高端的研究实验室网站，采用深蓝夜空背景、玻璃态卡片、带肖像的研究人员简介、带摘要的出版物列表以及现代学术导航。使用深海军蓝背景、靛蓝-紫罗兰点缀、白色文字，营造冷静、尊贵的科学氛围。包含：居中玻璃容器、顶部导航栏（首页/定价/合作）、研究人员卡片网格（首席研究员、高级生物信息学家、材料科学家等）以及近期研究出版物横向卡片。风格：暗色模式、玻璃效果、极简、无霓虹、无游戏美学、无电光蓝。排版：现代无衬线字体，清晰的层次结构，充足的留白。",
+    "dataDashboard": "数据仪表板",
+    "dataDashboardPrompt": "创建一个交互式仪表板来可视化和探索科学数据",
+    "dataDashboardSystemPrompt": "你是一位科学数据可视化与仪表板设计专家。创建一个专业、浅色主题的科学数据仪表板，采用米白色背景、紫罗兰点缀色和高端SaaS风格。包含：左侧导航栏（概览、数据集、可视化、分析、报告、导出、设置），顶部统计卡片含科学指标和迷你趋势图，主多面板图表区含紫色调的散点图、条形图和分布曲线，可排序的数据表格，右侧面板含活动过滤器和变量检查器。风格：浅色模式、米白色背景、紫罗兰为主点缀色、灰色细分隔线、无暗色模式、无霓虹、无橙色。排版：现代无衬线字体，整洁对齐，专业科学工具感。",
+    "researcherPortfolio": "研究者作品集",
+    "researcherPortfolioPrompt": "创建一个包含出版物、引用和传记的学术作品集",
+    "researcherPortfolioSystemPrompt": "你是一位学术作品集设计专家。创建一个高端研究者简历网站，采用温暖象牙白背景、优雅紫罗兰点缀和干净学术美学。包含：顶部导航栏（简介、生涯、引用、出版物、技能）带紫罗兰活动指示器，左侧栏含专业研究者肖像、姓名（Antoine Moreau博士）、头衔（AI与机器学习研究员）、联系方式、研究领域标签（深度学习、神经网络、计算机视觉、NLP、自监督）和实验室隶属关系，主内容区含职业生涯时间线（博士2012-2016、博士后2016-2018、副教授2018-2021、正教授2021至今）、精选引用区带引号标记、编号出版物列表（视觉特征的自监督学习、对比表示学习统一框架、深度度量学习、生成模型）含会议和年份，底部统计栏（60+出版物、3200+引用、h指数24）。风格：浅色暖调背景、紫罗兰为主点缀、柔和粉绿淡彩用于指标、无暗色模式、无霓虹、无电光蓝、无金融仪表板外观。排版：优雅衬线或现代无衬线、充足呼吸空间、Notion+大学网站感。",
+    "labNotebook": "实验室笔记本",
+    "labNotebookPrompt": "创建一个包含实验方案、结果和笔记的数字实验室笔记本",
+    "labNotebookSystemPrompt": "你是一位技术文档设计专家。创建一个高端开发者文档网站，采用米白色背景、翡翠绿点缀和干净SaaS文档美学。包含：固定左侧栏含开发者工具标志、产品名称、搜索栏、有组织的导航区（介绍、入门、架构、组件、API、协议、安全、部署、最佳实践、FAQ）活动项以淡绿高亮，中央内容区标题为'架构概览'、副标题解释模块化软件架构、大型清晰架构图含方框（客户端、API网关、服务、数据库、存储、消息代理）以细箭头连接呈专业云文档风格，'核心组件'表格含组件和描述列，'数据流'编号列表，右侧栏含目录和帮助/支持块。风格：浅色米白背景、翡翠绿为主点缀、微妙紫罗兰触感用于技术元素、无暗色模式、无霓虹、无发光、无赛博朋克、无闪亮渐变。排版：现代无衬线字体，精确对齐，略微圆角，官方企业文档感。",
+    "keplerDashboardSystemPrompt": "你是一位天文与物理数据可视化专家。创建一个专业、暗色主题的天体物理仪表板，采用深炭灰背景、代表恒星能量的橙色点缀色和高端科学风格。包含：左侧导航栏（概览、观测、光谱、光变曲线、模拟、导出、设置），顶部KPI卡片（总观测数、活跃目标、数据点、望远镜时数）带橙色迷你趋势图，主光变曲线图带橙色线条和浅填充表示恒星变异性，光谱分布图，天球坐标热力图，右侧面板含观测过滤器和目标列表带进度条，底部观测日志表格。风格：暗色模式、黑炭灰背景、橙色为主点缀、白色/米白文字、微妙阴影、无蓝、无紫、无霓虹、无游戏美学。排版：现代无衬线字体，整洁对齐，略微圆角，专业天文台工具感，NASA风格数据呈现。",
+    "mendelGenomixSystemPrompt": "你是一位生物信息学可视化与基因组数据界面专家。创建一个专业生物信息学仪表板，采用明亮白色背景、翡翠绿为主点缀色和干净科学SaaS美学。包含：左侧栏含Genovista生物信息学标志和导航（概览、项目、分析、序列、变异、注释、比较、可视化、报告、设置），顶部栏含项目标题'BRCA_Study_2025'和操作按钮，统计卡片（已分析序列、已检测变异、已注释变异、受影响基因）带迷你趋势图，BRCA1（NM_007294.4）DNA序列面板含样式化A/C/G/T块、基因组位置线、蛋白质翻译和功能域（RING、BRCT域1、BRCT域2），变异类型分布环形图（错义、同义、无义、移码、其他），变异影响条形图，基因组位置直方图，转换/颠换环形图，大型变异表格含列（位置、参考、替代、类型、影响、基因、转录本、注释、频率）。风格：明亮白色背景、翡翠绿为主、柔和薄荷点缀、小橙/红触感用于影响级别、无暗色模式、无霓虹、无游戏、无紫色主导。排版：现代无衬线字体，科学清晰度，专业实验室软件感。",
+    "turingNotebookSystemPrompt": "你是一位计算科学界面与数据笔记本设计专家。创建一个专业交互式笔记本界面，类似Jupyter，采用明亮白色/米白背景、深蓝点缀和干净数据科学SaaS美学。包含：左侧栏含DataNotebook标志、'新建笔记本'按钮、搜索栏、工作区列表（销售分析、流失预测、客户ETL、KPI仪表板）、数据集、连接、模型、脚本、导出区和用户资料；顶部栏含笔记本名称'销售分析'、环境标签'Python 3.11'、菜单（文件、编辑、视图、运行、插入、帮助）和操作按钮；主区域含Markdown单元格标题为'探索性销售数据分析'、Python代码单元格含语法高亮的pandas/numpy/matplotlib导入、DataFrame输出表格含列（日期、产品、类别、地区、数量、单价、总价）、'收入趋势'折线图含清晰蓝色曲线和细微网格；右侧面板含变量列表和可视化缩略图。风格：明亮白色背景、深蓝为主点缀、细微绿色触感用于图表、无暗色模式、无霓虹、无游戏美学、无3D效果。排版：现代无衬线字体，清晰代码块，专业数据科学工具感。",
+    "newtonCalculSystemPrompt": "你是一位数学文档与科学计算界面专家。创建一个高端数学文档网站，采用米白色背景、优雅紫罗兰点缀和干净Apple+Notion科学美学。包含：左侧栏含数学紫罗兰标志、搜索栏和导航（介绍、分析、导数、积分、统计、变换、附录）；中央区域标题为'高阶偏导数'、学术段落、定义、定理和精美渲染的LaTeX方程置于带细阴影的边框公式块中；复杂居中数学表达式含清晰LaTeX排版；右侧栏含页面目录、数学符号记法块和键盘快捷键。风格：浅色米白背景、优雅紫罗兰为主点缀、无暗色模式、无霓虹、无强烈紫光、无赛博朋克、无图形过载、无未来主义效果。排版：优雅无衬线字体，清晰的视觉层次，Apple+Notion+科学文档感，冷静而精确。"
+  },
+  "linkSafety": {
+    "title": "打开外部链接？",
+    "description": "您即将访问外部网站。",
+    "copyLink": "复制链接",
+    "copied": "已复制",
+    "openLink": "打开链接",
+    "dontAskAgain": "不再显示此消息"
+  },
+  "artefacts": {
+    "title": "构件",
+    "newArtefact": "新建构件",
+    "searchPlaceholder": "搜索构件...",
+    "types": {
+      "text": "文本",
+      "code": "代码",
+      "image": "图像",
+      "sheet": "表格",
+      "site": "网站",
+      "search": "搜索"
+    }
+  },
+  "connectors": {
+    "title": "连接器",
+    "subtitle": "连接服务，让 Employee 能够访问并操作您的数据。",
+    "searchPlaceholder": "搜索所有连接器",
+    "empty": "未找到连接器。",
+    "consent": {
+      "title": "连接到 {provider}",
+      "description": "Employee Computer 希望访问您的 {provider} 账户。",
+      "permissionsTitle": "Employee 将能够",
+      "cancel": "取消",
+      "continue": "继续"
+    },
+    "disconnect": {
+      "title": "断开 {provider} 连接",
+      "description": "您想断开与 {provider} 的连接吗？Employee 将无法再访问您的 {provider} 账户，下次需要重新授权。",
+      "cancel": "取消",
+      "confirm": "断开连接",
+      "loading": "正在断开..."
+    },
+    "toast": {
+      "disconnected": "{provider} 已断开连接",
+      "notConfigured": "{provider} 尚未配置",
+      "error": "发生错误",
+      "connected": "{provider} 已连接"
+    },
+    "categories": {
+      "popular": "热门",
+      "productivity": "生产力",
+      "developer": "开发者",
+      "communication": "通讯",
+      "finance": "金融",
+      "data": "数据与分析",
+      "creative": "创意"
+    },
+    "providers": {
+      "github": {
+        "description": "管理仓库、议题和拉取请求",
+        "permissions": {
+          "readProfile": "读取您的公开资料（姓名、简介、头像）",
+          "readEmail": "读取您的电子邮件地址",
+          "seePublicRepos": "查看您的公开仓库",
+          "seeOrgs": "查看您的组织"
+        }
+      },
+      "notion": {
+        "description": "搜索、创建和更新您的页面和数据库",
+        "permissions": {
+          "readPages": "读取您的页面",
+          "writePages": "创建和更新页面"
+        }
+      },
+      "gmail": {
+        "description": "搜索、创建和管理您的电子邮件和日历事件",
+        "permissions": {
+          "readEmails": "读取您的电子邮件",
+          "sendEmails": "发送电子邮件"
+        }
+      },
+      "slack": {
+        "description": "搜索对话并向团队发送消息",
+        "permissions": {
+          "readMessages": "读取您的消息",
+          "sendMessages": "发送消息"
+        }
+      },
+      "drive": {
+        "description": "搜索、读取和管理您的文件和文件夹",
+        "permissions": {
+          "readFiles": "读取您的文件",
+          "writeFiles": "创建和更新文件"
+        }
+      },
+      "figma": {
+        "description": "管理文件、项目、团队、评论和组件",
+        "permissions": {
+          "readFiles": "读取您的文件",
+          "comment": "发表评论"
+        }
+      },
+      "vercel": {
+        "description": "管理团队、项目和部署",
+        "permissions": {
+          "readProjects": "读取您的项目",
+          "deploy": "部署"
+        }
+      },
+      "supabase": {
+        "description": "构建和管理应用的数据库、身份验证和存储",
+        "permissions": {
+          "readDatabase": "读取您的数据库"
+        }
+      },
+      "sentry": {
+        "description": "访问议题、错误和项目；分析堆栈跟踪",
+        "permissions": {
+          "readIssues": "读取您的错误",
+          "readProjects": "读取您的项目"
+        }
+      },
+      "neon": {
+        "description": "管理您的无服务器 Postgres 项目和数据库",
+        "permissions": {
+          "readDatabases": "读取您的数据库"
+        }
+      },
+      "todoist": {
+        "description": "管理您的任务和待办事项清单",
+        "permissions": {
+          "readTasks": "读取您的任务",
+          "writeTasks": "创建和更新任务"
+        }
+      },
+      "cal": {
+        "description": "完全可定制的日程安排软件",
+        "permissions": {
+          "readEvents": "读取您的活动"
+        }
+      },
+      "evernote": {
+        "description": "搜索、阅读和创建笔记、笔记本和标签",
+        "permissions": {
+          "readNotes": "读取您的笔记",
+          "writeNotes": "创建和更新笔记"
+        }
+      },
+      "zoom": {
+        "description": "视频会议和会议管理",
+        "permissions": {
+          "readMeetings": "读取您的会议"
+        }
+      },
+      "intercom": {
+        "description": "搜索对话和联系人，访问支持工单",
+        "permissions": {
+          "readConversations": "读取您的对话"
+        }
+      },
+      "stripe": {
+        "description": "管理付款、账单、订阅和提现",
+        "permissions": {
+          "readPayments": "读取您的付款"
+        }
+      },
+      "crunchbase": {
+        "description": "研究公司、融资轮次、投资者和人物",
+        "permissions": {
+          "readPublicData": "读取公开数据"
+        }
+      },
+      "motherduck": {
+        "description": "在您的 DuckDB 数据仓库中搜索和分析数据",
+        "permissions": {
+          "readData": "读取您的数据"
+        }
+      },
+      "amplitude": {
+        "description": "面向现代数字分析的 AI 分析平台",
+        "permissions": {
+          "readAnalytics": "读取您的分析数据"
+        }
+      },
+      "snowflake": {
+        "description": "执行 SQL 查询并管理数据库对象",
+        "permissions": {
+          "readData": "读取您的数据"
+        }
+      },
+      "canva": {
+        "description": "创建、协作和发布视觉内容",
+        "permissions": {
+          "readDesigns": "读取您的设计"
+        }
+      },
+      "vimeo": {
+        "description": "上传、录屏、直播、编辑和分享视频",
+        "permissions": {
+          "readVideos": "读取您的视频"
+        }
+      }
+    },
+    "callback": {
+      "success": "连接成功",
+      "error": "连接失败"
+    }
+  },
+  "notifications": {
+    "title": "通知",
+    "empty": "暂无通知。",
+    "markAllRead": "全部标为已读",
+    "viewAll": "查看全部",
+    "unread": "未读",
+    "events": {
+      "oauthConnected": "{provider} 已连接",
+      "oauthDisconnected": "{provider} 已断开",
+      "oauthError": "连接到 {provider} 失败"
+    },
+    "time": {
+      "justNow": "刚刚",
+      "minutesAgo": "{count} 分钟前",
+      "hoursAgo": "{count} 小时前",
+      "yesterday": "昨天",
+      "daysAgo": "{count} 天前"
+    },
+    "back": "返回"
+  },
+  "errors": {
+    "notFoundTitle": "页面未找到",
+    "notFoundDescription": "您要查找的页面不存在或已被移动。",
+    "serverErrorTitle": "出现错误",
+    "serverErrorDescription": "发生意外错误。请重试。",
+    "forbiddenTitle": "访问被拒绝",
+    "forbiddenDescription": "您没有访问此页面的权限。",
+    "offlineTitle": "您处于离线状态",
+    "offlineDescription": "检查您的互联网连接并重试。",
+    "back": "返回",
+    "home": "首页",
+    "retry": "重试"
+  },
+  "userMenu": {
+    "settings": "设置",
+    "language": "语言",
+    "getHelp": "获取帮助",
+    "upgrade": "升级计划",
+    "learnMore": "了解更多",
+    "terms": "服务条款",
+    "privacy": "隐私",
+    "dpa": "数据处理协议",
+    "subProcessors": "子处理者",
+    "logOut": "退出登录",
+    "authCheckError": "正在检查身份验证状态，请重试。"
+  }
+}

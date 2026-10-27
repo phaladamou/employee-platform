@@ -1,0 +1,581 @@
+{
+  "sidebar": {
+    "newChat": "New chat",
+    "websites": "Websites",
+    "deepResearch": "Deep Research",
+    "simulations": "Simulations",
+    "toggleSidebar": "Toggle sidebar",
+    "openSidebar": "Open sidebar",
+    "search": "Search",
+    "history": "Sessions",
+    "artefacts": "Artefacts"
+  },
+  "settings": {
+    "title": "Settings",
+    "general": "General",
+    "engine": "Model Engine",
+    "memory": "Memory",
+    "tools": "Tools",
+    "security": "Security",
+    "billing": "Billing",
+    "profile": "Profile",
+    "profileDescription": "Your photo, name, and bio.",
+    "setYourName": "Set your name",
+    "addBio": "Add a bio...",
+    "memberSince": "Member since",
+    "localization": "Localization",
+    "localizationDescription": "Detected from your system.",
+    "language": "Language",
+    "timezone": "Timezone",
+    "appearance": "Appearance",
+    "appearanceDescription": "Choose how Employee looks.",
+    "theme": "Theme",
+    "system": "System",
+    "light": "Light",
+    "dark": "Dark",
+    "dangerZone": "Danger Zone",
+    "dangerZoneDescription": "Irreversible actions.",
+    "deleteAllChats": "Delete all chats",
+    "deleteAllChatsDescription": "Permanently delete all your chat history.",
+    "deleteAll": "Delete All",
+    "deleteAllConfirmTitle": "Delete all chats?",
+    "deleteAllConfirmDescription": "This action cannot be undone.",
+    "cancel": "Cancel",
+    "save": "Save",
+    "change": "Change",
+    "remove": "Remove",
+    "uploadPhoto": "Upload photo",
+    "viewPhoto": "View photo",
+    "precisionCreativity": "Precision & creativity",
+    "precisionCreativityDescription": "Control how Employee balances precision and creativity.",
+    "temperature": "Temperature",
+    "precise": "Precise",
+    "creative": "Creative",
+    "speedVsQuality": "Speed vs Quality",
+    "speed": "Speed",
+    "quality": "Quality",
+    "contextSampling": "Context & sampling",
+    "contextSamplingDescription": "Fine-tune how Employee processes and generates responses.",
+    "maxContext": "Max context",
+    "repetitionPenalty": "Repetition penalty",
+    "topP": "Top-P (nucleus sampling)",
+    "features": "Features",
+    "featuresDescription": "Enable or disable core engine capabilities.",
+    "deepReasoning": "Deep reasoning",
+    "deepReasoningDescription": "Multi-step reasoning for complex tasks",
+    "streaming": "Streaming",
+    "streamingDescription": "Display responses in real-time",
+    "responseCache": "Response cache",
+    "responseCacheDescription": "Cache frequent responses",
+    "costControl": "Cost control",
+    "costControlDescription": "Set a monthly spending limit for compute.",
+    "monthlyComputeLimit": "Monthly compute limit",
+    "memoryUsage": "Memory usage",
+    "memoryUsageDescription": "Current memory consumption across all layers.",
+    "totalMemory": "Total memory",
+    "shortTermMem": "Short-term",
+    "longTermMem": "Long-term",
+    "projectMem": "Project",
+    "embeddingsMem": "Embeddings",
+    "memoryLayers": "Memory layers",
+    "memoryLayersDescription": "Configure how Employee stores and retrieves context.",
+    "shortTermMemory": "Short-term memory",
+    "shortTermMemoryDescription": "Recent conversation context for immediate recall",
+    "longTermMemory": "Long-term memory",
+    "longTermMemoryDescription": "Persistent knowledge across sessions and conversations",
+    "autoSummarization": "Auto-summarization",
+    "autoSummarizationDescription": "Automatically compress and summarize old conversations",
+    "compressionLimits": "Compression & limits",
+    "compressionLimitsDescription": "Control memory usage and retention policies.",
+    "memoryCompression": "Memory compression",
+    "memoryCompressionDescription": "Reduce memory footprint by compressing older context",
+    "compressionLevel": "Compression level",
+    "aggressive": "Aggressive",
+    "memoryExpiration": "Memory expiration",
+    "memoryExpirationDescription": "Automatically clear old memories after a set period",
+    "7days": "7 days",
+    "30days": "30 days",
+    "90days": "90 days",
+    "never": "Never",
+    "syncMemory": "Sync memory",
+    "syncMemoryDescription": "Synchronize memory across all your sessions and devices",
+    "shortTermMemoryLimit": "Short-term memory limit",
+    "shortTermMemoryLimitDescription": "Maximum number of messages kept in short-term context.",
+    "messages": "Messages",
+    "connectedIntegrations": "Connected integrations",
+    "connectedIntegrationsDescription": "Connect external services your agents can use.",
+    "disconnect": "Disconnect",
+    "connect": "Connect",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "toolPermissions": "Tool permissions",
+    "toolPermissionsDescription": "Set access levels for each connected tool.",
+    "read": "Read",
+    "write": "Write",
+    "admin": "Admin",
+    "noToolsConnected": "No tools connected yet.",
+    "limitsSafety": "Limits & safety",
+    "limitsSafetyDescription": "Configure execution boundaries for tools.",
+    "executionTimeout": "Execution timeout",
+    "executionTimeoutDescription": "Maximum time a tool can run before being stopped",
+    "sec": "sec",
+    "dailyCallQuota": "Daily call quota",
+    "dailyCallQuotaDescription": "Maximum tool calls per day",
+    "perDay": "/day",
+    "sandboxMode": "Sandbox mode",
+    "sandboxModeDescription": "Run tools in an isolated environment for safety",
+    "toolExecutionLogs": "Tool execution logs",
+    "toolExecutionLogsDescription": "Keep detailed logs of all tool executions",
+    "authentication": "Authentication",
+    "authenticationDescription": "Protect your account with additional security layers.",
+    "twoFactorAuth": "Two-factor authentication",
+    "twoFactorEnabled": "Enabled — Your account is protected",
+    "twoFactorDisabled": "Add an extra layer of security to your account",
+    "ipRestriction": "IP restriction",
+    "accessLimitedTo": "Access limited to",
+    "allowAnyIp": "Allow access from any IP address",
+    "addIpAddress": "Add IP address...",
+    "activeSessions": "Active sessions",
+    "activeSessionsDescription": "Manage devices currently connected to your account.",
+    "current": "Current",
+    "revoke": "Revoke",
+    "apiKeys": "API keys",
+    "apiKeysDescription": "Manage keys for programmatic access.",
+    "lastUsed": "Last used",
+    "auditLogs": "Audit logs",
+    "auditLogsDescription": "Recent activity on your account.",
+    "tokens": "Tokens",
+    "estCost": "Est. cost",
+    "thisMonth": "this month",
+    "limit": "Limit",
+    "perMonth": "per month",
+    "monthlyConsumption": "Monthly consumption",
+    "monthlyConsumptionDescription": "Track your token and storage usage.",
+    "tokensConsumed": "Tokens consumed",
+    "spending": "Spending",
+    "storage": "Storage",
+    "costBreakdown": "Cost breakdown",
+    "costBreakdownDescription": "Estimated costs by service.",
+    "memoryStorage": "Memory storage",
+    "used": "used",
+    "documents": "Documents",
+    "totalEstimated": "Total estimated",
+    "spendingControls": "Spending controls",
+    "spendingControlsDescription": "Set limits and alerts to control costs.",
+    "monthlySpendingLimit": "Monthly spending limit",
+    "alertAt": "Alert at",
+    "of": "of",
+    "linkSafety": "Link safety warning",
+    "linkSafetyDescription": "Show a confirmation dialog before opening external links.",
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "signOut": "Sign out",
+    "loginToAccount": "Login to your account",
+    "viewProfile": "View profile",
+    "settings": "Settings",
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode",
+    "welcomeBackLine1": "Welcome back. Enter your credentials",
+    "welcomeBackLine2": "to access your workspace.",
+    "continueWithGithub": "Continue with GitHub",
+    "continueWithGoogle": "Continue with Google",
+    "orByEmail": "or by email",
+    "emailPlaceholder": "Email address",
+    "passwordPlaceholder": "Password",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
+    "forgotPassword": "Forgot password?",
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "noAccount": "Don't have an account?",
+    "invalidCredentials": "Invalid credentials.",
+    "invalidData": "Please check your information.",
+    "createAccount": "Create your account",
+    "createAccountLine": "Start working with your AI employees.",
+    "signUpButton": "Create account",
+    "haveAccount": "Already have an account?",
+    "pleaseWait": "Please wait...",
+    "errors": {
+      "invalid_email": "Please enter a valid email address.",
+      "password_too_short": "Password must be at least 6 characters.",
+      "user_not_found": "No account found with this email.",
+      "no_password": "This account does not have a password.",
+      "wrong_password": "Incorrect password.",
+      "server_error": "Something went wrong. Please try again.",
+      "network_error": "Connection lost. Please check your internet."
+    }
+  },
+  "chat": {
+    "placeholder": "Ask anything...",
+    "editMessage": "Edit your message...",
+    "cancel": "Cancel",
+    "history": "Sessions",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "lastWeek": "Last 7 days",
+    "lastMonth": "Last 30 days",
+    "older": "Older",
+    "loading": "Loading...",
+    "noChats": "Your conversations will appear here once you start chatting!",
+    "loginToSave": "Login to save and revisit previous chats!",
+    "greeting1": "What are we learning today?",
+    "greeting2": "What are we exploring?",
+    "greeting3": "Ready to learn something new?",
+    "greeting4": "What brings you here?",
+    "greeting5": "What shall we discover?",
+    "greeting6": "Where shall we start?",
+    "greeting7": "What's on your mind?",
+    "greeting8": "What would you like to understand?",
+    "greeting9": "Let's dive in.",
+    "greeting10": "What knowledge are you seeking?",
+    "morning1": "Morning! What are we learning?",
+    "morning2": "Morning! Ready to start?",
+    "morning3": "Morning! What shall we explore?",
+    "afternoon1": "Afternoon! What are we learning?",
+    "afternoon2": "Afternoon! What's sparking your curiosity?",
+    "afternoon3": "Afternoon! Ready to dive in?",
+    "evening1": "Evening! What are we learning?",
+    "evening2": "Evening! What's on your mind?",
+    "evening3": "Evening! Let's explore.",
+    "night1": "Late-night curiosity?",
+    "night2": "Still learning?",
+    "night3": "What shall we discover tonight?",
+    "askAnything": "Ask anything...",
+    "editingMessage": "Editing message",
+    "learnPlaceholder": "Teach me...",
+    "solvePlaceholder": "Solve this for me...",
+    "codePlaceholder": "Build me...",
+    "learn": "Learn",
+    "solve": "Solve",
+    "code": "Code",
+    "back": "Back",
+    "private": "Private",
+    "privateDescription": "Only you can access this chat",
+    "public": "Public",
+    "publicDescription": "Anyone with the link can access this chat",
+    "laboratory": "Laboratory",
+    "laboratoryDescription": "Simulate scientific experiments",
+    "development": "Development",
+    "developmentDescription": "Build applications with AI agents",
+    "learning": "Learning",
+    "learningDescription": "Master complex concepts",
+    "learnPrompt1": "Explain quantum entanglement in simple terms",
+    "learnPrompt2": "Teach me the basics of linear algebra",
+    "learnPrompt3": "What is the history of artificial intelligence?",
+    "learnPrompt4": "How does CRISPR gene editing work?",
+    "solvePrompt1": "Solve this differential equation: dy/dx = y + x²",
+    "solvePrompt2": "Calculate the probability of rolling two sixes",
+    "solvePrompt3": "Balance this chemical equation: H₂ + O₂ → H₂O",
+    "solvePrompt4": "Find the eigenvalues of this 3x3 matrix",
+    "codePrompt1": "Write a Python function to sort a list",
+    "codePrompt2": "Create a simple neural network from scratch",
+    "codePrompt3": "Debug this recursive Fibonacci function",
+    "codePrompt4": "Implement a binary search algorithm",
+    "commands": "Commands",
+    "slashNew": "Start a new chat",
+    "slashClear": "Clear current chat",
+    "slashRename": "Rename current chat",
+    "slashModel": "Change the AI model",
+    "slashTheme": "Toggle dark/light mode",
+    "slashDelete": "Delete current chat",
+    "slashPurge": "Delete all chats",
+    "chooseFile": "Choose a file",
+    "deepResearch": "Deep Research",
+    "reasoning": "Reasoning",
+    "course": "Course",
+    "search": "Search",
+    "frontend": "Frontend",
+    "backend": "Backend",
+    "fullstack": "Full Stack",
+    "debug": "Debug",
+    "optimize": "Optimize",
+    "deploy": "Deploy",
+    "categoryLearnTitle": "What do you want to learn?",
+    "categorySolveTitle": "What do you want to solve?",
+    "categoryCodeTitle": "What do you want to code?"
+  },
+  "search": {
+    "placeholder": "Search your conversations...",
+    "startTyping": "Start typing to search through your conversations.",
+    "searching": "Searching...",
+    "noResults": "No results found. Try a different search term.",
+    "loadingHistory": "Loading conversations...",
+    "title": "Research"
+  },
+  "websites": {
+    "greeting": "Deploy your research on the web",
+    "placeholder": "Describe the research project, lab, or dataset to put online...",
+    "labWebsite": "Lab Website",
+    "labWebsitePrompt": "Create a website for a research lab with team, publications and projects",
+    "labWebsiteSystemPrompt": "You are an expert scientific web developer and UI designer. Create a professional, premium research lab website with dark blue-night background, glassmorphism cards, researcher profiles with portraits, publication listings with abstracts, and a modern academic navigation. Use a deep navy background, indigo-violet accents, white text, and a calm, prestigious scientific atmosphere. Include: a centered glass container, top navigation bar with Home/Pricing/Contract, a grid of researcher cards with photos and roles (Lead Investigator, Senior Bioinformatician, Materials Scientist, etc.),and a Recent Research Publications section with horizontal cards. Style: dark mode, glass effect, minimal noise, no neon, no gaming aesthetic, no electric blue. Typography: modern sans-serif, clean hierarchy, ample whitespace.",
+    "dataDashboard": "Data Dashboard",
+    "dataDashboardPrompt": "Create an interactive dashboard to visualize and explore scientific data",
+    "dataDashboardSystemPrompt": "You are an expert in scientific data visualization and dashboard design. Create a professional, light-themed scientific data dashboard with off-white background, violet accent color, and premium SaaS styling. Include: a left sidebar with navigation (Overview, Datasets, Visualizations, Analysis, Reports, Exports, Settings), statistics cards at the top with scientific metrics and sparklines, a main multi-panel chart area with scatter plots, bar charts, and distribution curves in violet tones, a data table with sortable columns, and a right panel with active filters and variable inspector. Style: light mode, off-white background, violet as primary accent, subtle grey separators, no dark mode, no neon, no orange. Typography: modern sans-serif, clean alignment, professional scientific tool feel.",
+    "researcherPortfolio": "Researcher Portfolio",
+    "researcherPortfolioPrompt": "Create an academic portfolio with publications, citations and biography",
+    "researcherPortfolioSystemPrompt": "You are an expert academic portfolio designer. Create a premium researcher CV website with warm ivory background, elegant violet accents, and a clean academic aesthetic. Include: a top navigation bar (Profile, Career, Citations, Publications, Skills) with violet active indicator, a left sidebar with professional researcher portrait, name (Dr. Antoine Moreau), title (AI & Machine Learning Researcher), contact info, research domain tags (Deep Learning, Neural Networks, Computer Vision, NLP, Self-Supervised), and lab affiliations, a main content area with career timeline (PhD2012-2016, Postdoc 2016-2018, Associate Professor 2018-2021, Full Professor 2021-Present), selected citations section with quote marks, numbered publications list (Self-Supervised Learning of Visual Features, Contrastive Representation Learning, Deep Metric Learning, Generative Models) with conference and year, and a bottom stats bar (60+ Publications, 3200+ Citations,h-index 24). Style: light warm background, violet as primary accent, soft pink and green pastel touches for indicators, no dark mode, no neon, no electric blue, no financial dashboard look. Typography: elegant serif or modern sans-serif, ample breathing room, Notion + university website feel.",
+    "labNotebook": "Lab Notebook",
+    "labNotebookPrompt": "Create a digital lab notebook with protocols, results and notes",
+    "labNotebookSystemPrompt": "You are an expert technical documentation designer. Create a premium developer documentation website with off-white background, emerald green accents, and a clean SaaS documentation aesthetic. Include: a fixed left sidebar with developer tool logo, product name, search bar, organized navigation sections (Introduction, Getting Started, Architecture, Components, API, Protocols, Security, Deployment, Best Practices, FAQ) with active element highlighted in pale green, a central content area with title 'Architecture Overview', subtitle explaining modular software architecture, a large clean architecture diagram with boxes (Clients, API Gateway, Services, Database, Storage, Message Broker) connected by thin arrows in professional cloud documentation style, a 'Core Components' table with Component and Description columns, a 'Data Flow' numbered list, and a right sidebar with table of contents and help/support block. Style: light off-white background, emerald green as primary accent, subtle violet touches for technical elements, no dark mode, no neon, no glow, no cyberpunk, no flashy gradients. Typography: modern sans-serif, precise alignment, slightly rounded corners, official enterprise documentation feel.",
+    "keplerDashboardSystemPrompt": "You are an expert in astronomical and physical data visualization. Create a professional, dark-themed astrophysics dashboard with deep charcoal background, orange accent color representing stellar energy, and premium scientific styling. Include: a left sidebar with navigation (Overview, Observations, Spectra, Light Curves, Simulations, Exports, Settings), KPI cards at the top (Total Observations, Active Targets, Data Points, Telescope Hours) with orange sparklines, a main light curve chart with orange line and subtle fill representing stellar variability, a spectral distribution chart, a celestial coordinates sky map heatmap, a right panel with observation filters and target list with progress bars, and a bottom observation log table. Style: dark mode, black charcoal background, orange as primary accent, white/off-whitetext, subtle shadows, no blue, no purple, no neon, no gamer aesthetic. Typography: modern sans-serif, clean alignment, slightly rounded corners, professional astronomical observatory tool feel, NASA-style data presentation.",
+    "mendelGenomixSystemPrompt": "You are an expert in bioinformatics visualization and genomic data interfaces. Create a professional bioinformatics dashboard with bright white background, emerald green as primary accent, and a clean scientific SaaS aesthetic. Include: a left sidebar with Genovista BioInformatics logo and navigation (Overview, Projects, Analyses, Sequences, Variants, Annotations, Comparisons, Visualizations, Reports, Settings), a top bar with project title 'BRCA_Study_2025' and action buttons, statistics cards (Sequences Analyzed, Variants Detected, Variants Annotated, Genes Impacted) with sparklines, a DNA sequence panel for BRCA1 (NM_007294.4) with styled A/C/G/T blocks, genomic position line, protein translation,and functional domains (RING, BRCT Domain 1, BRCT Domain 2), a variant type distribution donut chart (Missense, Synonymous,Nonsense, Frameshift, Other), variant impact bar chart, genomic position histogram, transitions/transversions circle diagram, and a large variants table with columns (Position, Reference, Alternative, Type, Impact, Gene, Transcript, Annotation, Frequency). Style: bright white background, emerald green as primary, soft mint accents, small orange/red touches for impact levels, no dark mode, no neon, no gaming, no purple dominance. Typography: modern sans-serif, scientific clarity, professional lab software feel.",
+    "turingNotebookSystemPrompt": "You are an expert in computational science interfaces and data notebook design. Create aprofessional interactive notebook interface similar to Jupyter with bright white/off-white background, deep blue accents, and a clean data science SaaS aesthetic. Include: a left sidebar with DataNotebook logo, 'New Notebook' button, search bar, Workspaces section with notebook list (Sales Analysis, Churn Prediction, Customer ETL, KPI Dashboard), Datasets, Connections,Models, Scripts, Exports sections, and user profile; a top bar with notebook name 'Sales Analysis', environment badge 'Python 3.11', menus (File, Edit, View, Run, Insert, Help), and action buttons; a main area with Markdown cell titled 'Exploratory Sales Data Analysis', Python code cell with syntax-highlighted pandas/numpy/matplotlib imports, a DataFrame output table with columns (date, product, category, region, quantity, unit_price, total_price), a 'Revenue Trend' line chart with clean blue curve and subtle grid; and a right panel with Variables list and mini Visualizations thumbnails. Style: bright white background, deep blue as primary accent, subtle green touches for charts, no dark mode, no neon, no gamer aesthetic, no 3D effects. Typography: modern sans-serif, clean code blocks, professional data science tool feel.",
+    "newtonCalculSystemPrompt": "You are an expert in mathematical documentation and scientific computing interfaces. Create a premium mathematical documentation website with off-white background, elegant violet accents, and a clean Apple + Notionscientific aesthetic. Include: a left sidebar with mathematical violet logo, search bar, and navigation (Introduction, Analysis, Derivatives, Integrals, Statistics, Transforms, Appendices); a central area with title 'Higher-Order Partial Derivatives', academic paragraphs, definitions, theorems, and beautifully rendered LaTeX equations in bordered formula blocks with slight shadow; complex centered mathematical expressions with clean LaTeX typography; and a right sidebar with page table of contents, Notation block with mathematical symbols, and keyboard shortcuts. Style: light off-white background, elegant violetas primary accent, no dark mode, no neon, no intense purple glow, no cyberpunk, no graphic overload, no futuristic effects.Typography: elegant sans-serif, clear visual hierarchy, Apple + Notion + scientific documentation feel, calm and precise."
+  },
+  "linkSafety": {
+    "title": "Open external link?",
+    "description": "You're about to visit an external website.",
+    "copyLink": "Copy link",
+    "copied": "Copied",
+    "openLink": "Open link",
+    "dontAskAgain": "Don't show this message again"
+  },
+  "artefacts": {
+    "title": "Artefacts",
+    "newArtefact": "New artefact",
+    "searchPlaceholder": "Search an artefact...",
+    "types": {
+      "text": "Text",
+      "code": "Code",
+      "image": "Image",
+      "sheet": "Sheet",
+      "site": "Site",
+      "search": "Search"
+    }
+  },
+  "connectors": {
+    "title": "Connectors",
+    "subtitle": "Connect services so Employee can access and act on your data.",
+    "searchPlaceholder": "Search all connectors",
+    "empty": "No connectors found.",
+    "consent": {
+      "title": "Connect to {provider}",
+      "description": "Employee Computer wants to access your {provider} account.",
+      "permissionsTitle": "Employee will be able to",
+      "cancel": "Cancel",
+      "continue": "Continue"
+    },
+    "disconnect": {
+      "title": "Disconnect from {provider}",
+      "description": "Do you want to disconnect from {provider}? Employee will no longer access your {provider} account and will ask for authorization again next time.",
+      "cancel": "Cancel",
+      "confirm": "Disconnect",
+      "loading": "Disconnecting..."
+    },
+    "toast": {
+      "disconnected": "{provider} disconnected",
+      "notConfigured": "{provider} is not configured yet",
+      "error": "Something went wrong",
+      "connected": "{provider} connected"
+    },
+    "categories": {
+      "popular": "Popular",
+      "productivity": "Productivity",
+      "developer": "Developer",
+      "communication": "Communication",
+      "finance": "Finance",
+      "data": "Data & Analytics",
+      "creative": "Creative"
+    },
+    "providers": {
+      "github": {
+        "description": "Manage repositories, issues, and pull requests",
+        "permissions": {
+          "readProfile": "Read your public profile (name, bio, avatar)",
+          "readEmail": "Read your email address",
+          "seePublicRepos": "See your public repositories",
+          "seeOrgs": "See your organizations"
+        }
+      },
+      "notion": {
+        "description": "Search, create, and update your pages and databases",
+        "permissions": {
+          "readPages": "Read your pages",
+          "writePages": "Create and update pages"
+        }
+      },
+      "gmail": {
+        "description": "Search, create, and manage your emails and calendar events",
+        "permissions": {
+          "readEmails": "Read your emails",
+          "sendEmails": "Send emails"
+        }
+      },
+      "slack": {
+        "description": "Search conversations and send messages to your team",
+        "permissions": {
+          "readMessages": "Read your messages",
+          "sendMessages": "Send messages"
+        }
+      },
+      "drive": {
+        "description": "Search, read, and manage your files and folders",
+        "permissions": {
+          "readFiles": "Read your files",
+          "writeFiles": "Create and update files"
+        }
+      },
+      "figma": {
+        "description": "Manage files, projects, teams, comments, and components",
+        "permissions": {
+          "readFiles": "Read your files",
+          "comment": "Comment"
+        }
+      },
+      "vercel": {
+        "description": "Manage teams, projects, and deployments",
+        "permissions": {
+          "readProjects": "Read your projects",
+          "deploy": "Deploy"
+        }
+      },
+      "supabase": {
+        "description": "Build and manage your app's database, auth, and storage",
+        "permissions": {
+          "readDatabase": "Read your database"
+        }
+      },
+      "sentry": {
+        "description": "Access issues, errors, and projects; analyze stack traces",
+        "permissions": {
+          "readIssues": "Read your issues",
+          "readProjects": "Read your projects"
+        }
+      },
+      "neon": {
+        "description": "Manage your serverless Postgres projects and databases",
+        "permissions": {
+          "readDatabases": "Read your databases"
+        }
+      },
+      "todoist": {
+        "description": "Manage your tasks and to-do lists",
+        "permissions": {
+          "readTasks": "Read your tasks",
+          "writeTasks": "Create and update tasks"
+        }
+      },
+      "cal": {
+        "description": "A fully customizable scheduling software",
+        "permissions": {
+          "readEvents": "Read your events"
+        }
+      },
+      "evernote": {
+        "description": "Search, read, and create notes, notebooks, and tags",
+        "permissions": {
+          "readNotes": "Read your notes",
+          "writeNotes": "Create and update notes"
+        }
+      },
+      "zoom": {
+        "description": "Video conferencing and meeting management",
+        "permissions": {
+          "readMeetings": "Read your meetings"
+        }
+      },
+      "intercom": {
+        "description": "Search conversations and contacts, access support tickets",
+        "permissions": {
+          "readConversations": "Read your conversations"
+        }
+      },
+      "stripe": {
+        "description": "Manage payments, billing, subscriptions, and payouts",
+        "permissions": {
+          "readPayments": "Read your payments"
+        }
+      },
+      "crunchbase": {
+        "description": "Research companies, funding rounds, investors and people",
+        "permissions": {
+          "readPublicData": "Read public data"
+        }
+      },
+      "motherduck": {
+        "description": "Search and analyze data across your DuckDB warehouse",
+        "permissions": {
+          "readData": "Read your data"
+        }
+      },
+      "amplitude": {
+        "description": "AI analytics platform for modern digital analytics",
+        "permissions": {
+          "readAnalytics": "Read your analytics"
+        }
+      },
+      "snowflake": {
+        "description": "Execute SQL queries and manage database objects",
+        "permissions": {
+          "readData": "Read your data"
+        }
+      },
+      "canva": {
+        "description": "Create, collaborate, and publish visual content",
+        "permissions": {
+          "readDesigns": "Read your designs"
+        }
+      },
+      "vimeo": {
+        "description": "Upload, screen record, live stream, edit, and share videos",
+        "permissions": {
+          "readVideos": "Read your videos"
+        }
+      }
+    },
+    "callback": {
+      "success": "Connected successfully",
+      "error": "Connection failed"
+    }
+  },
+  "notifications": {
+    "title": "Notifications",
+    "empty": "No notifications yet.",
+    "markAllRead": "Mark all as read",
+    "viewAll": "View all",
+    "unread": "unread",
+    "events": {
+      "oauthConnected": "{provider} connected",
+      "oauthDisconnected": "{provider} disconnected",
+      "oauthError": "Connection to {provider} failed"
+    },
+    "time": {
+      "justNow": "just now",
+      "minutesAgo": "{count} min ago",
+      "hoursAgo": "{count} h ago",
+      "yesterday": "yesterday",
+      "daysAgo": "{count} d ago"
+    },
+    "back": "Back"
+  },
+  "errors": {
+    "notFoundTitle": "Page not found",
+    "notFoundDescription": "The page you are looking for does not exist or has been moved.",
+    "serverErrorTitle": "Something went wrong",
+    "serverErrorDescription": "An unexpected error occurred. Please try again.",
+    "forbiddenTitle": "Access denied",
+    "forbiddenDescription": "You don't have permission to access this page.",
+    "offlineTitle": "You're offline",
+    "offlineDescription": "Check your internet connection and try again.",
+    "back": "Back",
+    "home": "Home",
+    "retry": "Try again"
+  },
+  "userMenu": {
+    "settings": "Settings",
+    "language": "Language",
+    "getHelp": "Get help",
+    "upgrade": "Upgrade plan",
+    "learnMore": "Learn more",
+    "terms": "Terms",
+    "privacy": "Privacy",
+    "dpa": "DPA",
+    "subProcessors": "Sub-processors",
+    "logOut": "Log out",
+    "authCheckError": "Checking authentication status, please try again."
+  }
+}
