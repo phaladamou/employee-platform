@@ -4,16 +4,18 @@
 // charges a l'execution (non detectes par le traceur de fichiers) :
 // - .next/static et public (requis documente du mode standalone)
 // - migrations SQL drizzle (appliquees par PGlite au premier demarrage)
-// - paquet @electric-sql/pglite complet (binaires WASM charges via fs)
+// - paquets runtime requires dynamiquement (pglite WASM, styled-jsx...)
+// - dereferencement des symlinks pointant hors du standalone
 import {
   cpSync,
   existsSync,
   mkdirSync,
   readdirSync,
+  readFileSync,
   readlinkSync,
-  realpathSync,
   rmSync,
 } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 const root = process.cwd();
@@ -54,15 +56,70 @@ copyDir(
   "migrations"
 );
 
-// node_modules peut etre un lien symbolique (pnpm) : resoudre le reel.
-const pgliteSrc = realpathSync(
-  path.join(root, "node_modules", "@electric-sql", "pglite")
-);
-copyDir(
-  pgliteSrc,
-  path.join(standalone, "node_modules", "@electric-sql", "pglite"),
-  "pglite"
-);
+// Paquets requis au runtime mais invisibles au traceur nft (require
+// dynamique) : on les copie en dur depuis le store.
+// - @electric-sql/pglite : binaires WASM charges via fs.
+// - styled-jsx : next/dist/server/require-hook le resolve au BOOT
+//   (sans lui : "Cannot find module 'styled-jsx/package.json'").
+function findPkgDir(pkgName, parentDir) {
+  const req = createRequire(path.join(parentDir, "package.json"));
+  let dir;
+  try {
+    dir = path.dirname(req.resolve(pkgName));
+  } catch (error) {
+    throw new Error(
+      `[build-standalone] cannot resolve runtime package "${pkgName}" from ${parentDir}: ${error.message}`
+    );
+  }
+  for (let i = 0; i < 6; i++) {
+    const manifest = path.join(dir, "package.json");
+    if (
+      existsSync(manifest) &&
+      JSON.parse(readFileSync(manifest, "utf8")).name === pkgName
+    ) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  throw new Error(
+    `[build-standalone] package root not found for "${pkgName}"`
+  );
+}
+
+const copiedPkgs = new Set();
+
+function copyRuntimePkg(pkgName, parentDir) {
+  const srcDir = findPkgDir(pkgName, parentDir);
+  if (copiedPkgs.has(srcDir)) {
+    return;
+  }
+  copiedPkgs.add(srcDir);
+  const destDir = path.join(standalone, "node_modules", ...pkgName.split("/"));
+  const srcVersion = JSON.parse(
+    readFileSync(path.join(srcDir, "package.json"), "utf8")
+  ).version;
+  const destManifest = path.join(destDir, "package.json");
+  if (
+    existsSync(destManifest) &&
+    JSON.parse(readFileSync(destManifest, "utf8")).version === srcVersion
+  ) {
+    console.log(`[build-standalone] runtime pkg already present: ${pkgName}@${srcVersion}`);
+  } else {
+    rmSync(destDir, { recursive: true, force: true });
+    mkdirSync(path.dirname(destDir), { recursive: true });
+    cpSync(srcDir, destDir, { recursive: true });
+    console.log(`[build-standalone] runtime pkg copied: ${pkgName}@${srcVersion}`);
+  }
+  const deps =
+    JSON.parse(readFileSync(path.join(srcDir, "package.json"), "utf8"))
+      .dependencies ?? {};
+  for (const dep of Object.keys(deps)) {
+    copyRuntimePkg(dep, srcDir);
+  }
+}
+
+copyRuntimePkg("@electric-sql/pglite", root);
+copyRuntimePkg("styled-jsx", findPkgDir("next", root));
 
 // electron-builder copie les symlinks tels quels : un lien pointant hors du
 // standalone (layout pnpm) arriverait casse dans l'installeur. On remplace
