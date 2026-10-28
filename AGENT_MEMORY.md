@@ -184,8 +184,12 @@ Leçons dures :
 
 ## 4. État actuel et à suivre
 
-- **v3.2.1** : auto-update (cf. §3). Tag `desktop-v3.2.1`, CI en cours ;
-  Release GitHub + retest Windows à vérifier après.
+- **v3.2.1** : auto-update (cf. §3). **CI verte** (run 40711973512,
+  smoke 70 routes 0 échec, self-check electron OK). Release GitHub
+  `desktop-v3.2.1` publiée (exe 304 Mo + latest.yml vérifiés, app-update.yml
+  + electron-updater vérifiés dans le NSIS extrait). **En attente du
+  retest Windows par l'utilisateur** (installer 3.2.1 manuellement une
+  fois, les suivantes seront automatiques).
 - `main` linéaire et à jour.
 - Si le retest révèle un nouveau `MODULE_NOT_FOUND` : ajouter le paquet dans
   `copyRuntimePkg` (résolution depuis son dépendant), bump version, tag →
