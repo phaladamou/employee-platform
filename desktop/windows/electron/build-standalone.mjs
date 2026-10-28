@@ -5,7 +5,15 @@
 // - .next/static et public (requis documente du mode standalone)
 // - migrations SQL drizzle (appliquees par PGlite au premier demarrage)
 // - paquet @electric-sql/pglite complet (binaires WASM charges via fs)
-import { cpSync, existsSync, mkdirSync, realpathSync, rmSync } from "node:fs";
+import {
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readlinkSync,
+  realpathSync,
+  rmSync,
+} from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
@@ -54,6 +62,34 @@ copyDir(
   pgliteSrc,
   path.join(standalone, "node_modules", "@electric-sql", "pglite"),
   "pglite"
+);
+
+// electron-builder copie les symlinks tels quels : un lien pointant hors du
+// standalone (layout pnpm) arriverait casse dans l'installeur. On remplace
+// chaque lien externe par une vraie copie ; un lien pendouillant = echec
+// bruyant ici plutot qu'un .exe mort ("Cannot find module ...").
+function dereferenceExternalLinks(dir, rootDir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = path.join(dir, entry.name);
+    if (entry.isSymbolicLink()) {
+      const target = path.resolve(dir, readlinkSync(full));
+      if (!existsSync(target)) {
+        throw new Error(`[build-standalone] dangling symlink: ${full}`);
+      }
+      if (target !== rootDir && !target.startsWith(`${rootDir}${path.sep}`)) {
+        rmSync(full, { force: true });
+        cpSync(target, full, { recursive: true, dereference: true });
+        console.log(`[build-standalone] dereferenced: ${full}`);
+      }
+    } else if (entry.isDirectory()) {
+      dereferenceExternalLinks(full, rootDir);
+    }
+  }
+}
+
+dereferenceExternalLinks(
+  path.join(standalone, "node_modules"),
+  path.join(standalone, "node_modules")
 );
 
 console.log("[build-standalone] OK");

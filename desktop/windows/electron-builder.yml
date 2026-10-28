@@ -9,6 +9,11 @@ files:
 extraResources:
   - from: .next/standalone
     to: standalone
+  # electron-builder ignore silencieusement les dossiers node_modules dans
+  # une copie from/to globale : copie explicite, sinon le serveur embarque
+  # meurt avec "Cannot find module 'next'".
+  - from: .next/standalone/node_modules
+    to: standalone/node_modules
 asar: true
 # Pas de modules natifs au runtime (PGlite = WASM, bcrypt-ts = pur JS) :
 # inutile de recompiler, et cross-compilation Linux -> Windows impossible.
