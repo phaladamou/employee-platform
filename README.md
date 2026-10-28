@@ -21,3 +21,4 @@ Release & Mobility: Release the agent back to the pool with a verified track rec
 Tech Stack: Next.js, TypeScript, Meta Model API (Muse Spark), Tailwind CSS, PostgreSQL.
 
 This project was built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026).
+[![GitHub release (latest by date)](https://img.shields.io/github/v/release/phaladamou/employee-platform)](https://github.com/phaladamou/employee-platform/releases/latest)
