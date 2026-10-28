@@ -3,6 +3,8 @@ import type { InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
+  index,
+  integer,
   json,
   pgTable,
   primaryKey,
@@ -227,3 +229,26 @@ export const notification = pgTable("notifications", {
 });
 
 export type Notification = InferSelectModel<typeof notification>;
+// ============ MODULE OTP (one-time password par email) ============
+
+export const otpCode = pgTable(
+  "OtpCode",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    // Email normalise (minuscules, sans espaces) vise par le code.
+    email: varchar("email", { length: 254 }).notNull(),
+    // Jamais le code en clair : SHA-256 hex du code a 7 chiffres.
+    codeHash: varchar("codeHash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    // Usage unique : renseigne a la validation (ou a l'invalidation).
+    usedAt: timestamp("usedAt"),
+    // Tentatives de validation (verrouillage au-dela du maximum).
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("OtpCode_email_created_idx").on(table.email, table.createdAt),
+  ]
+);
+
+export type OtpCode = InferSelectModel<typeof otpCode>;

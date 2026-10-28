@@ -8,6 +8,7 @@ import { useTranslations } from "next-intl";
 import { useActionState, useEffect, useRef, useState } from "react";
 
 import { AuthForm } from "@/components/workspace/auth-form";
+import { OtpLoginForm } from "@/components/workspace/otp-login-form";
 import { SubmitButton } from "@/components/workspace/submit-button";
 import { type LoginActionState, login } from "../actions";
 
@@ -188,6 +189,18 @@ export default function Page() {
           </Link>
         </p>
       </AuthForm>
+
+      {/* DIVIDER */}
+      <div className="my-7 flex items-center gap-3">
+        <div className="h-px flex-1 bg-border/50" />
+        <span className="shrink-0 text-[11px] text-muted-foreground/70">
+          {t("otpDivider")}
+        </span>
+        <div className="h-px flex-1 bg-border/50" />
+      </div>
+
+      {/* OTP */}
+      <OtpLoginForm callbackUrl={callbackUrl} />
     </div>
   );
 }

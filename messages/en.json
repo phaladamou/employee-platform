@@ -199,6 +199,17 @@
     "signUpButton": "Create account",
     "haveAccount": "Already have an account?",
     "pleaseWait": "Please wait...",
+    "otpDivider": "or get a code",
+    "otpTitle": "Sign in with a code",
+    "otpSendCode": "Get a code",
+    "otpSentTo": "Code sent to {email}",
+    "otpCodePlaceholder": "7-digit code",
+    "otpVerify": "Verify code",
+    "otpResend": "Resend a code",
+    "otpResendWait": "Resend in {time}",
+    "otpChangeEmail": "Change email",
+    "otpExpiresIn": "Expires in {time}",
+    "otpExpired": "Code expired — request a new one",
     "errors": {
       "invalid_email": "Please enter a valid email address.",
       "password_too_short": "Password must be at least 6 characters.",
@@ -206,7 +217,10 @@
       "no_password": "This account does not have a password.",
       "wrong_password": "Incorrect password.",
       "server_error": "Something went wrong. Please try again.",
-      "network_error": "Connection lost. Please check your internet."
+      "network_error": "Connection lost. Please check your internet.",
+      "otp_invalid": "Invalid or expired code.",
+      "otp_request_failed": "Could not send the code, try again.",
+      "otp_rate_limited": "Too many requests — try again in a minute."
     }
   },
   "chat": {

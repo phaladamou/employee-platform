@@ -10,6 +10,12 @@ import LinkedIn from "next-auth/providers/linkedin";
 import Twitter from "next-auth/providers/twitter";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getDb } from "@/lib/db/client";
+import {
+  OTP_CODE_LENGTH,
+  getOrCreateVerifiedUser,
+  normalizeOtpEmail,
+  verifyOtpCode,
+} from "@/lib/db/otp";
 import { createGuestUser, getUser } from "@/lib/db/queries";
 import { user as userTable } from "@/lib/db/schema";
 import { authConfig } from "./auth.config";
@@ -144,6 +150,29 @@ export const {
 
         console.log("[AUTHORIZE] success — returning user");
         return { id: u.id, email: u.email, name: u.name, type: "regular" };
+      },
+    }),
+    Credentials({
+      id: "otp",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        code: { label: "Code", type: "text" },
+      },
+      async authorize(credentials) {
+        const email = normalizeOtpEmail(String(credentials.email ?? ""));
+        const code = String(credentials.code ?? "").trim();
+        if (!email || !new RegExp(`^\\d{${OTP_CODE_LENGTH}}$`).test(code)) {
+          return null;
+        }
+        try {
+          if ((await verifyOtpCode(email, code)) !== "ok") {
+            return null;
+          }
+          const u = await getOrCreateVerifiedUser(email);
+          return { id: u.id, email: u.email, name: u.name, type: "regular" };
+        } catch {
+          return null;
+        }
       },
     }),
     Credentials({

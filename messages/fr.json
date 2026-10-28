@@ -199,6 +199,17 @@
     "signUpButton": "Créer un compte",
     "haveAccount": "Vous avez déjà un compte ?",
     "pleaseWait": "Veuillez patienter...",
+    "otpDivider": "ou recevoir un code",
+    "otpTitle": "Se connecter avec un code",
+    "otpSendCode": "Recevoir un code",
+    "otpSentTo": "Code envoyé à {email}",
+    "otpCodePlaceholder": "Code à 7 chiffres",
+    "otpVerify": "Vérifier le code",
+    "otpResend": "Renvoyer un code",
+    "otpResendWait": "Renvoyer dans {time}",
+    "otpChangeEmail": "Changer d'email",
+    "otpExpiresIn": "Expire dans {time}",
+    "otpExpired": "Code expiré — demandez-en un nouveau",
     "errors": {
       "invalid_email": "Veuillez entrer une adresse email valide.",
       "password_too_short": "Le mot de passe doit contenir au moins 6 caractères.",
@@ -206,7 +217,10 @@
       "no_password": "Ce compte n'a pas de mot de passe.",
       "wrong_password": "Mot de passe incorrect.",
       "server_error": "Une erreur est survenue. Veuillez réessayer.",
-      "network_error": "Connexion perdue. Vérifiez votre internet."
+      "network_error": "Connexion perdue. Vérifiez votre internet.",
+      "otp_invalid": "Code invalide ou expiré.",
+      "otp_request_failed": "Envoi du code impossible, réessayez.",
+      "otp_rate_limited": "Trop de demandes — réessayez dans une minute."
     }
   },
   "chat": {

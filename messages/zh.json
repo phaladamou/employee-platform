@@ -199,6 +199,17 @@
     "signUpButton": "创建账户",
     "haveAccount": "已经有账户？",
     "pleaseWait": "请稍候...",
+    "otpDivider": "或获取验证码",
+    "otpTitle": "使用验证码登录",
+    "otpSendCode": "获取验证码",
+    "otpSentTo": "验证码已发送至 {email}",
+    "otpCodePlaceholder": "7 位数字验证码",
+    "otpVerify": "验证",
+    "otpResend": "重新发送",
+    "otpResendWait": "{time}后重新发送",
+    "otpChangeEmail": "更换邮箱",
+    "otpExpiresIn": "{time}后过期",
+    "otpExpired": "验证码已过期 — 请重新获取",
     "errors": {
       "invalid_email": "请输入有效的电子邮件地址。",
       "password_too_short": "密码至少需要 6 个字符。",
@@ -206,7 +217,10 @@
       "no_password": "此账户没有密码。",
       "wrong_password": "密码错误。",
       "server_error": "出现错误。请重试。",
-      "network_error": "连接丢失。请检查您的网络。"
+      "network_error": "连接丢失。请检查您的网络。",
+      "otp_invalid": "验证码无效或已过期。",
+      "otp_request_failed": "验证码发送失败，请重试。",
+      "otp_rate_limited": "请求过于频繁 — 请一分钟后再试。"
     }
   },
   "chat": {
