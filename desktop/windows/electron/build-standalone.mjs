@@ -62,6 +62,7 @@ copyDir(
 // - styled-jsx : next/dist/server/require-hook le resolve au BOOT
 //   (sans lui : "Cannot find module 'styled-jsx/package.json'").
 // - @swc/helpers : require par next/dist au BOOT (helpers interop SWC).
+// - @next/env : require par next/dist au BOOT (chargement .env).
 function findPkgDir(pkgName, parentDir) {
   const req = createRequire(path.join(parentDir, "package.json"));
   let dir;
@@ -123,6 +124,7 @@ copyRuntimePkg("@electric-sql/pglite", root);
 const nextDir = findPkgDir("next", root);
 copyRuntimePkg("styled-jsx", nextDir);
 copyRuntimePkg("@swc/helpers", nextDir);
+copyRuntimePkg("@next/env", nextDir);
 
 // electron-builder copie les symlinks tels quels : un lien pointant hors du
 // standalone (layout pnpm) arriverait casse dans l'installeur. On remplace
