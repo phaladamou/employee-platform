@@ -15,7 +15,7 @@ import {
 } from "node:fs";
 import net from "node:net";
 import path from "node:path";
-import { app, BrowserWindow, dialog } from "electron";
+import { app, BrowserWindow, dialog, Menu } from "electron";
 import { autoUpdater } from "electron-updater";
 
 const isDev = process.env.ELECTRON_DEV === "1";
@@ -276,6 +276,8 @@ if (!app.requestSingleInstanceLock()) {
 async function main(): Promise<void> {
   await app.whenReady();
   app.setAppUserModelId("com.employee.app");
+  // Pas de barre de menu native (File/Edit/View...) : l'app est 100 % web UI.
+  Menu.setApplicationMenu(null);
 
   logFile = initLogFile();
   log(

@@ -1,6 +1,6 @@
 {
   "name": "employee-platform",
-  "version": "3.2.1",
+  "version": "3.2.2",
   "description": "Employee desktop app : recruit and work with autonomous AI employees on Windows, synced online with the shared backend.",
   "author": "Employee",
   "private": true,
