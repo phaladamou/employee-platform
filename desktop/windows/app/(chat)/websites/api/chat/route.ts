@@ -1,8 +1,8 @@
 // app/(chat)/websites/api/chat/route.ts
 
 import { auth } from "@/app/(auth)/auth";
-import { saveChat, saveMessages } from "@/lib/db/queries";
-import { generateUUID, getLocalServerBaseUrl } from "@/lib/utils";
+import { saveChat } from "@/lib/db/queries";
+import { getLocalServerBaseUrl } from "@/lib/utils";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -24,21 +24,8 @@ export async function POST(request: Request) {
     visibility: body.selectedVisibilityType ?? "private",
   });
 
-  if (body.message) {
-    await saveMessages({
-      messages: [
-        {
-          chatId,
-          id: body.message.id ?? generateUUID(),
-          role: body.message.role,
-          parts: body.message.parts,
-          attachments: body.message.attachments ?? [],
-          createdAt: new Date(),
-        },
-      ],
-    });
-  }
-
+  // Pas de saveMessages ici : /api/chat persiste deja le message
+  // utilisateur (double ecriture = violation de cle primaire).
   // Proxy vers le chat principal sur CE serveur (port dynamique en bureau).
   const aiResponse = await fetch(
     `${getLocalServerBaseUrl(request)}/api/chat`,
