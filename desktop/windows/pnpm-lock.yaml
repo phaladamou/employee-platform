@@ -32,9 +32,6 @@ importers:
       '@codemirror/view':
         specifier: ^6.35.3
         version: 6.43.4
-      '@electric-sql/pglite':
-        specifier: ^0.5.12
-        version: 0.5.12
       '@opentelemetry/api':
         specifier: ^1.9.0
         version: 1.9.1
@@ -5404,7 +5401,8 @@ snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
 
-  '@electric-sql/pglite@0.5.12': {}
+  '@electric-sql/pglite@0.5.12':
+    optional: true
 
   '@electron-internal/extract-zip@1.0.6': {}
 

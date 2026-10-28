@@ -36,6 +36,8 @@ jobs:
         run: pnpm desktop:typecheck
 
       - name: Build Windows installer
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
         run: pnpm desktop:dist
 
       - name: Upload installer

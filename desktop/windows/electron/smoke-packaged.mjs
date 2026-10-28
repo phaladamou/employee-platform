@@ -9,6 +9,8 @@
 // resoudrait les modules manquants via le node_modules du projet parent
 // et le test serait aveugle — exactement le piege rencontre en 3.1.x).
 // Lance automatiquement en fin de `pnpm desktop:build`.
+// Requiert POSTGRES_URL (le bureau est 100 % en ligne) : le signin guest
+// cree un utilisateur guest dans la base distante partagee.
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
@@ -59,10 +61,35 @@ async function main() {
     fail("missing .next/standalone/server.js (run next build first)");
     process.exit(1);
   }
+  if (!process.env.POSTGRES_URL) {
+    fail("POSTGRES_URL missing (CI must provide the POSTGRES_URL Actions secret)");
+    process.exit(1);
+  }
 
   console.log("[smoke-packaged] copying standalone outside project...");
   rmSync(probeDir, { recursive: true, force: true });
   cpSync(standaloneSrc, probeStandalone, { recursive: true });
+
+  // La config embarquee par build-standalone doit etre presente et renseignee
+  // (jamais de valeur en clair dans les logs).
+  const packagedEnv = path.join(probeStandalone, "desktop-env.json");
+  if (!existsSync(packagedEnv)) {
+    fail("missing standalone/desktop-env.json (build-standalone must embed POSTGRES_URL)");
+    process.exit(1);
+  }
+  try {
+    const parsed = JSON.parse(readFileSync(packagedEnv, "utf8"));
+    if (typeof parsed.postgresUrl !== "string" || !parsed.postgresUrl) {
+      fail("standalone/desktop-env.json has no postgresUrl");
+      process.exit(1);
+    }
+    console.log(
+      `[smoke-packaged] packaged desktop-env.json ok (postgresUrl len=${parsed.postgresUrl.length})`
+    );
+  } catch (error) {
+    fail(`cannot parse standalone/desktop-env.json: ${error.message}`);
+    process.exit(1);
+  }
 
   const server = spawn("node", ["server.js"], {
     cwd: probeStandalone,
@@ -70,7 +97,6 @@ async function main() {
       ...process.env,
       DESKTOP: "1",
       DESKTOP_DATA_DIR: probeData,
-      DESKTOP_MIGRATIONS_DIR: path.join(probeStandalone, "migrations"),
       NEXT_PUBLIC_DESKTOP: "1",
       AUTH_SECRET: "packaged-smoke-test-secret-0123456789abcdef",
       PORT: String(PORT),
@@ -140,7 +166,7 @@ async function main() {
   }
   console.log("[smoke-packaged] server up, signing in as guest...");
 
-  // 2. Session guest (exerce PGlite + migrations + auth end-to-end).
+  // 2. Session guest (exerce le Postgres distant + auth end-to-end).
   let cookies = "";
   const req = async (url, init = {}) => {
     const res = await fetch(url, {

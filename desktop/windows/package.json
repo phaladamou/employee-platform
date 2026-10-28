@@ -1,7 +1,7 @@
 {
   "name": "employee-platform",
-  "version": "3.1.5",
-  "description": "Employee desktop app : recruit and work with autonomous AI employees, locally on Windows.",
+  "version": "3.2.0",
+  "description": "Employee desktop app : recruit and work with autonomous AI employees on Windows, synced online with the shared backend.",
   "author": "Employee",
   "private": true,
   "main": "electron/dist/main.js",
@@ -26,7 +26,6 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.61",
-    "@electric-sql/pglite": "^0.5.12",
     "@ai-sdk/provider": "^3.0.3",
     "@ai-sdk/react": "3.0.118",
     "@codemirror/lang-python": "^6.1.6",

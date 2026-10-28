@@ -1,47 +1,49 @@
 # windows/ — Chantier application bureau (Windows/Electron)
 
 Copie de travail complète du projet + code desktop. L'agent desktop travaille ici.
+Le bureau est 100 % en ligne : même base Postgres distante que le web (`POSTGRES_URL`),
+aucune base locale. Une simple fenêtre Electron sur l'application partagée.
 
 ## Code desktop présent ici (et nulle part ailleurs)
 
 - `electron/` — processus principal, preload, scripts `dev.mjs` / `build.mjs` / `build-standalone.mjs`
 - `electron-builder.yml`, `tsconfig.electron.json`
-- `lib/desktop/settings.ts` — réglages locaux (`settings.json`)
-- `lib/db/client.ts` — variante PGlite embarquée (`DESKTOP=1`)
+- `lib/desktop/settings.ts` — réglages locaux (`settings.json` : clés LLM, secret d'auth)
+- `lib/db/client.ts` — même Postgres distant que le web (`POSTGRES_URL` requis)
 - `lib/connectors/core/crypto.ts` — secrets dérivés du `authSecret` local en mode bureau
 - `types/desktop.d.ts`
 - `app/(chat)/api/desktop/settings/route.ts` — API des réglages
 - `app/(chat)/settings/engine/desktop-api-key-card.tsx` + branche dans `engine-form.tsx`
 - Branches `NEXT_PUBLIC_DESKTOP` dans `app/(auth)/login`, `app/(auth)/register`, `app/(auth)/auth.ts`
-- `output: standalone` conditionnel (`DESKTOP_BUILD=1`), `serverExternalPackages` PGlite,
-  `outputFileTracingRoot` local dans `next.config.ts`
-- `lib/db/migrations/0003_desktop_missing_tables.sql` — tables/colonnes du schéma
-  absentes des migrations historiques (requis pour une base bureau fraîche)
-- Breakpoints `--> statement-breakpoint` dans `0000_initial.sql` (requis par PGlite)
+- `output: standalone` conditionnel (`DESKTOP_BUILD=1`), `outputFileTracingRoot` local dans `next.config.ts`
+- `electron/build-standalone.mjs` — embarque `desktop-env.json` (URL Postgres fournie par la CI) + backfills `styled-jsx`/`@swc/helpers`/`@next/env`
+- `electron/smoke-packaged.mjs` — gate CI : boot réel du standalone + signin guest + rampe des routes (requiert `POSTGRES_URL`)
+- `lib/db/migrations/0003_desktop_missing_tables.sql` — tables/colonnes du schéma absentes des migrations historiques (utile pour un `db:migrate` manuel ; le bureau n'applique plus de migrations au démarrage)
+- Breakpoints `--> statement-breakpoint` dans `0000_initial.sql` (requis par le migrateur drizzle)
 - Clés `desktopApi*` dans `messages/*.json`
-- `tests/e2e/desktop-settings.test.ts` — tests API du mode bureau (`DESKTOP=1`, manuel uniquement)
-- CI installeur Windows : `/.github/workflows/desktop.yml` à la racine (seul emplacement exécuté par GitHub ; délègue à `desktop/windows`)
-- Deps `package.json` : `@electric-sql/pglite`, `electron`, `electron-builder`,
+- `tests/e2e/desktop-settings.test.ts` — tests API du mode bureau (`DESKTOP=1` + `POSTGRES_URL`, manuel uniquement)
+- CI installeur Windows : `/.github/workflows/desktop.yml` à la racine (seul emplacement exécuté par GitHub ; délègue à `desktop/windows`, injecte le secret `POSTGRES_URL`)
+- Deps `package.json` : `electron`, `electron-builder`,
   scripts `desktop:dev`, `desktop:build`, `desktop:dist`, `desktop:typecheck`
 
-## État validé au 27/10/2026
+## État validé au 28/10/2026 (v3.2.0, bureau en ligne)
 
 - `pnpm desktop:typecheck` : 0 erreur (web + electron).
-- PGlite : 13/13 tables créées et lisibles sur base vierge, migrations idempotentes.
 - Serveur en `DESKTOP=1` : gate 401, providers credentials+guest uniquement,
-  connexion guest (écriture PGlite réelle), settings GET/POST/masquage, validation 400.
-- `pnpm desktop:build` : build standalone + copies runtime + tsc electron OK.
+  connexion guest (écriture Postgres distante), settings GET/POST/masquage, validation 400.
+- `pnpm desktop:build` : build standalone + config runtime embarquée + copies runtime + tsc electron + smoke OK.
 - `pnpm desktop:dist` : installeur Windows NSIS (`release/Employee-Setup-*.exe`).
-- `.env.local` volontairement absent (secrets). Clés de test via les réglages de l'app.
+- `.env.local` volontairement absent (secrets). Dev bureau : créer `.env.local`
+  avec `POSTGRES_URL` (+ clés LLM via les réglages de l'app).
 
 ## Commandes (depuis ce dossier)
 
 ```sh
 pnpm install
 pnpm desktop:typecheck                      # typecheck web + electron
-DESKTOP=1 pnpm exec playwright test desktop-settings   # tests API bureau
-pnpm desktop:dev                            # dev : Next.js (desktop) + Electron
-pnpm desktop:build                          # build standalone + electron/dist
+DESKTOP=1 pnpm exec playwright test desktop-settings   # tests API bureau (POSTGRES_URL requis)
+pnpm desktop:dev                            # dev : Next.js (desktop) + Electron (POSTGRES_URL requis)
+pnpm desktop:build                          # build standalone + electron/dist (POSTGRES_URL requis)
 pnpm desktop:dist                           # + installeur Windows (NSIS)
 ```
 

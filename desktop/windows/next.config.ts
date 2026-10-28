@@ -25,10 +25,6 @@ const nextConfig: NextConfig = {
   // Chantier isole dans desktop/ : le tracing de fichiers ne doit pas
   // remonter a la racine du depot (mauvais lockfile selectionne sinon).
   outputFileTracingRoot: path.join(__dirname),
-  // PGlite (WASM + bundles d'extensions) doit etre charge depuis
-  // node_modules a l'execution, pas bundle par webpack (sinon les
-  // assets .tar.gz deviennent des URLs /_next/static introuvables).
-  serverExternalPackages: ["@electric-sql/pglite"],
   ...(basePath
     ? {
         basePath,

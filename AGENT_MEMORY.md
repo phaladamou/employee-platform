@@ -16,40 +16,45 @@ Toujours committer/pousser au nom de `phaladamou <phaladrien@gmail.com>`
 employee-platform/                  <- APP WEB (propriétaire: user, ne pas toucher)
 ├── .github/workflows/desktop.yml   <- SEULE exception racine : CI installeur.
 │                                      Ne contient aucune logique (délègue tout
-│                                      à desktop/windows via working-directory).
+│                                      à desktop/windows via working-directory,
+│                                      + injecte le secret POSTGRES_URL).
 └── desktop/                        <- TOUT le bureau vit ici
     ├── README.md                   <- contrat d'isolation (lire en premier)
     ├── reference-web/              <- snapshot web FIGÉ, lecture seule (20 Mo)
     └── windows/                    <- CHANTIER : copie de travail + code desktop
 ```
 
+Bureau 100 % en ligne (v3.2.0, fini PGlite) : même Postgres distant que le web.
+
 Code desktop (dans `windows/` uniquement) :
 
-- `electron/main.ts` — processus principal : génère `AUTH_SECRET`, alloue un
+- `electron/main.ts` — processus principal : génère `AUTH_SECRET`, résout
+  `POSTGRES_URL` (env puis `desktop-env.json` embarqué), alloue un
   port loopback, force `HOSTNAME=127.0.0.1`, charge le serveur standalone
   en-processus, attend `/api/models`, ouvre `/workspace`. Écrit
   `%APPDATA%/Employee/startup.log` + dialogue d'erreur Windows en cas d'échec.
 - `electron/{dev,build,build-standalone}.mjs` — dev (Next+Electron),
-  pipeline build, compléments standalone.
-- `electron/smoke-packaged.mjs` — **gate anti-`MODULE_NOT_FOUND`** (voir §4).
-- `lib/db/client.ts` — `getDb()` : Postgres en web, **PGlite embarquée**
-  (`DESKTOP=1`, fichier local, migrations au 1er init, garde promise contre
-  les inits concurrentes).
+  pipeline build, compléments standalone + `desktop-env.json` (secret CI,
+  échec bruyant si absent).
+- `electron/smoke-packaged.mjs` — **gate anti-`MODULE_NOT_FOUND`** : boot
+  réel hors projet, vérifie `desktop-env.json`, signin guest, rampe des
+  routes. Requiert `POSTGRES_URL` (voir §4).
+- `lib/db/client.ts` — `getDb()` : **même Postgres distant qu'en web**
+  (`POSTGRES_URL`, erreur claire si absent). Plus de base locale.
 - `lib/desktop/settings.ts` + `app/(chat)/api/desktop/settings/route.ts` —
   clés API perso persistées localement (`settings.json`), lecture masquée.
 - Auth bureau : credentials + guest uniquement (pas d'OAuth cloud).
 - `lib/connectors/core/crypto.ts` — secrets dérivés du `authSecret` local
   en mode bureau (jamais d'env manquante au build).
-- Migrations : `0000` + breakpoints `statement-breakpoint` (requis PGlite) ;
-  `0003_desktop_missing_tables` (`bio`, `Document.chatId`, tables `File`,
-  `connectors`, `notifications` — absentes des migrations historiques).
+- Migrations : le bureau n'en applique plus au démarrage (base partagée,
+  migrée côté web). `0003_desktop_missing_tables` conservé pour un
+  `db:migrate` manuel si besoin.
 - `next.config.ts` (branches `DESKTOP_BUILD`) : `output: standalone`,
-  `outputFileTracingRoot` local, `serverExternalPackages: [pglite]`
-  (sinon webpack casse le WASM), `images.unoptimized` (pas de sharp natif),
+  `outputFileTracingRoot` local, `images.unoptimized` (pas de sharp natif),
   typecheck/lint désactivés dans le build (porte séparée `desktop:typecheck`),
   `cpus: 1` (mémoire).
 - `electron-builder.yml` — NSIS `Employee-Setup-${version}.exe`, `npmRebuild:
-  false` (zéro module natif au runtime : PGlite=WASM), `extraResources`
+  false` (zéro module natif : postgres-js pur JS), `extraResources`
   explicites (voir §4, bug classique).
 
 ## 2. Commandes clés
@@ -64,13 +69,19 @@ pnpm desktop:dist                       # build + electron-builder --win (NSIS)
 pnpm desktop:dev                        # dev local : Next desktop + Electron
 ```
 
+(`desktop:build`, `desktop:dist`, `desktop:dev` et le smoke requièrent
+`POSTGRES_URL` : secret CI en build, `.env.local` en dev.)
+
 Release (le build lourd passe par la CI, 16 Go, natif Windows) :
 
 ```sh
-# 1. bump version dans desktop/windows/package.json (3.1.X)
-git add <fichiers explicites> && git commit -m "fix(desktop): ..."
+# 0. prérequis : secret Actions POSTGRES_URL sur le dépôt (Settings >
+#    Secrets and variables > Actions). Le token Codespace ne peut pas
+#    le créer (403) : action manuelle du user.
+# 1. bump version dans desktop/windows/package.json (3.2.X)
+git add <fichiers explicites> && git commit -m "feat(desktop): ..."
 git push origin main
-git tag -a desktop-v3.1.X -m "..." && git push origin desktop-v3.1.X
+git tag -a desktop-v3.2.X -m "..." && git push origin desktop-v3.2.X
 # 2. CI "Desktop (Windows)" build ~10 min -> Artifacts/Employee-Windows/*.exe
 ```
 
@@ -86,7 +97,7 @@ pendouillants (`find -L ... -type l`).
 Tests Playwright bureau (MANUELS UNIQUEMENT, hors CI par décision user) :
 
 ```sh
-DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-settings.test.ts
+DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-settings.test.ts (+ POSTGRES_URL requis)
 ```
 
 ## 3. Correctifs appliqués (historique)
@@ -114,7 +125,14 @@ DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-setti
 - **v3.1.4** — backfill `@swc/helpers` (+`tslib` via récursion).
 - **v3.1.5** — backfill `@next/env`. **CI verte, smoke 70 routes, 0 échec.**
   Installeur vérifié : `next`, `styled-jsx`, `@swc/helpers`, `@next/env`
-  présents, zéro symlink pendouillant.
+  présents, zéro symlink pendouillant. **Retest Windows user : OK.**
+- **v3.2.0** — bureau 100 % en ligne : PGlite supprimé (dep, branche
+  `getDb`, `serverExternalPackages`, copies runtime/migrations).
+  `POSTGRES_URL` injecté par la CI (secret Actions) et embarqué dans
+  `desktop-env.json` (`main.ts` le charge, override via env). Smoke CI
+  requiert le secret (le signin guest crée 1 ligne guest par build dans
+  la base partagée). URL embarquée extractible du .exe : OK hackathon,
+  rotation des clés prévue après par le user.
 
 Leçons dures :
 
@@ -132,16 +150,23 @@ Leçons dures :
    binder `127.0.0.1` côté bureau.
 7. `next build` complet ≈ 2,5 Go de pic mémoire ; en Codespace 8 Go partagé,
    tuerie SIGTERM (exit 143) = contention, pas bug → builder sur CI.
+8. Secret CI `POSTGRES_URL` obligatoire au build ; jamais de valeur en
+   clair dans les logs ou le chat (longueurs/présence uniquement).
+9. Sandbox Codespace : DNS/TCP direct bloqué (EAI_AGAIN vers Neon) — la
+   connectivité DB ne se prouve qu'en CI (smoke).
 
 ## 4. État actuel et à suivre
 
-- **v3.1.5** (`.exe` 335 Mo compressé) : construit, vérifié, **en attente du
-  retest Windows par l'utilisateur** (run CI 40677984217).
-- `main` linéaire et à jour (rebase fait le 2026-10-28 ; les tags v3.1.3/4/5
-  pointent vers les hash pré-rebase, contenu identique — normal).
+- **v3.2.0** : bureau en ligne (cf. §3). **BLOQUÉ avant tag : le secret
+  Actions `POSTGRES_URL` doit être créé par le user** (token Codespace
+  sans droits, 403). Code poussé sur `main` ; tag `desktop-v3.2.0` +
+  retest Windows à faire après.
+- `main` linéaire et à jour.
 - Si le retest révèle un nouveau `MODULE_NOT_FOUND` : ajouter le paquet dans
   `copyRuntimePkg` (résolution depuis son dépendant), bump version, tag →
   le gate CI valide avant tout retéléchargement.
+- Si une route 500 faute de table manquante côté distant : appliquer
+  `0003` via `db:migrate` manuel (user, depuis une machine avec accès DB).
 - Non lié au bureau (pré-existant, côté web) : workflow `Lint` rouge ;
   laisser au user.
 - Fichiers web non commités du user (14 M + `lib/db/client.ts`) : NE JAMAIS

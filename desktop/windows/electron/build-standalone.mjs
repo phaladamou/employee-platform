@@ -3,8 +3,8 @@
 // Complete la sortie `output: standalone` de Next.js avec les fichiers
 // charges a l'execution (non detectes par le traceur de fichiers) :
 // - .next/static et public (requis documente du mode standalone)
-// - migrations SQL drizzle (appliquees par PGlite au premier demarrage)
-// - paquets runtime requires dynamiquement (pglite WASM, styled-jsx...)
+// - paquets runtime requires dynamiquement (styled-jsx...)
+// - config runtime bureau (URL Postgres distante, injectee par la CI)
 // - dereferencement des symlinks pointant hors du standalone
 import {
   cpSync,
@@ -14,6 +14,7 @@ import {
   readFileSync,
   readlinkSync,
   rmSync,
+  writeFileSync,
 } from "node:fs";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -50,15 +51,8 @@ if (existsSync(publicDir)) {
   copyDir(publicDir, path.join(standalone, "public"), "public");
 }
 
-copyDir(
-  path.join(root, "lib", "db", "migrations"),
-  path.join(standalone, "migrations"),
-  "migrations"
-);
-
 // Paquets requis au runtime mais invisibles au traceur nft (require
 // dynamique) : on les copie en dur depuis le store.
-// - @electric-sql/pglite : binaires WASM charges via fs.
 // - styled-jsx : next/dist/server/require-hook le resolve au BOOT
 //   (sans lui : "Cannot find module 'styled-jsx/package.json'").
 // - @swc/helpers : require par next/dist au BOOT (helpers interop SWC).
@@ -120,11 +114,27 @@ function copyRuntimePkg(pkgName, parentDir) {
   }
 }
 
-copyRuntimePkg("@electric-sql/pglite", root);
 const nextDir = findPkgDir("next", root);
 copyRuntimePkg("styled-jsx", nextDir);
 copyRuntimePkg("@swc/helpers", nextDir);
 copyRuntimePkg("@next/env", nextDir);
+
+// Config runtime bureau : l'URL Postgres distante est injectee par la CI
+// (secret POSTGRES_URL) et embarquee dans le standalone. main.ts la charge
+// au demarrage. Jamais de valeur en clair dans les logs.
+const desktopPostgresUrl = process.env.POSTGRES_URL;
+if (!desktopPostgresUrl) {
+  throw new Error(
+    "[build-standalone] POSTGRES_URL manquant (requis : le bureau est 100 % en ligne)"
+  );
+}
+writeFileSync(
+  path.join(standalone, "desktop-env.json"),
+  JSON.stringify({ postgresUrl: desktopPostgresUrl })
+);
+console.log(
+  `[build-standalone] desktop runtime config written (postgresUrl: set, len=${desktopPostgresUrl.length})`
+);
 
 // electron-builder copie les symlinks tels quels : un lien pointant hors du
 // standalone (layout pnpm) arriverait casse dans l'installeur. On remplace

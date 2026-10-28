@@ -1,6 +1,7 @@
 -- Migration 0003 : tables et colonnes presentes dans lib/db/schema.ts mais
 -- absentes des migrations historiques (base creee via db:push cote web).
--- Necessaire pour une base bureau (PGlite) fraiche et fonctionnelle.
+-- Appliquee une fois sur la base partagee si besoin (db:migrate manuel) ;
+-- le bureau n'applique plus de migrations au demarrage.
 ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "bio" text;
 --> statement-breakpoint
 ALTER TABLE "Document" ADD COLUMN IF NOT EXISTS "chatId" uuid;

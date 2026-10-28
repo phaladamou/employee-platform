@@ -94,8 +94,8 @@ export default defineConfig({
   ],
 
   /* Run your local dev server before starting the tests.
-     With DESKTOP=1 the server boots in desktop mode (embedded PGlite,
-     no Postgres needed) for tests/e2e/desktop-settings.test.ts. */
+     With DESKTOP=1 the server boots in desktop mode (online, POSTGRES_URL
+     required, e.g. via .env.local) for tests/e2e/desktop-settings.test.ts. */
   webServer: {
     // Mode bureau : bind 127.0.0.1 (avec 0.0.0.0, Auth.js emet des
     // redirects vers http://0.0.0.0 que personne ne peut suivre) et moteur
@@ -111,7 +111,7 @@ export default defineConfig({
       ...(process.env.DESKTOP === "1"
         ? {
             DESKTOP: "1",
-            // Hors du projet : le churn de fichiers PGlite ne doit pas
+            // Hors du projet : le settings.json de test ne doit pas
             // perturber le watcher du serveur dev.
             DESKTOP_DATA_DIR: `${process.env.TMPDIR || "/tmp"}/pw-desktop-test`,
             NEXT_PUBLIC_DESKTOP: "1",

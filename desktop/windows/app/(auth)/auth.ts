@@ -54,7 +54,7 @@ export const {
 } = NextAuth({
   ...authConfig,
   providers: [
-    // Bureau : pas d'OAuth cloud (compte local uniquement).
+    // Bureau : pas d'OAuth cloud (credentials + guest uniquement).
     ...(isDesktop()
       ? []
       : [

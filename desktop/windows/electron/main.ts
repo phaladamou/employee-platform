@@ -3,6 +3,7 @@
 // Processus principal de l'application bureau Employee (Windows).
 // En production, le serveur Next.js (build standalone) est lance en
 // processus embarque, puis une fenetre pointe vers http://127.0.0.1:PORT.
+// Le bureau est 100 % en ligne : memes donnees distantes que le web.
 import { randomBytes } from "node:crypto";
 import {
   appendFileSync,
@@ -43,9 +44,10 @@ function initLogFile(): string {
   }
 }
 
-// Le serveur embarque tourne dans CE processus : ses crashs async (WASM,
-// PGlite, listen) arrivent ici. On les journalise au lieu de mourir en silence
-// (le timeout de waitForServer affichera ensuite le dialogue d'erreur).
+// Le serveur embarque tourne dans CE processus : ses crashs async (boot
+// Next, listen, requetes DB) arrivent ici. On les journalise au lieu de
+// mourir en silence (le timeout de waitForServer affichera ensuite le
+// dialogue d'erreur).
 process.on("unhandledRejection", (reason: unknown) => {
   log(`UNHANDLED REJECTION: ${String(reason)}`);
 });
@@ -93,6 +95,37 @@ function ensureAuthSecret(
     JSON.stringify({ ...settings, authSecret }, null, 2)
   );
   return authSecret;
+}
+
+// Bureau 100 % en ligne : l'URL Postgres vient de l'environnement (dev,
+// override) ou du fichier embarque par la CI dans le standalone
+// (desktop-env.json). Jamais de valeur en clair dans les logs.
+function resolvePostgresUrl(): string {
+  if (process.env.POSTGRES_URL) {
+    log("POSTGRES_URL: from environment");
+    return process.env.POSTGRES_URL;
+  }
+  const packaged = path.join(
+    process.resourcesPath,
+    "standalone",
+    "desktop-env.json"
+  );
+  try {
+    if (existsSync(packaged)) {
+      const parsed = JSON.parse(readFileSync(packaged, "utf8")) as {
+        postgresUrl?: unknown;
+      };
+      if (typeof parsed.postgresUrl === "string" && parsed.postgresUrl) {
+        log("POSTGRES_URL: from packaged desktop-env.json");
+        return parsed.postgresUrl;
+      }
+    }
+  } catch (error) {
+    log(`packaged desktop-env.json unreadable: ${String(error)}`);
+  }
+  throw new Error(
+    "POSTGRES_URL is missing (packaged config absent and no environment override)"
+  );
 }
 
 function getFreePort(): Promise<number> {
@@ -150,12 +183,8 @@ async function startEmbeddedServer(
   process.env.HOSTNAME = "127.0.0.1";
   process.env.DESKTOP = "1";
   process.env.DESKTOP_DATA_DIR = dataDir;
-  process.env.DESKTOP_MIGRATIONS_DIR = path.join(
-    process.resourcesPath,
-    "standalone",
-    "migrations"
-  );
   process.env.AUTH_SECRET = authSecret;
+  process.env.POSTGRES_URL = resolvePostgresUrl();
   if (settings.llmApiKey && !process.env.DEEPSEEK_API_KEY) {
     process.env.DEEPSEEK_API_KEY = settings.llmApiKey;
   }

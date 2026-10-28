@@ -1,9 +1,11 @@
 import { type APIRequestContext, expect, test } from "@playwright/test";
 
-// Couverture API du mode bureau (PGlite embarquee, pas de Postgres).
+// Couverture API du mode bureau (Postgres distant partage avec le web).
 // Execution : DESKTOP=1 pnpm exec playwright test desktop-settings
 // (le webServer demarre alors `pnpm dev` avec DESKTOP=1, voir
-// playwright.config.ts). Ignoree en mode web.
+// playwright.config.ts ; POSTGRES_URL requis, ex. via .env.local).
+// Ignoree en mode web. Note : le signin guest cree un utilisateur
+// guest dans la base distante partagee.
 test.describe("Desktop settings API", () => {
   // Serial : les POST paralleles pendant la (re)compilation dev de la route
   // auth sont abandonnes par Turbopack (connexions coupees avant handler).
@@ -19,7 +21,7 @@ test.describe("Desktop settings API", () => {
     const { csrfToken } = await csrfRes.json();
     // X-Auth-Return-Redirect : le serveur repond JSON 200 + cookies
     // au lieu de rediriger (aucune page lourde a compiler).
-    // Timeout large : premier appel = init PGlite + migrations + hash bcrypt.
+    // Timeout large : premier appel = compilation dev + round-trip DB + hash bcrypt.
     const callbackRes = await request.post("/api/auth/callback/guest", {
       headers: { "X-Auth-Return-Redirect": "1" },
       form: { csrfToken, callbackUrl: "/workspace" },
@@ -48,7 +50,7 @@ test.describe("Desktop settings API", () => {
 
     const save = await request.post("/api/desktop/settings", {
       data: {
-        llmApiKey: "sk-test-playwright-0123456789",
+        llmApiKey: "[REDACTED]",
         llmBaseUrl: "https://api.deepseek.com/v1",
       },
     });
