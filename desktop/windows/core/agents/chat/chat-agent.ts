@@ -50,6 +50,20 @@ export class ChatAgent implements Agent {
       );
     }
 
+    // Mode test (E2E CI) : reponse determinee sans appeler le LLM.
+    // Meme declencheur que isTestEnvironment (lib/constants), inline ici
+    // pour ne pas coupler core/ a lib/ (icones, db).
+    if (
+      process.env.PLAYWRIGHT_TEST_BASE_URL ||
+      process.env.PLAYWRIGHT ||
+      process.env.CI_PLAYWRIGHT
+    ) {
+      emit({ type: "status", message: "Mode test." });
+      emit({ type: "text_delta", text: "E2E-CHAT-OK" });
+      emit({ type: "done" });
+      return { text: "E2E-CHAT-OK" };
+    }
+
     try {
       emit({
         type: "status",

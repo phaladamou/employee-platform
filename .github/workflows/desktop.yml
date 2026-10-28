@@ -37,10 +37,18 @@ jobs:
       - name: Typecheck (web + electron)
         run: pnpm desktop:typecheck
 
-      - name: Build Windows installer
+      - name: Build standalone server
         env:
           POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
-        run: pnpm desktop:dist
+        run: pnpm desktop:build
+
+      - name: E2E Chat Test
+        env:
+          POSTGRES_URL: ${{ secrets.POSTGRES_URL }}
+        run: node electron/e2e-chat.mjs
+
+      - name: Package Windows installer
+        run: pnpm desktop:pack
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

@@ -2,7 +2,7 @@
 
 import { auth } from "@/app/(auth)/auth";
 import { saveChat, saveMessages } from "@/lib/db/queries";
-import { generateUUID } from "@/lib/utils";
+import { generateUUID, getLocalServerBaseUrl } from "@/lib/utils";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -39,8 +39,9 @@ export async function POST(request: Request) {
     });
   }
 
+  // Proxy vers le chat principal sur CE serveur (port dynamique en bureau).
   const aiResponse = await fetch(
-    `${process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"}/api/chat`,
+    `${getLocalServerBaseUrl(request)}/api/chat`,
     {
       method: "POST",
       headers: {

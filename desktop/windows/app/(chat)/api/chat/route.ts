@@ -62,7 +62,11 @@ import { ChatbotError } from "@/lib/errors";
 import { extractTextFromFile } from "@/lib/files/extract";
 import { checkIpRateLimit } from "@/lib/ratelimit";
 import type { ChatMessage } from "@/lib/types";
-import { convertToUIMessages, generateUUID } from "@/lib/utils";
+import {
+  convertToUIMessages,
+  generateUUID,
+  getLocalServerBaseUrl,
+} from "@/lib/utils";
 import { generateTitleFromUserMessage } from "../../actions";
 import {
   type PostRequestBody,
@@ -257,9 +261,8 @@ export async function POST(request: Request) {
     if (fileParts.length > 0) {
       const fileContents: string[] = [];
 
-      const baseUrl =
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        "http://localhost:3000";
+      // Origine dynamique : le bureau ecoute sur un port aleatoire.
+      const baseUrl = getLocalServerBaseUrl(request);
 
       for (const part of fileParts) {
         const fileId = (part.url as string).split("/").pop();

@@ -85,3 +85,12 @@ export function getTextFromMessage(message: ChatMessage | UIMessage): string {
     .map((part) => (part as { type: 'text'; text: string}).text)
     .join('');
 }
+
+// URL de base du serveur qui traite la requete courante (code serveur
+// uniquement). Le serveur bureau embarque ecoute sur un port aleatoire :
+// un hote code en dur (ex. http://localhost:3000) y est injoignable.
+// L'origine est donc derivee de la requete entrante, sauf override
+// explicite via NEXT_PUBLIC_BASE_URL (deploiement web canonique).
+export function getLocalServerBaseUrl(request: Request): string {
+  return process.env.NEXT_PUBLIC_BASE_URL || new URL(request.url).origin;
+}
