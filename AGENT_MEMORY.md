@@ -157,10 +157,10 @@ Leçons dures :
 
 ## 4. État actuel et à suivre
 
-- **v3.2.0** : bureau en ligne (cf. §3). **BLOQUÉ avant tag : le secret
-  Actions `POSTGRES_URL` doit être créé par le user** (token Codespace
-  sans droits, 403). Code poussé sur `main` ; tag `desktop-v3.2.0` +
-  retest Windows à faire après.
+- **v3.2.0** : bureau en ligne (cf. §3). **CI verte** (run 40707340523,
+  smoke 70 routes 0 échec, `desktop-env.json` embarqué vérifié dans le
+  NSIS extrait). `Employee-Setup-3.2.0.exe` (303 Mo) dans les artifacts,
+  **en attente du retest Windows par l'utilisateur**.
 - `main` linéaire et à jour.
 - Si le retest révèle un nouveau `MODULE_NOT_FOUND` : ajouter le paquet dans
   `copyRuntimePkg` (résolution depuis son dépendant), bump version, tag →
