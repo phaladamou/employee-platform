@@ -153,6 +153,9 @@ DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-setti
   Première Release = 3.2.1 (3.2.0 = artifact uniquement) : 1 install
   manuelle puis auto. E2E (téléchargement+install réels) non testé en
   CI — première preuve = la prochaine release après 3.2.1.
+  Fix CI : `electron-builder --publish never` obligatoire (sinon, avec
+  `publish: github`, il tente de publier lui-même et exige GH_TOKEN) ;
+  la Release est publiée par l'étape `gh release create` du workflow.
 
 Leçons dures :
 
