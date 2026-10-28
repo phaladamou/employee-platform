@@ -2,7 +2,8 @@
 //
 // `pnpm desktop:build` : build Next.js standalone (mode desktop) + copie des
 // fichiers d'execution + compilation du processus principal Electron +
-// smoke test du serveur package (gate anti "Cannot find module").
+// copie des runtime Electron (electron-updater) + smoke test du serveur
+// package (gate anti "Cannot find module").
 // Fonctionne sur Windows, macOS et Linux.
 import { spawnSync } from "node:child_process";
 
@@ -29,6 +30,7 @@ function run(label, args) {
 run("next build (standalone, desktop)", ["node_modules/next/dist/bin/next", "build"]);
 run("copy standalone runtime files", ["electron/build-standalone.mjs"]);
 run("tsc electron", ["node_modules/typescript/bin/tsc", "-p", "tsconfig.electron.json"]);
+run("copy electron runtime files", ["electron/build-electron.mjs"]);
 run("smoke packaged server", ["electron/smoke-packaged.mjs"]);
 
 console.log("\n[desktop:build] OK");

@@ -18,12 +18,13 @@ aucune base locale. Une simple fenêtre Electron sur l'application partagée.
 - `output: standalone` conditionnel (`DESKTOP_BUILD=1`), `outputFileTracingRoot` local dans `next.config.ts`
 - `electron/build-standalone.mjs` — embarque `desktop-env.json` (URL Postgres fournie par la CI) + backfills `styled-jsx`/`@swc/helpers`/`@next/env`
 - `electron/smoke-packaged.mjs` — gate CI : boot réel du standalone + signin guest + rampe des routes (requiert `POSTGRES_URL`)
+- Mise à jour auto : `electron-updater` dans `main.ts` (vérif au démarrage, téléchargement en fond, installation au redémarrage) + `publish: github` dans `electron-builder.yml` ; CI publie `latest.yml` sur la Release (`electron/dist/node_modules` assemblé par `build-electron.mjs`)
 - `lib/db/migrations/0003_desktop_missing_tables.sql` — tables/colonnes du schéma absentes des migrations historiques (utile pour un `db:migrate` manuel ; le bureau n'applique plus de migrations au démarrage)
 - Breakpoints `--> statement-breakpoint` dans `0000_initial.sql` (requis par le migrateur drizzle)
 - Clés `desktopApi*` dans `messages/*.json`
 - `tests/e2e/desktop-settings.test.ts` — tests API du mode bureau (`DESKTOP=1` + `POSTGRES_URL`, manuel uniquement)
 - CI installeur Windows : `/.github/workflows/desktop.yml` à la racine (seul emplacement exécuté par GitHub ; délègue à `desktop/windows`, injecte le secret `POSTGRES_URL`)
-- Deps `package.json` : `electron`, `electron-builder`,
+- Deps `package.json` : `electron`, `electron-builder`, `electron-updater`,
   scripts `desktop:dev`, `desktop:build`, `desktop:dist`, `desktop:typecheck`
 
 ## État validé au 28/10/2026 (v3.2.0, bureau en ligne)

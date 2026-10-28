@@ -4,6 +4,7 @@
 // En production, le serveur Next.js (build standalone) est lance en
 // processus embarque, puis une fenetre pointe vers http://127.0.0.1:PORT.
 // Le bureau est 100 % en ligne : memes donnees distantes que le web.
+// Mises a jour auto via les Releases GitHub (electron-updater).
 import { randomBytes } from "node:crypto";
 import {
   appendFileSync,
@@ -15,6 +16,7 @@ import {
 import net from "node:net";
 import path from "node:path";
 import { app, BrowserWindow, dialog } from "electron";
+import { autoUpdater } from "electron-updater";
 
 const isDev = process.env.ELECTRON_DEV === "1";
 
@@ -168,6 +170,33 @@ async function waitForServer(url: string, timeoutMs: number): Promise<void> {
   }
 }
 
+// Mises a jour auto (Windows NSIS) : au demarrage, l'app interroge la
+// derniere Release GitHub (via app-update.yml embarque), telecharge en
+// fond et installe au redemarrage (notification OS). Fire-and-forget :
+// une panne reseau ne doit jamais empecher le demarrage.
+function setupAutoUpdate(): void {
+  try {
+    autoUpdater.on("checking-for-update", () => {
+      log("[updater] checking for update...");
+    });
+    autoUpdater.on("update-available", (info) => {
+      log(`[updater] update available: ${info.version}`);
+    });
+    autoUpdater.on("update-not-available", () => {
+      log("[updater] up to date");
+    });
+    autoUpdater.on("error", (error: Error) => {
+      log(`[updater] error: ${error?.message ?? String(error)}`);
+    });
+    autoUpdater.on("update-downloaded", (info) => {
+      log(`[updater] downloaded ${info.version}, will install on quit`);
+    });
+    void autoUpdater.checkForUpdatesAndNotify();
+  } catch (error) {
+    log(`[updater] setup failed: ${String(error)}`);
+  }
+}
+
 async function startEmbeddedServer(
   port: number,
   dataDir: string
@@ -276,6 +305,7 @@ async function main(): Promise<void> {
   const baseUrl = `http://127.0.0.1:${port}`;
   await waitForServer(`${baseUrl}/api/models`, 120_000);
   createWindow(`${baseUrl}/workspace`);
+  setupAutoUpdate();
 }
 
 main().catch((error: unknown) => {

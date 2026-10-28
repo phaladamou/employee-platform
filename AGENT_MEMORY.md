@@ -17,25 +17,28 @@ employee-platform/                  <- APP WEB (propriétaire: user, ne pas touc
 ├── .github/workflows/desktop.yml   <- SEULE exception racine : CI installeur.
 │                                      Ne contient aucune logique (délègue tout
 │                                      à desktop/windows via working-directory,
-│                                      + injecte le secret POSTGRES_URL).
+│                                      + injecte le secret POSTGRES_URL,
+│                                      + publie la Release GitHub).
 └── desktop/                        <- TOUT le bureau vit ici
     ├── README.md                   <- contrat d'isolation (lire en premier)
     ├── reference-web/              <- snapshot web FIGÉ, lecture seule (20 Mo)
     └── windows/                    <- CHANTIER : copie de travail + code desktop
 ```
 
-Bureau 100 % en ligne (v3.2.0, fini PGlite) : même Postgres distant que le web.
+Bureau 100 % en ligne + auto-update (v3.2.1) : même Postgres distant que le web.
 
 Code desktop (dans `windows/` uniquement) :
 
 - `electron/main.ts` — processus principal : génère `AUTH_SECRET`, résout
   `POSTGRES_URL` (env puis `desktop-env.json` embarqué), alloue un
   port loopback, force `HOSTNAME=127.0.0.1`, charge le serveur standalone
-  en-processus, attend `/api/models`, ouvre `/workspace`. Écrit
+  en-processus, attend `/api/models`, ouvre `/workspace`. Vérifie les
+  mises à jour au démarrage (electron-updater, Releases GitHub). Écrit
   `%APPDATA%/Employee/startup.log` + dialogue d'erreur Windows en cas d'échec.
-- `electron/{dev,build,build-standalone}.mjs` — dev (Next+Electron),
-  pipeline build, compléments standalone + `desktop-env.json` (secret CI,
-  échec bruyant si absent).
+- `electron/{dev,build,build-standalone,build-electron}.mjs` — dev
+  (Next+Electron), pipeline build, compléments standalone + `desktop-env.json`
+  (secret CI, échec bruyant si absent), copie electron-updater dans
+  `electron/dist/node_modules` (+ self-check de résolution).
 - `electron/smoke-packaged.mjs` — **gate anti-`MODULE_NOT_FOUND`** : boot
   réel hors projet, vérifie `desktop-env.json`, signin guest, rampe des
   routes. Requiert `POSTGRES_URL` (voir §4).
@@ -55,7 +58,8 @@ Code desktop (dans `windows/` uniquement) :
   `cpus: 1` (mémoire).
 - `electron-builder.yml` — NSIS `Employee-Setup-${version}.exe`, `npmRebuild:
   false` (zéro module natif : postgres-js pur JS), `extraResources`
-  explicites (voir §4, bug classique).
+  explicites (voir §4, bug classique), `publish: github` (latest.yml
+  pour l'auto-update).
 
 ## 2. Commandes clés
 
@@ -77,12 +81,15 @@ Release (le build lourd passe par la CI, 16 Go, natif Windows) :
 ```sh
 # 0. prérequis : secret Actions POSTGRES_URL sur le dépôt (Settings >
 #    Secrets and variables > Actions). Le token Codespace ne peut pas
-#    le créer (403) : action manuelle du user.
+#    le créer (403) : action manuelle du user (fait le 2026-10-28).
 # 1. bump version dans desktop/windows/package.json (3.2.X)
 git add <fichiers explicites> && git commit -m "feat(desktop): ..."
 git push origin main
 git tag -a desktop-v3.2.X -m "..." && git push origin desktop-v3.2.X
 # 2. CI "Desktop (Windows)" build ~10 min -> Artifacts/Employee-Windows/*.exe
+#    + Release GitHub auto-publiée (exe + latest.yml, alimente l'auto-update).
+#    Ne pas re-tagger sans supprimer la Release existante (gh release create
+#    échoue si le tag a déjà une Release).
 ```
 
 Suivi CI : `gh run list --repo phaladamou/employee-platform`,
@@ -90,8 +97,10 @@ Suivi CI : `gh run list --repo phaladamou/employee-platform`,
 (si `~/.cache` est en lecture seule : `export XDG_CACHE_HOME=/tmp/xdg-cache`).
 
 Inspection d'un installeur : télécharger l'artefact (`gh run download -n
-Employee-Windows`), extraire le NSIS avec 7za (`7zip-bin` via npm),
-vérifier `resources/standalone/node_modules/` et l'absence de symlinks
+Employee-Windows`), extraire le NSIS avec 7za (`7zip-bin` via npm,
+`chmod +x` requis sur le binaire), vérifier `resources/standalone/`
+(`desktop-env.json` renseigné, `node_modules/` présent) et
+`resources/app-update.yml` (config updater), absence de symlinks
 pendouillants (`find -L ... -type l`).
 
 Tests Playwright bureau (MANUELS UNIQUEMENT, hors CI par décision user) :
@@ -133,6 +142,17 @@ DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-setti
   requiert le secret (le signin guest crée 1 ligne guest par build dans
   la base partagée). URL embarquée extractible du .exe : OK hackathon,
   rotation des clés prévue après par le user.
+- **v3.2.1** — mises à jour auto (Windows NSIS) : `electron-updater` dans
+  `main.ts` (vérif au démarrage, téléchargement en fond, install au
+  redémarrage, logs `[updater]` dans startup.log), `publish: github`
+  (latest.yml), CI publie la Release (exe + latest.yml, `contents: write`).
+  `update-electron-app` écarté (exige Squirrel, incompatible NSIS).
+  electron-updater copié dans `electron/dist/node_modules` par
+  `build-electron.mjs` (+ self-check de résolution, joué en CI).
+  Pas de téléchargement différentiel (.blockmap non publié : full ~300 Mo).
+  Première Release = 3.2.1 (3.2.0 = artifact uniquement) : 1 install
+  manuelle puis auto. E2E (téléchargement+install réels) non testé en
+  CI — première preuve = la prochaine release après 3.2.1.
 
 Leçons dures :
 
@@ -154,13 +174,15 @@ Leçons dures :
    clair dans les logs ou le chat (longueurs/présence uniquement).
 9. Sandbox Codespace : DNS/TCP direct bloqué (EAI_AGAIN vers Neon) — la
    connectivité DB ne se prouve qu'en CI (smoke).
+10. Auto-update Windows NSIS = electron-updater + `publish: github`
+    (update-electron-app exige Squirrel, incompatible). L'app packagee
+    n'a pas de node_modules racine → toute dep du main process passe
+    par `build-electron.mjs` (copie + self-check).
 
 ## 4. État actuel et à suivre
 
-- **v3.2.0** : bureau en ligne (cf. §3). **CI verte** (run 40707340523,
-  smoke 70 routes 0 échec, `desktop-env.json` embarqué vérifié dans le
-  NSIS extrait). `Employee-Setup-3.2.0.exe` (303 Mo) dans les artifacts,
-  **en attente du retest Windows par l'utilisateur**.
+- **v3.2.1** : auto-update (cf. §3). Tag `desktop-v3.2.1`, CI en cours ;
+  Release GitHub + retest Windows à vérifier après.
 - `main` linéaire et à jour.
 - Si le retest révèle un nouveau `MODULE_NOT_FOUND` : ajouter le paquet dans
   `copyRuntimePkg` (résolution depuis son dépendant), bump version, tag →
