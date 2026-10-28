@@ -2,9 +2,8 @@
 import "server-only";
 
 import { and, desc, eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { ChatbotError } from "@/lib/errors";
+import { getDb } from "../db/client";
 import {
   type Simulation,
   simulation,
@@ -12,19 +11,13 @@ import {
   userCategory,
 } from "../db/schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  connect_timeout: 10,
-  idle_timeout: 20,
-  max_lifetime: 60 * 30,
-});
-const db = drizzle(client);
-
 // ============ USER CATEGORY ============
 
 export async function getUserCategory(
   userId: string
 ): Promise<UserCategory | null> {
   try {
+    const db = await getDb();
     const [result] = await db
       .select()
       .from(userCategory)
@@ -44,6 +37,7 @@ export async function setUserCategory(
   category: string
 ): Promise<void> {
   try {
+    const db = await getDb();
     await db
       .insert(userCategory)
       .values({ userId, category, updatedAt: new Date() } as any)
@@ -67,6 +61,7 @@ export async function getSimulationsByCategory(
   userId?: string
 ): Promise<Simulation[]> {
   try {
+    const db = await getDb();
     const conditions = [eq(simulation.category, category)];
     if (userId) {
       conditions.push(eq(simulation.userId, userId));
@@ -90,6 +85,7 @@ export async function getSimulationById(
   id: string
 ): Promise<Simulation | null> {
   try {
+    const db = await getDb();
     const [result] = await db
       .select()
       .from(simulation)
@@ -113,6 +109,7 @@ export async function createSimulation(data: {
   code?: string;
 }): Promise<Simulation> {
   try {
+    const db = await getDb();
     const [result] = await db
       .insert(simulation)
       .values({
@@ -144,6 +141,7 @@ export async function updateSimulation(
   }
 ): Promise<void> {
   try {
+    const db = await getDb();
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (data.title !== undefined) updates.title = data.title;
     if (data.parameters !== undefined) updates.parameters = data.parameters;
@@ -162,6 +160,7 @@ export async function updateSimulation(
 
 export async function deleteSimulation(id: string): Promise<void> {
   try {
+    const db = await getDb();
     await db.delete(simulation).where(eq(simulation.id, id));
   } catch (_error) {
     console.error("deleteSimulation DB Error:", _error);
@@ -174,6 +173,7 @@ export async function deleteSimulation(id: string): Promise<void> {
 
 export async function toggleFavorite(id: string): Promise<boolean> {
   try {
+    const db = await getDb();
     const [sim] = await db
       .select({ isFavorite: simulation.isFavorite })
       .from(simulation)

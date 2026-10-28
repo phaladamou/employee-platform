@@ -1,18 +1,9 @@
 // app/(chat)/api/search/route.ts
 import { and, desc, eq, ilike, sql } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import type { NextRequest } from "next/server";
-import postgres from "postgres";
 import { auth } from "@/app/(auth)/auth";
+import { getDb } from "@/lib/db/client";
 import { chat, message } from "@/lib/db/schema";
-
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10,
-  keep_alive: 1,
-});
-const db = drizzle(client);
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -28,6 +19,8 @@ export async function GET(request: NextRequest) {
   }
 
   const searchTerm = `%${q}%`;
+
+  const db = await getDb();
 
   // Recherche dans les titres des chats
   const titleMatches = await db

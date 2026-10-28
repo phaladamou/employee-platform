@@ -1,14 +1,6 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { getDb } from "@/lib/db/client";
 import { userSettings } from "@/lib/db/schema";
-
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10,
-});
-const db = drizzle(client);
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -69,6 +61,7 @@ async function saveLinkedAccount(
   provider: string,
   data: { id: string; name: string }
 ) {
+  const db = await getDb();
   const [existing] = await db
     .select()
     .from(userSettings)

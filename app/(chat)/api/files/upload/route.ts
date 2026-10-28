@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import { auth } from "@/app/(auth)/auth";
+import { getDb } from "@/lib/db/client";
 import { file } from "@/lib/db/schema";
-
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10,
-});
-const db = drizzle(client);
 
 const ALLOWED_TYPES = [
   "application/pdf",
@@ -52,6 +44,8 @@ export async function POST(request: Request) {
   }
 
   try {
+    const db = await getDb();
+
     const formData = await request.formData();
     const f = formData.get("file") as File;
 

@@ -14,8 +14,6 @@ import {
   lt,
   type SQL,
 } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
 import type { ArtifactKind } from "@/components/workspace/artifact";
 import type { VisibilityType } from "@/components/workspace/visibility-selector";
 import { ChatbotError } from "../errors";
@@ -36,18 +34,12 @@ import {
   userSettings,
   vote,
 } from "./schema";
+import { getDb } from "./client";
 import { generateHashedPassword } from "./utils";
-
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10,
-  keep_alive: 1,
-});
-const db = drizzle(client);
 
 export async function getUser(email: string): Promise<User[]> {
   try {
+    const db = await getDb();
     return await db.select().from(user).where(eq(user.email, email));
   } catch (_error) {
     console.error("getUser DB Error:", _error);
@@ -62,6 +54,7 @@ export async function createUser(email: string, password: string) {
   const hashedPassword = generateHashedPassword(password);
 
   try {
+    const db = await getDb();
     return await db.insert(user).values({ email, password: hashedPassword } as any);
   } catch (_error) {
     console.error("createUser DB Error:", _error);
@@ -74,6 +67,7 @@ export async function createGuestUser() {
   const password = generateHashedPassword(generateUUID());
 
   try {
+    const db = await getDb();
     return await db.insert(user).values({ email, password } as any).returning({
       id: user.id,
       email: user.email,
@@ -99,6 +93,7 @@ export async function saveChat({
   visibility: VisibilityType;
 }) {
   try {
+    const db = await getDb();
     return await db.insert(chat).values({
       id,
       createdAt: new Date(),
@@ -114,6 +109,7 @@ export async function saveChat({
 
 export async function deleteChatById({ id }: { id: string }) {
   try {
+    const db = await getDb();
     await db.delete(vote).where(eq(vote.chatId, id));
     await db.delete(message).where(eq(message.chatId, id));
     await db.delete(stream).where(eq(stream.chatId, id));
@@ -134,6 +130,7 @@ export async function deleteChatById({ id }: { id: string }) {
 
 export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
   try {
+    const db = await getDb();
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
@@ -176,6 +173,7 @@ export async function getChatsByUserId({
   endingBefore: string | null;
 }) {
   try {
+    const db = await getDb();
     const extendedLimit = limit + 1;
 
     const query = (whereCondition?: SQL<unknown>) =>
@@ -243,6 +241,7 @@ export async function getChatsByUserId({
 
 export async function getChatById({ id }: { id: string }) {
   try {
+    const db = await getDb();
     const [selectedChat] = await db.select().from(chat).where(eq(chat.id, id));
     if (!selectedChat) {
       return null;
@@ -257,6 +256,7 @@ export async function getChatById({ id }: { id: string }) {
 
 export async function saveMessages({ messages }: { messages: DBMessage[] }) {
   try {
+    const db = await getDb();
     return await db.insert(message).values(messages as any);
   } catch (_error) {
     console.error("saveMessages DB Error:", _error);
@@ -272,6 +272,7 @@ export async function updateMessage({
   parts: DBMessage["parts"];
 }) {
   try {
+    const db = await getDb();
     return await db.update(message).set({ parts } as any).where(eq(message.id, id));
   } catch (_error) {
     console.error("updateMessage DB Error:", _error);
@@ -281,6 +282,7 @@ export async function updateMessage({
 
 export async function getMessagesByChatId({ id }: { id: string }) {
   try {
+    const db = await getDb();
     return await db
       .select()
       .from(message)
@@ -305,6 +307,7 @@ export async function voteMessage({
   type: "up" | "down";
 }) {
   try {
+    const db = await getDb();
     const [existingVote] = await db
       .select()
       .from(vote)
@@ -329,6 +332,7 @@ export async function voteMessage({
 
 export async function getVotesByChatId({ id }: { id: string }) {
   try {
+    const db = await getDb();
     return await db.select().from(vote).where(eq(vote.chatId, id));
   } catch (_error) {
     console.error("getVotesByChatId DB Error:", _error);
@@ -355,6 +359,7 @@ export async function saveDocument({
   chatId?: string;
 }) {
   try {
+    const db = await getDb();
     return await db
       .insert(document)
       .values({
@@ -381,6 +386,7 @@ export async function updateDocumentContent({
   content: string;
 }) {
   try {
+    const db = await getDb();
     const docs = await db
       .select()
       .from(document)
@@ -412,6 +418,7 @@ export async function updateDocumentContent({
 
 export async function getDocumentsById({ id }: { id: string }) {
   try {
+    const db = await getDb();
     const documents = await db
       .select()
       .from(document)
@@ -430,6 +437,7 @@ export async function getDocumentsById({ id }: { id: string }) {
 
 export async function getDocumentById({ id }: { id: string }) {
   try {
+    const db = await getDb();
     const [selectedDocument] = await db
       .select()
       .from(document)
@@ -454,6 +462,7 @@ export async function deleteDocumentsByIdAfterTimestamp({
   timestamp: Date;
 }) {
   try {
+    const db = await getDb();
     await db
       .delete(suggestion)
       .where(
@@ -482,6 +491,7 @@ export async function saveSuggestions({
   suggestions: Suggestion[];
 }) {
   try {
+    const db = await getDb();
     return await db.insert(suggestion).values(suggestions as any);
   } catch (_error) {
     console.error("saveSuggestions DB Error:", _error);
@@ -498,6 +508,7 @@ export async function getSuggestionsByDocumentId({
   documentId: string;
 }) {
   try {
+    const db = await getDb();
     return await db
       .select()
       .from(suggestion)
@@ -513,6 +524,7 @@ export async function getSuggestionsByDocumentId({
 
 export async function getMessageById({ id }: { id: string }) {
   try {
+    const db = await getDb();
     return await db.select().from(message).where(eq(message.id, id));
   } catch (_error) {
     console.error("getMessageById DB Error:", _error);
@@ -531,6 +543,7 @@ export async function deleteMessagesByChatIdAfterTimestamp({
   timestamp: Date;
 }) {
   try {
+    const db = await getDb();
     const messagesToDelete = await db
       .select({ id: message.id })
       .from(message)
@@ -572,6 +585,7 @@ export async function updateChatVisibilityById({
   visibility: "private" | "public";
 }) {
   try {
+    const db = await getDb();
     return await db.update(chat).set({ visibility } as any).where(eq(chat.id, chatId));
   } catch (_error) {
     console.error("updateChatVisibilityById DB Error:", _error);
@@ -590,6 +604,7 @@ export async function updateChatTitleById({
   title: string;
 }) {
   try {
+    const db = await getDb();
     return await db.update(chat).set({ title } as any).where(eq(chat.id, chatId));
   } catch (_error) {
     return;
@@ -604,6 +619,7 @@ export async function getMessageCountByUserId({
   differenceInHours: number;
 }) {
   try {
+    const db = await getDb();
     const cutoffTime = new Date(
       Date.now() - differenceInHours * 60 * 60 * 1000
     );
@@ -639,6 +655,7 @@ export async function createStreamId({
   chatId: string;
 }) {
   try {
+    const db = await getDb();
     await db
       .insert(stream)
       .values({ id: streamId, chatId, createdAt: new Date() } as any);
@@ -653,6 +670,7 @@ export async function createStreamId({
 
 export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
   try {
+    const db = await getDb();
     const streamIds = await db
       .select({ id: stream.id })
       .from(stream)
@@ -671,6 +689,7 @@ export async function getStreamIdsByChatId({ chatId }: { chatId: string }) {
 
 export async function getUserStats({ userId }: { userId: string }) {
   try {
+    const db = await getDb();
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
@@ -728,6 +747,7 @@ export async function getUserStats({ userId }: { userId: string }) {
 
 export async function deleteUserById({ userId }: { userId: string }) {
   try {
+    const db = await getDb();
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
@@ -763,6 +783,7 @@ export async function deleteUserById({ userId }: { userId: string }) {
 
 export async function getUserSettings({ userId }: { userId: string }) {
   try {
+    const db = await getDb();
     const [settings] = await db
       .select()
       .from(userSettings)
@@ -785,6 +806,7 @@ export async function upsertUserSettings({
   preferences: Record<string, unknown>;
 }) {
   try {
+    const db = await getDb();
     const [existing] = await db
       .select()
       .from(userSettings)
@@ -823,6 +845,7 @@ export async function updateUserProfile({
   image?: string;
 }) {
   try {
+    const db = await getDb();
     const updates: Record<string, unknown> = { updatedAt: new Date() };
     if (name !== undefined) updates.name = name;
     if (bio !== undefined) updates.bio = bio;
@@ -844,6 +867,7 @@ export async function updateUserProfile({
 
 export async function getDocumentsByUserId({ userId }: { userId: string }) {
   try {
+    const db = await getDb();
     return await db
       .select()
       .from(document)
@@ -860,6 +884,7 @@ export async function getDocumentsByUserId({ userId }: { userId: string }) {
 
 export async function getChatIdByDocumentId({ documentId, userId }: { documentId: string; userId: string }) {
   try {
+    const db = await getDb();
     const messages = await db
       .select({ id: message.id, chatId: message.chatId, parts: message.parts })
       .from(message)
@@ -887,6 +912,7 @@ export async function getChatIdByDocumentId({ documentId, userId }: { documentId
 
 export async function getConnectorsByUserId({ userId }: { userId: string }) {
   try {
+    const db = await getDb();
     return await db
       .select()
       .from(connector)
@@ -905,6 +931,7 @@ export async function getConnector({
   provider: string;
 }) {
   try {
+    const db = await getDb();
     return await db
       .select()
       .from(connector)
@@ -931,6 +958,7 @@ export async function upsertConnector({
   scope?: string | null;
 }) {
   try {
+    const db = await getDb();
     const existing = await getConnector({ userId, provider });
 
     if (existing.length > 0) {
@@ -970,6 +998,7 @@ export async function deleteConnector({
   provider: string;
 }) {
   try {
+    const db = await getDb();
     return await db
       .delete(connector)
       .where(and(eq(connector.userId, userId), eq(connector.provider, provider)));
@@ -986,6 +1015,7 @@ export async function getNotificationsByUserId({
   limit?: number;
 }) {
   try {
+    const db = await getDb();
     return await db
       .select()
       .from(notification)
@@ -1007,6 +1037,7 @@ export async function getUnreadNotificationsCount({
   userId: string;
 }) {
   try {
+    const db = await getDb();
     const [row] = await db
       .select({ count: count(notification.id) })
       .from(notification)
@@ -1032,6 +1063,7 @@ export async function createNotification({
   body?: string | null;
 }) {
   try {
+    const db = await getDb();
     return await db.insert(notification).values({
       userId,
       type,
@@ -1054,6 +1086,7 @@ export async function markAllNotificationsAsRead({
   userId: string;
 }) {
   try {
+    const db = await getDb();
     return await db
       .update(notification)
       .set({ readAt: new Date() })

@@ -1,7 +1,6 @@
 // app/(auth)/auth.ts
 import { compare } from "bcrypt-ts";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import NextAuth, { type DefaultSession } from "next-auth";
 import type { DefaultJWT } from "next-auth/jwt";
 import Credentials from "next-auth/providers/credentials";
@@ -9,18 +8,11 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import LinkedIn from "next-auth/providers/linkedin";
 import Twitter from "next-auth/providers/twitter";
-import postgres from "postgres";
 import { DUMMY_PASSWORD } from "@/lib/constants";
+import { getDb } from "@/lib/db/client";
 import { createGuestUser, getUser } from "@/lib/db/queries";
 import { user as userTable } from "@/lib/db/schema";
 import { authConfig } from "./auth.config";
-
-const postgresUrl = process.env.POSTGRES_URL;
-if (!postgresUrl) {
-  throw new Error("POSTGRES_URL is not set");
-}
-const client = postgres(postgresUrl);
-const db = drizzle(client);
 
 export type UserType = "guest" | "regular";
 
@@ -195,6 +187,7 @@ export const {
       }
 
       // Créer l'utilisateur en DB UNIQUEMENT pour les connexions Google/GitHub
+      const db = await getDb();
       if (
         !token.isLink &&
         account?.provider &&

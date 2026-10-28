@@ -1,20 +1,14 @@
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
-import postgres from "postgres";
+import { getDb } from "@/lib/db/client";
 import { file } from "@/lib/db/schema";
-
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10,
-});
-const db = drizzle(client);
 
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+
+  const db = await getDb();
 
   const [result] = await db.select().from(file).where(eq(file.id, id));
 

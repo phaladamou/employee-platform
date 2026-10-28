@@ -13,12 +13,11 @@ import {
 } from "ai";
 import { checkBotId } from "botid/server";
 import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/postgres-js";
 import { after } from "next/server";
-import postgres from "postgres";
 import { createResumableStreamContext } from "resumable-stream";
 
 import { auth, type UserType } from "@/app/(auth)/auth";
+import { getDb } from "@/lib/db/client";
 
 import {
   appCore,
@@ -70,14 +69,6 @@ import {
   postRequestBodySchema,
 } from "./schema";
 
-const client = postgres(process.env.POSTGRES_URL ?? "", {
-  max: 10,
-  idle_timeout: 30,
-  connect_timeout: 10,
-});
-
-const db = drizzle(client);
-
 export const maxDuration = 60;
 
 function getStreamContext() {
@@ -97,6 +88,7 @@ async function getFileContent(
   type: string;
   data: string;
 } | null> {
+  const db = await getDb();
   const [result] = await db
     .select()
     .from(file)
