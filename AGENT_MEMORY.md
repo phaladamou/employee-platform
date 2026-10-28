@@ -101,7 +101,9 @@ Employee-Windows`), extraire le NSIS avec 7za (`7zip-bin` via npm,
 `chmod +x` requis sur le binaire), vérifier `resources/standalone/`
 (`desktop-env.json` renseigné, `node_modules/` présent) et
 `resources/app-update.yml` (config updater), absence de symlinks
-pendouillants (`find -L ... -type l`).
+pendouillants (`find -L ... -type l`). Pour app.asar : `asar extract`
+vers /tmp — JAMAIS `asar extract-file` depuis la racine (il écrase
+package.json sur place, incident du 2026-10-28, restauré via git).
 
 Tests Playwright bureau (MANUELS UNIQUEMENT, hors CI par décision user) :
 
