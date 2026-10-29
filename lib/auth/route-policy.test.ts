@@ -48,4 +48,14 @@ describe("decideRoute", () => {
       location: "/workspace",
     });
   });
+
+  it("favicons et icones metadata restent publics sans session", () => {
+    for (const pathname of [
+      "/favicon.ico",
+      "/icon.svg",
+      "/apple-icon.png",
+    ]) {
+      assert.deepEqual(decideRoute(pathname, "", false), { action: "next" });
+    }
+  });
 });

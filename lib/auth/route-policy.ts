@@ -21,6 +21,8 @@ export const PUBLIC_PREFIXES = [
   "/images",
   "/fonts",
   "/favicon",
+  "/icon",
+  "/apple-icon",
   "/opengraph-image",
   "/twitter-image",
 ];
