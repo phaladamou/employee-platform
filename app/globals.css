@@ -173,6 +173,15 @@
   color-scheme: light;
 }
 
+/* Masque la scrollbar visuelle tout en gardant le scroll molette/tactile. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
 /* =============================================
    🎯 CURSEURS — Reset natifs + curseur personnalisé
    ============================================= */
