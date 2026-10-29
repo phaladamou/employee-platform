@@ -19,10 +19,6 @@ export default async function SettingsLayout({
     redirect("/login");
   }
 
-  if (session.user.type === "guest") {
-    redirect("/");
-  }
-
   const locale = await getLocale();
   const messages = await getMessages();
 

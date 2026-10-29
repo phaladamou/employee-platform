@@ -10,11 +10,12 @@ import LinkedIn from "next-auth/providers/linkedin";
 import Twitter from "next-auth/providers/twitter";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getDb, isDesktop } from "@/lib/db/client";
-import { createGuestUser, getUser } from "@/lib/db/queries";
+import { getUser } from "@/lib/db/queries";
 import { user as userTable } from "@/lib/db/schema";
 import { authConfig } from "./auth.config";
 
-export type UserType = "guest" | "regular";
+// Plus de mode invite : tout acces exige un compte.
+export type UserType = "regular";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
@@ -54,7 +55,7 @@ export const {
 } = NextAuth({
   ...authConfig,
   providers: [
-    // Bureau : pas d'OAuth cloud (credentials + guest uniquement).
+    // Bureau : pas d'OAuth cloud (credentials uniquement).
     ...(isDesktop()
       ? []
       : [
@@ -151,17 +152,14 @@ export const {
         return { id: u.id, email: u.email, name: u.name, type: "regular" };
       },
     }),
-    Credentials({
-      id: "guest",
-      credentials: {},
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" };
-      },
-    }),
   ],
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
+      // Tue les sessions JWT "guest" legacy (cookies stateless qui
+      // survivraient a la suppression du provider).
+      if ((token.type as string) === "guest") {
+        return null;
+      }
       console.log("[AUTH-JWT] trigger:", trigger, "user:", user?.email);
       // Gérer la mise à jour de session déclenchée par update()
       if (trigger === "update" && session) {
