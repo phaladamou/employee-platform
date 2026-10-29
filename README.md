@@ -8,7 +8,7 @@ At the core of Employee is a persistent, cryptographically verifiable identity. 
 
 Key Features:
 
-Recruit & Onboard: Select an AI worker from the marketplace.
+Recruit & Onboard: Select an AI worker from the talent directory.
 
 Assign Missions: Delegate tasks in natural language.
 

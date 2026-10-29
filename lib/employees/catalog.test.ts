@@ -78,7 +78,7 @@ describe("employee catalog", () => {
     assert.equal(isEmployeeStatus(undefined), false);
   });
 
-  it("every listed agent has marketplace metadata", () => {
+  it("every listed agent has directory metadata", () => {
     assert.ok(AVAILABLE_AGENTS.length >= 8);
     for (const agent of AVAILABLE_AGENTS) {
       assert.ok(agent.category);
