@@ -1,8 +1,9 @@
 // electron/e2e-chat.mjs
 //
 // Etape "E2E Chat Test" de la CI : demarre le serveur standalone FRAICHEMENT
-// construit (copie hors projet, comme le fige smoke-packaged), y connecte un
-// invite, envoie un message sur /api/chat et /websites/api/chat, et exige
+// construit (copie hors projet, comme le fige smoke-packaged), y connecte
+// un compte jetable (credentials), envoie un message sur /api/chat et
+// /websites/api/chat, et exige
 // une reponse streamee. Le LLM est simule (CI_PLAYWRIGHT=1 -> ChatAgent
 // emet E2E-CHAT-OK) : le test prouve le cablage de bout en bout (auth,
 // routes, proxy interne, Core, protocole de stream), pas le fournisseur LLM.
@@ -17,6 +18,7 @@ import { spawn } from "node:child_process";
 import { cpSync, existsSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createTestUser, deleteTestUser } from "./test-user.mjs";
 
 const root = process.cwd();
 const standaloneSrc = path.join(root, ".next", "standalone");
@@ -44,7 +46,9 @@ function fail(step, detail) {
   console.error(`[e2e-chat] FAIL: ${step} — ${detail}`);
 }
 
-function finish() {
+let testUser = null;
+async function finish() {
+  await deleteTestUser(testUser?.userId).catch(() => undefined);
   if (failures.length > 0) {
     console.error("[e2e-chat] --- server output (tail) ---");
     console.error(serverOut.slice(-4000));
@@ -52,7 +56,7 @@ function finish() {
     killChild();
     process.exit(1);
   }
-  console.log("[e2e-chat] OK (guest + main chat + websites chat)");
+  console.log("[e2e-chat] OK (signin + main chat + websites chat)");
   killChild();
   process.exit(0);
 }
@@ -210,29 +214,41 @@ async function main() {
     finish();
     return;
   }
-  console.log("[e2e-chat] server up, signing in as guest...");
+  console.log("[e2e-chat] server up, creating test user...");
+  try {
+    testUser = await createTestUser();
+  } catch (error) {
+    fail("test user creation", error.message);
+    finish();
+    return;
+  }
 
   const { csrfToken } = await (await req(`${BASE}/api/auth/csrf`)).json();
-  const callback = await req(`${BASE}/api/auth/callback/guest`, {
+  const callback = await req(`${BASE}/api/auth/callback/credentials`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
       "X-Auth-Return-Redirect": "1",
     },
-    body: new URLSearchParams({ csrfToken, callbackUrl: "/workspace" }),
+    body: new URLSearchParams({
+      csrfToken,
+      email: testUser.email,
+      password: testUser.password,
+      callbackUrl: "/workspace",
+    }),
   });
   if (callback.status !== 200) {
-    fail("guest signin", `HTTP ${callback.status}`);
+    fail("credentials signin", `HTTP ${callback.status}`);
     finish();
     return;
   }
   const session = await (await req(`${BASE}/api/auth/session`)).json();
   if (!session?.user?.id) {
-    fail("guest session", "missing user id");
+    fail("session", "missing user id");
     finish();
     return;
   }
-  console.log("[e2e-chat] PASS: guest signin + session");
+  console.log("[e2e-chat] PASS: signin + session");
 
   await postChat("main chat", "/api/chat");
   await postChat("websites chat", "/websites/api/chat");

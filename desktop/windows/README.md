@@ -17,7 +17,8 @@ aucune base locale. Une simple fenêtre Electron sur l'application partagée.
 - Branches `NEXT_PUBLIC_DESKTOP` dans `app/(auth)/login`, `app/(auth)/register`, `app/(auth)/auth.ts`
 - `output: standalone` conditionnel (`DESKTOP_BUILD=1`), `outputFileTracingRoot` local dans `next.config.ts`
 - `electron/build-standalone.mjs` — embarque `desktop-env.json` (URL Postgres fournie par la CI) + backfills `styled-jsx`/`@swc/helpers`/`@next/env`
-- `electron/smoke-packaged.mjs` — gate CI : boot réel du standalone + signin guest + rampe des routes (requiert `POSTGRES_URL`)
+- `electron/smoke-packaged.mjs` — gate CI : boot réel du standalone + signin credentials (compte jetable créé/supprimé) + rampe des routes (requiert `POSTGRES_URL`)
+- `electron/test-user.mjs` — helper partagé des tests : crée/supprime le compte jetable (+ ses chats/messages)
 - Mise à jour auto : `electron-updater` dans `main.ts` (vérif au démarrage, téléchargement en fond, installation au redémarrage) + `publish: github` dans `electron-builder.yml` ; CI publie `latest.yml` sur la Release (`electron/dist/node_modules` assemblé par `build-electron.mjs`)
 - `lib/db/migrations/0003_desktop_missing_tables.sql` — tables/colonnes du schéma absentes des migrations historiques (utile pour un `db:migrate` manuel ; le bureau n'applique plus de migrations au démarrage)
 - Breakpoints `--> statement-breakpoint` dans `0000_initial.sql` (requis par le migrateur drizzle)
@@ -30,8 +31,8 @@ aucune base locale. Une simple fenêtre Electron sur l'application partagée.
 ## État validé au 28/10/2026 (v3.2.0, bureau en ligne)
 
 - `pnpm desktop:typecheck` : 0 erreur (web + electron).
-- Serveur en `DESKTOP=1` : gate 401, providers credentials+guest uniquement,
-  connexion guest (écriture Postgres distante), settings GET/POST/masquage, validation 400.
+- Serveur en `DESKTOP=1` : gate 401, provider credentials uniquement,
+  connexion sur compte jetable (nettoyé après test), settings GET/POST/masquage, validation 400.
 - `pnpm desktop:build` : build standalone + config runtime embarquée + copies runtime + tsc electron + smoke OK.
 - `pnpm desktop:dist` : installeur Windows NSIS (`release/Employee-Setup-*.exe`).
 - `.env.local` volontairement absent (secrets). Dev bureau : créer `.env.local`

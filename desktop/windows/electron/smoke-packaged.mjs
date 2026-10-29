@@ -9,12 +9,13 @@
 // resoudrait les modules manquants via le node_modules du projet parent
 // et le test serait aveugle — exactement le piege rencontre en 3.1.x).
 // Lance automatiquement en fin de `pnpm desktop:build`.
-// Requiert POSTGRES_URL (le bureau est 100 % en ligne) : le signin guest
-// cree un utilisateur guest dans la base distante partagee.
+// Requiert POSTGRES_URL (le bureau est 100 % en ligne) : le signin
+// credentials utilise un compte jetable cree puis supprime en base.
 import { spawn } from "node:child_process";
 import { cpSync, existsSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createTestUser, deleteTestUser } from "./test-user.mjs";
 
 process.env.NO_PROXY = "127.0.0.1,localhost";
 process.env.no_proxy = "127.0.0.1,localhost";
@@ -119,7 +120,8 @@ async function main() {
   const kill = () => {
     killChild();
   };
-  const finish = (ok) => {
+  let testUser = null;
+  const finish = async (ok) => {
     if (MISS_PATTERN.test(serverOut)) {
       fail(`server output contains module-resolution error`);
       ok = false;
@@ -132,6 +134,7 @@ async function main() {
       `[smoke-packaged] ${ok && failures === 0 ? "OK" : "FAILED"} ` +
         `(${failures} failure(s), ${warnings.length} warning(s))`
     );
+    await deleteTestUser(testUser?.userId).catch(() => undefined);
     kill();
     process.exit(ok && failures === 0 ? 0 : 1);
   };
@@ -164,9 +167,10 @@ async function main() {
     failFinish("server did not answer within 90s");
     return;
   }
-  console.log("[smoke-packaged] server up, signing in as guest...");
+  console.log("[smoke-packaged] server up, creating test user...");
 
-  // 2. Session guest (exerce le Postgres distant + auth end-to-end).
+  // 2. Session credentials sur compte jetable (exerce le Postgres
+  // distant + auth end-to-end). Plus de provider guest.
   let cookies = "";
   const req = async (url, init = {}) => {
     const res = await fetch(url, {
@@ -193,29 +197,40 @@ async function main() {
   };
 
   const providers = await (await req(`${BASE}/api/auth/providers`)).json();
-  if (!providers.credentials || !providers.guest || providers.google) {
+  if (!providers.credentials || providers.guest || providers.google) {
     failFinish(`unexpected auth providers: ${Object.keys(providers)}`);
     return;
   }
+  try {
+    testUser = await createTestUser();
+  } catch (error) {
+    failFinish(`test user creation failed: ${error.message}`);
+    return;
+  }
   const { csrfToken } = await (await req(`${BASE}/api/auth/csrf`)).json();
-  const callback = await req(`${BASE}/api/auth/callback/guest`, {
+  const callback = await req(`${BASE}/api/auth/callback/credentials`, {
     method: "POST",
     headers: {
       "content-type": "application/x-www-form-urlencoded",
       "X-Auth-Return-Redirect": "1",
     },
-    body: new URLSearchParams({ csrfToken, callbackUrl: "/workspace" }),
+    body: new URLSearchParams({
+      csrfToken,
+      email: testUser.email,
+      password: testUser.password,
+      callbackUrl: "/workspace",
+    }),
   });
   if (callback.status !== 200) {
-    failFinish(`guest signin returned HTTP ${callback.status}`);
+    failFinish(`credentials signin returned HTTP ${callback.status}`);
     return;
   }
   const session = await (await req(`${BASE}/api/auth/session`)).json();
   if (!session?.user?.id) {
-    failFinish("guest session missing after signin");
+    failFinish("session missing after signin");
     return;
   }
-  console.log("[smoke-packaged] guest session ok, crawling routes...");
+  console.log("[smoke-packaged] session ok, crawling routes...");
 
   // 3. Rampe exhaustive : chaque route evalue son chunk serveur.
   const manifestPath = path.join(
