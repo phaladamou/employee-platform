@@ -1,0 +1,214 @@
+// components/workspace/recruit/agent-details-panel.tsx
+"use client";
+
+import { CheckIcon, XIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
+
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { AvailableAgent } from "@/lib/employees/catalog";
+import { RatingStars } from "./agent-card";
+
+export interface PanelDepartment {
+  id: string;
+  name: string;
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+}
+
+export function AgentDetailsPanel({
+  agent,
+  categoryLabel,
+  departments,
+  targetDepartmentId,
+  onTargetChange,
+  onRecruit,
+  onViewDepartment,
+  recruited,
+  busy,
+  error,
+  onClose,
+}: {
+  agent: AvailableAgent;
+  categoryLabel: string;
+  departments: PanelDepartment[];
+  targetDepartmentId: string;
+  onTargetChange: (departmentId: string) => void;
+  onRecruit: (agentId: string, departmentId: string) => void;
+  onViewDepartment: () => void;
+  recruited: boolean;
+  busy: boolean;
+  error: string | null;
+  onClose: () => void;
+}) {
+  const t = useTranslations("recruit");
+  const tEmployees = useTranslations("employees");
+
+  return (
+    <div className="flex flex-col gap-5 p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div
+            aria-hidden="true"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-[15px] font-semibold text-foreground"
+          >
+            {getInitials(agent.name)}
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-[15px] font-semibold text-foreground">
+              {agent.name}
+            </p>
+            <p className="truncate text-[12px] text-muted-foreground">
+              {agent.role} · {categoryLabel}
+            </p>
+          </div>
+        </div>
+        <Button
+          aria-label={tEmployees("recruit.close")}
+          onClick={onClose}
+          size="icon-sm"
+          type="button"
+          variant="ghost"
+        >
+          <XIcon />
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-2 text-[12.5px]">
+        <RatingStars rating={agent.rating} />
+        <span className="font-medium text-foreground">
+          {agent.rating.toFixed(1)}
+        </span>
+        <span className="text-muted-foreground">
+          · {t("card.reviewsCount", { count: agent.reviewsCount })}
+        </span>
+      </div>
+
+      <div className="rounded-xl border border-border/60 bg-card p-4">
+        <p className="text-[13px] font-medium text-foreground">
+          {t("details.recruitTitle")}
+        </p>
+        {recruited ? (
+          <div className="mt-3 flex flex-col gap-2">
+            <p className="flex items-center gap-1.5 text-[12.5px] text-emerald-600 dark:text-emerald-400">
+              <CheckIcon className="size-4" />
+              {t("card.recruited")}
+            </p>
+            <Button
+              onClick={onViewDepartment}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t("details.viewInDepartment")}
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div className="mt-3 flex gap-2">
+              <Select
+                disabled={busy}
+                onValueChange={onTargetChange}
+                value={targetDepartmentId}
+              >
+                <SelectTrigger
+                  aria-label={t("targetLabel")}
+                  className="flex-1"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {departments.map((department) => (
+                    <SelectItem key={department.id} value={department.id}>
+                      {department.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                disabled={busy}
+                onClick={() => onRecruit(agent.id, targetDepartmentId)}
+                size="sm"
+                type="button"
+              >
+                {t("card.recruitAction")}
+              </Button>
+            </div>
+            {error && (
+              <p className="mt-2 text-[12px] text-destructive">{error}</p>
+            )}
+          </>
+        )}
+      </div>
+
+      <div>
+        <p className="text-[12px] font-medium text-foreground/70">
+          {t("details.about")}
+        </p>
+        <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+          {agent.description}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-[12px] font-medium text-foreground/70">
+          {t("details.experience")}
+        </p>
+        <p className="mt-1 text-[13px] text-muted-foreground">
+          {agent.experience}
+        </p>
+      </div>
+
+      <div>
+        <p className="text-[12px] font-medium text-foreground/70">
+          {tEmployees("recruit.capabilities")}
+        </p>
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {agent.capabilities.map((capability) => (
+            <span
+              className="rounded-full bg-muted px-2.5 py-1 text-[12px] text-muted-foreground"
+              key={capability}
+            >
+              {capability}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[12px] font-medium text-foreground/70">
+          {t("details.reviews")}
+        </p>
+        <div className="mt-2 flex flex-col gap-3">
+          {agent.reviews.map((review) => (
+            <div
+              className="rounded-xl border border-border/60 bg-card p-3"
+              key={`${review.author}-${review.text.slice(0, 12)}`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[12.5px] font-medium text-foreground">
+                  {review.author}
+                </p>
+                <RatingStars rating={review.rating} />
+              </div>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+                {review.text}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

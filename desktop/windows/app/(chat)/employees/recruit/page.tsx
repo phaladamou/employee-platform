@@ -18,9 +18,9 @@ import {
 } from "@/components/ui/select";
 import { AgentCard } from "@/components/workspace/recruit/agent-card";
 import {
-  AgentDetailsSheet,
-  type SheetDepartment,
-} from "@/components/workspace/recruit/agent-details-sheet";
+  AgentDetailsPanel,
+  type PanelDepartment,
+} from "@/components/workspace/recruit/agent-details-panel";
 import {
   AGENT_CATEGORIES,
   AVAILABLE_AGENTS,
@@ -72,7 +72,7 @@ function RecruitPageContent() {
         ? tEmployees("departments.marketing.name")
         : tEmployees("departments.research.name");
 
-  const departmentOptions: SheetDepartment[] = departmentIds.map((id) => ({
+  const departmentOptions: PanelDepartment[] = departmentIds.map((id) => ({
     id,
     name: departmentName(id),
   }));
@@ -114,10 +114,32 @@ function RecruitPageContent() {
     }
   };
 
+  const closePanel = () => {
+    setSelectedAgentId(null);
+    setRecruitError(null);
+  };
+
   const clearFilters = () => {
     setQuery("");
     setCategory("all");
   };
+
+  const renderPanel = () =>
+    selectedAgent ? (
+      <AgentDetailsPanel
+        agent={selectedAgent}
+        busy={busyId === selectedAgent.id}
+        categoryLabel={categoryLabel(t, selectedAgent.category)}
+        departments={departmentOptions}
+        error={recruitError}
+        onClose={closePanel}
+        onRecruit={handleRecruit}
+        onTargetChange={setTargetDepartmentId}
+        onViewDepartment={() => router.push("/employees")}
+        recruited={recruitedIds.has(selectedAgent.id)}
+        targetDepartmentId={targetDepartmentId}
+      />
+    ) : null;
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-white dark:bg-background">
@@ -203,65 +225,64 @@ function RecruitPageContent() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl px-6 pb-12">
-          {visibleAgents.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
-              <p className="text-[13px] text-muted-foreground">
-                {t("noResults")}
-              </p>
-              <Button
-                onClick={clearFilters}
-                size="sm"
-                type="button"
-                variant="outline"
+      <div className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-y-auto">
+          <div className="mx-auto w-full max-w-5xl px-6 pb-12">
+            {selectedAgent && (
+              <div className="mb-6 overflow-hidden rounded-xl border border-border/60 bg-card/50 md:hidden">
+                {renderPanel()}
+              </div>
+            )}
+            {visibleAgents.length === 0 ? (
+              <div className="flex flex-col items-center gap-3 py-16 text-center">
+                <p className="text-[13px] text-muted-foreground">
+                  {t("noResults")}
+                </p>
+                <Button
+                  onClick={clearFilters}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {t("clearFilters")}
+                </Button>
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-4 sm:grid-cols-2",
+                  !selectedAgent && "xl:grid-cols-3"
+                )}
               >
-                {t("clearFilters")}
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {visibleAgents.map((agent) => (
-                <AgentCard
-                  agent={agent}
-                  busy={busyId === agent.id}
-                  categoryLabel={categoryLabel(t, agent.category)}
-                  key={agent.id}
-                  onRecruit={(agentId) =>
-                    handleRecruit(agentId, targetDepartmentId)
-                  }
-                  onSelect={setSelectedAgentId}
-                  recruited={recruitedIds.has(agent.id)}
-                />
-              ))}
-            </div>
-          )}
-          {recruitError && (
-            <p className="mt-4 text-center text-[12.5px] text-destructive">
-              {recruitError}
-            </p>
-          )}
+                {visibleAgents.map((agent) => (
+                  <AgentCard
+                    agent={agent}
+                    busy={busyId === agent.id}
+                    categoryLabel={categoryLabel(t, agent.category)}
+                    key={agent.id}
+                    onRecruit={(agentId) =>
+                      handleRecruit(agentId, targetDepartmentId)
+                    }
+                    onSelect={setSelectedAgentId}
+                    recruited={recruitedIds.has(agent.id)}
+                  />
+                ))}
+              </div>
+            )}
+            {recruitError && !selectedAgent && (
+              <p className="mt-4 text-center text-[12.5px] text-destructive">
+                {recruitError}
+              </p>
+            )}
+          </div>
         </div>
-      </div>
 
-      <AgentDetailsSheet
-        agent={selectedAgent}
-        busy={busyId === selectedAgent?.id}
-        categoryLabel={
-          selectedAgent ? categoryLabel(t, selectedAgent.category) : ""
-        }
-        departments={departmentOptions}
-        error={recruitError}
-        onClose={() => {
-          setSelectedAgentId(null);
-          setRecruitError(null);
-        }}
-        onRecruit={handleRecruit}
-        onTargetChange={setTargetDepartmentId}
-        onViewDepartment={() => router.push("/employees")}
-        recruited={selectedAgent ? recruitedIds.has(selectedAgent.id) : false}
-        targetDepartmentId={targetDepartmentId}
-      />
+        {selectedAgent && (
+          <aside className="hidden w-[400px] shrink-0 overflow-y-auto border-l border-border/60 bg-muted/40 md:block">
+            {renderPanel()}
+          </aside>
+        )}
+      </div>
     </div>
   );
 }
