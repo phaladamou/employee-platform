@@ -11,6 +11,7 @@ import {
   EMPLOYEES,
   countByStatus,
   getEmployeesByDepartment,
+  isEmployeeStatus,
   recruitEmployee,
 } from "./catalog.ts";
 
@@ -65,5 +66,14 @@ describe("employee catalog", () => {
     assert.throws(() =>
       recruitEmployee(EMPLOYEES, AVAILABLE_AGENTS[0], "unknown", "emp-x")
     );
+  });
+
+  it("validates employee statuses", () => {
+    assert.equal(isEmployeeStatus("idle"), true);
+    assert.equal(isEmployeeStatus("working"), true);
+    assert.equal(isEmployeeStatus("completed"), true);
+    assert.equal(isEmployeeStatus("flying"), false);
+    assert.equal(isEmployeeStatus(null), false);
+    assert.equal(isEmployeeStatus(undefined), false);
   });
 });

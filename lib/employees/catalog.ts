@@ -1,6 +1,8 @@
 // lib/employees/catalog.ts
-// Catalogue v1 de la vision "Employee" : donnees statiques typees +
-// helpers purs (sans dependance Next/React).
+// Vision "Employee" : types + agents disponibles + helpers purs (sans
+// dependance Next/React). Source de verite runtime = tables Department et
+// Employee (migration 0004) ; EMPLOYEES ci-dessous est la reference du
+// seed initial uniquement.
 // Comportement verrouille par catalog.test.ts :
 // `node --test lib/employees/catalog.test.ts`.
 
@@ -166,4 +168,11 @@ export function recruitEmployee(
       departmentId,
     },
   ];
+}
+
+const EMPLOYEE_STATUSES: EmployeeStatus[] = ["idle", "working", "completed"];
+
+// Garde-fou pour les statuts lus en base (colonne varchar libre).
+export function isEmployeeStatus(value: unknown): value is EmployeeStatus {
+  return EMPLOYEE_STATUSES.some((status) => status === value);
 }
