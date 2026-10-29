@@ -359,7 +359,7 @@ export function isEmployeeStatus(value: unknown): value is EmployeeStatus {
   return EMPLOYEE_STATUSES.some((status) => status === value);
 }
 
-// Filtre marketplace : categorie exacte + recherche plein texte
+// Filtre du repertoire : categorie exacte + recherche plein texte
 // insensible a la casse (chaque mot doit matcher quelque part).
 export function filterAgents(
   agents: AvailableAgent[],
