@@ -17,7 +17,6 @@ import {
 import type { ArtifactKind } from "@/components/workspace/artifact";
 import type { VisibilityType } from "@/components/workspace/visibility-selector";
 import { ChatbotError } from "../errors";
-import { generateUUID } from "../utils";
 import {
   type Chat,
   chat,
@@ -59,25 +58,6 @@ export async function createUser(email: string, password: string) {
   } catch (_error) {
     console.error("createUser DB Error:", _error);
     throw new ChatbotError("bad_request:database", "Failed to create user");
-  }
-}
-
-export async function createGuestUser() {
-  const email = `guest-${Date.now()}`;
-  const password = generateHashedPassword(generateUUID());
-
-  try {
-    const db = await getDb();
-    return await db.insert(user).values({ email, password } as any).returning({
-      id: user.id,
-      email: user.email,
-    });
-  } catch (_error) {
-    console.error("createGuestUser DB Error:", _error);
-    throw new ChatbotError(
-      "bad_request:database",
-      "Failed to create guest user"
-    );
   }
 }
 

@@ -16,11 +16,12 @@ import {
   normalizeOtpEmail,
   verifyOtpCode,
 } from "@/lib/db/otp";
-import { createGuestUser, getUser } from "@/lib/db/queries";
+import { getUser } from "@/lib/db/queries";
 import { user as userTable } from "@/lib/db/schema";
 import { authConfig } from "./auth.config";
 
-export type UserType = "guest" | "regular";
+// Plus de mode invite : tout acces exige un compte (password, OTP, OAuth).
+export type UserType = "regular";
 
 declare module "next-auth" {
   interface Session extends DefaultSession {
@@ -175,17 +176,14 @@ export const {
         }
       },
     }),
-    Credentials({
-      id: "guest",
-      credentials: {},
-      async authorize() {
-        const [guestUser] = await createGuestUser();
-        return { ...guestUser, type: "guest" };
-      },
-    }),
   ],
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
+      // Tue les sessions JWT "guest" legacy (cookies stateless qui
+      // survivraient a la suppression du provider).
+      if ((token.type as string) === "guest") {
+        return null;
+      }
       console.log("[AUTH-JWT] trigger:", trigger, "user:", user?.email);
       // Gérer la mise à jour de session déclenchée par update()
       if (trigger === "update" && session) {
