@@ -1,4 +1,4 @@
-// components/workspace/recruit/agent-card.tsx
+// desktop/windows/components/workspace/recruit/agent-card.tsx
 "use client";
 
 import { CheckIcon } from "lucide-react";
@@ -22,6 +22,7 @@ export function AgentCard({
   categoryLabel,
   recruited,
   busy,
+  selected,
   onRecruit,
   onSelect,
 }: {
@@ -29,6 +30,7 @@ export function AgentCard({
   categoryLabel: string;
   recruited: boolean;
   busy: boolean;
+  selected?: boolean;
   onRecruit: (agentId: string) => void;
   onSelect?: (agentId: string) => void;
 }) {
@@ -39,8 +41,9 @@ export function AgentCard({
   return (
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-xl border border-border/60 bg-card p-4",
-        onSelect && "cursor-pointer transition-colors hover:border-foreground/20"
+        "flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-6 shadow-[var(--shadow-card)]",
+        onSelect && "cursor-pointer transition-colors hover:border-foreground/20",
+        selected && "border-indigo-600/50 ring-1 ring-indigo-600/30"
       )}
       onClick={onSelect ? () => onSelect(agent.id) : undefined}
     >
@@ -48,12 +51,12 @@ export function AgentCard({
         <div className="flex min-w-0 items-center gap-3">
           <div
             aria-hidden="true"
-            className="flex size-11 shrink-0 items-center justify-center rounded-full bg-muted text-[14px] font-semibold text-foreground"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-[14px] font-semibold text-foreground"
           >
             {getInitials(agent.name)}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-[14px] font-medium text-foreground">
+            <p className="truncate text-[15px] font-medium text-foreground">
               {agent.name}
             </p>
             <p className="truncate text-[12px] text-muted-foreground">
@@ -66,7 +69,7 @@ export function AgentCard({
         </span>
       </div>
 
-      <p className="line-clamp-2 text-[12.5px] leading-relaxed text-muted-foreground">
+      <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
         {agent.description}
       </p>
 
@@ -86,7 +89,7 @@ export function AgentCard({
         )}
       </div>
 
-      <div className="mt-auto pt-1">
+      <div className="mt-auto pt-2">
         {recruited ? (
           <Button className="w-full" disabled type="button" variant="outline">
             <CheckIcon className="size-4" />
@@ -101,6 +104,7 @@ export function AgentCard({
               onRecruit(agent.id);
             }}
             type="button"
+            variant="brand"
           >
             {t("card.recruitAction")}
           </Button>
