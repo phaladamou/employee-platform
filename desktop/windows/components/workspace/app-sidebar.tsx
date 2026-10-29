@@ -205,7 +205,7 @@ export function AppSidebar() {
       route: "/employees",
       isActive: isEmployees,
       icon: UsersRoundIcon,
-      label: "AI Employees",
+      label: t("employees"),
       group: "secondary",
     },
     {
