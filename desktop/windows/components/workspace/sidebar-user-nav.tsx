@@ -103,8 +103,8 @@ function UserAvatar({
       aria-hidden="true"
       className={
         size === "small"
-          ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/10 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/10"
-          : "flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[13px] font-semibold tracking-tight text-emerald-700 ring-1 ring-emerald-500/10 dark:bg-emerald-400/10 dark:text-emerald-300 dark:ring-emerald-400/10"
+          ? "flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[11px] font-semibold text-emerald-700 ring-1 ring-emerald-500/10"
+          : "flex size-10 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-[13px] font-semibold tracking-tight text-emerald-700 ring-1 ring-emerald-500/10"
       }
     >
       {initials}
@@ -208,7 +208,7 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
 
           <DropdownMenuContent
             align="start"
-            className="w-56 rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl"
+            className="theme-light w-56 rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl"
             data-testid="user-nav-menu"
             side="top"
             sideOffset={8}

@@ -72,7 +72,7 @@ export function NotificationsBell({ className }: { className?: string }) {
 
       <TooltipContent
         align="start"
-        className="border-0 bg-transparent p-0 shadow-none [&>span]:hidden"
+        className="theme-light border-0 bg-transparent p-0 shadow-none [&>span]:hidden"
         side="top"
         sideOffset={8}
       >
