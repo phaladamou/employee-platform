@@ -204,7 +204,7 @@ function RecruitPageContent() {
           </div>
         </div>
 
-        <div className="mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-y-auto px-8 pb-16">
+        <div className="scrollbar-none mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-y-auto px-8 pb-16">
           {visibleAgents.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <p className="text-[13px] text-muted-foreground">
@@ -251,7 +251,7 @@ function RecruitPageContent() {
       </div>
 
       {selectedAgent && (
-        <aside className="absolute inset-0 overflow-y-auto bg-card lg:static lg:w-[38%] lg:flex-none lg:border-l lg:border-border/60">
+        <aside className="scrollbar-none absolute inset-0 overflow-y-auto bg-card lg:static lg:w-[38%] lg:flex-none lg:border-l lg:border-border/60">
           <AgentDetailsPanel
             agent={selectedAgent}
             busy={busyId === selectedAgent?.id}
