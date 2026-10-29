@@ -50,6 +50,35 @@
       "close": "Close"
     }
   },
+  "recruit": {
+    "title": "Talent Marketplace",
+    "subtitle": "Discover and hire AI employees for your departments.",
+    "back": "Employees",
+    "searchPlaceholder": "Search agents, roles, skills…",
+    "allCategories": "All",
+    "categories": {
+      "development": "Development",
+      "research": "Research",
+      "data": "Data & Analysis",
+      "design": "Design",
+      "operations": "Operations"
+    },
+    "targetLabel": "Recruit into",
+    "noResults": "No agents match your search.",
+    "clearFilters": "Clear filters",
+    "card": {
+      "recruitAction": "Recruit",
+      "recruited": "Recruited",
+      "reviewsCount": "{count} reviews"
+    },
+    "details": {
+      "about": "About",
+      "experience": "Experience",
+      "reviews": "Reviews",
+      "recruitTitle": "Recruit this agent",
+      "viewInDepartment": "View in department"
+    }
+  },
   "settings": {
     "title": "Settings",
     "general": "General",

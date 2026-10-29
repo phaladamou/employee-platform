@@ -50,6 +50,35 @@
       "close": "关闭"
     }
   },
+  "recruit": {
+    "title": "人才市场",
+    "subtitle": "为您部门发现并招聘 AI 员工。",
+    "back": "员工",
+    "searchPlaceholder": "搜索智能体、角色、技能…",
+    "allCategories": "全部",
+    "categories": {
+      "development": "开发",
+      "research": "研究",
+      "data": "数据与分析",
+      "design": "设计",
+      "operations": "运营"
+    },
+    "targetLabel": "招聘至",
+    "noResults": "没有符合搜索的智能体。",
+    "clearFilters": "清除筛选",
+    "card": {
+      "recruitAction": "招聘",
+      "recruited": "已招聘",
+      "reviewsCount": "{count} 条评价"
+    },
+    "details": {
+      "about": "简介",
+      "experience": "经验",
+      "reviews": "评价",
+      "recruitTitle": "招聘此智能体",
+      "viewInDepartment": "在部门中查看"
+    }
+  },
   "settings": {
     "title": "设置",
     "general": "通用",
