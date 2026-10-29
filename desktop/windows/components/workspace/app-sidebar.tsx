@@ -13,6 +13,7 @@ import {
   PenSquareIcon,
   SearchIcon,
   TerminalIcon,
+  UserPlusIcon,
   UsersRoundIcon,
 } from "lucide-react";
 
@@ -59,6 +60,7 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 import type { Chat } from "@/lib/db/schema";
+import { isEmployeesSection, isRecruitSection } from "@/lib/sidebar/nav-state";
 import { cn, fetcher } from "@/lib/utils";
 
 type NavGroup = "primary" | "secondary";
@@ -177,7 +179,8 @@ export function AppSidebar() {
   const isWorkspace = pathname.startsWith("/workspace");
   const isComputer = pathname.startsWith("/computer");
   const isCli = pathname.startsWith("/cli");
-  const isEmployees = pathname.startsWith("/employees");
+  const isEmployees = isEmployeesSection(pathname);
+  const isRecruit = isRecruitSection(pathname);
 
   const navItems: NavItem[] = [
     {
@@ -268,10 +271,9 @@ export function AppSidebar() {
                 className={cn(
                   "h-9 cursor-pointer rounded-lg px-3",
                   "text-[13px] font-normal",
-                  "text-sidebar-foreground/55 dark:text-white/55",
+                  "text-sidebar-foreground/55",
                   "transition-colors duration-150",
                   "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
-                  "dark:hover:text-white"
                 )}
               >
                 <div className="flex flex-1 items-center gap-3">
@@ -285,7 +287,7 @@ export function AppSidebar() {
 
             <TooltipContent
               align="start"
-              className="border-0 bg-transparent p-0 shadow-none [&>span]:hidden"
+              className="theme-light border-0 bg-transparent p-0 shadow-none [&>span]:hidden"
               side="right"
               sideOffset={8}
             >
@@ -307,7 +309,7 @@ export function AppSidebar() {
                   "group/nav h-9 cursor-pointer rounded-lg px-3",
                   "text-[13px] font-normal",
                   "transition-colors duration-150",
-                  "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:text-white/55 dark:hover:text-white"
+                  "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                 )}
                 tooltip={item.label}
               >
@@ -320,7 +322,7 @@ export function AppSidebar() {
 
             <DropdownMenuContent
               align="start"
-              className="w-56 rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl"
+              className="theme-light w-56 rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl"
               side="right"
               sideOffset={4}
             >
@@ -385,7 +387,7 @@ export function AppSidebar() {
             "transition-colors duration-150",
             item.isActive
               ? "bg-sidebar-accent text-sidebar-foreground shadow-sm"
-              : "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground dark:text-white/55 dark:hover:text-white"
+              : "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
           )}
           onClick={() => {
             setOpenMobile(false);
@@ -414,7 +416,6 @@ export function AppSidebar() {
       className="
         border-r border-sidebar-border
         [&>div]:!bg-zinc-50
-        dark:[&>div]:!bg-zinc-900
       "
       collapsible="icon"
     >
@@ -472,7 +473,7 @@ export function AppSidebar() {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Link href="/search">
-                    <SidebarMenuButton className="size-8 cursor-pointer text-black/50 transition-colors duration-150 hover:text-black dark:text-white/50 dark:hover:text-white">
+                    <SidebarMenuButton className="size-8 cursor-pointer text-black/50 transition-colors duration-150 hover:text-black">
                       <SearchIcon className="size-4" />
                     </SidebarMenuButton>
                   </Link>
@@ -482,7 +483,7 @@ export function AppSidebar() {
                 </TooltipContent>
               </Tooltip>
 
-              <SidebarTrigger className="cursor-pointer text-black/50 transition-colors duration-150 hover:text-black dark:text-white/50 dark:hover:text-white" />
+              <SidebarTrigger className="cursor-pointer text-black/50 transition-colors duration-150 hover:text-black" />
             </div>
           </SidebarMenuItem>
         </SidebarMenu>
@@ -516,7 +517,39 @@ export function AppSidebar() {
       </SidebarContent>
 
       {/* Footer */}
-      <SidebarFooter className="relative z-10 border-t border-black/5 px-2 pb-3 pt-2 dark:border-white/5">
+      <SidebarFooter className="relative z-10 border-t border-black/5 px-2 pb-3 pt-2">
+        <SidebarMenu className="mb-1 gap-1">
+          <SidebarMenuItem>
+            <SidebarMenuButton
+              className={cn(
+                "group/nav h-9 cursor-pointer rounded-lg px-3",
+                "text-[13px] font-normal",
+                "transition-colors duration-150",
+                "group-data-[collapsible=icon]:mx-auto",
+                isRecruit
+                  ? "bg-sidebar-accent text-sidebar-foreground shadow-sm"
+                  : "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
+              )}
+              onClick={() => {
+                setOpenMobile(false);
+                router.push("/employees/recruit");
+              }}
+              tooltip={t("recruit")}
+            >
+              <div className="flex flex-1 items-center gap-3 group-data-[collapsible=icon]:justify-center">
+                <UserPlusIcon
+                  className={cn(
+                    "size-4 shrink-0 transition-opacity duration-150",
+                    isRecruit
+                      ? "opacity-100"
+                      : "opacity-75 group-hover/nav:opacity-100"
+                  )}
+                />
+                <span className="whitespace-nowrap group-data-[collapsible=icon]:hidden">{t("recruit")}</span>
+              </div>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
         <SidebarUserNav user={user} />
       </SidebarFooter>
 
