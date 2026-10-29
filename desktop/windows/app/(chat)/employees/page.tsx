@@ -8,7 +8,6 @@ import {
   MegaphoneIcon,
   PlusIcon,
 } from "lucide-react";
-import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
@@ -17,11 +16,6 @@ import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { EmployeeCard } from "@/components/workspace/employees/employee-card";
 import {
-  RecruitDialog,
-  type RecruitDepartment,
-} from "@/components/workspace/employees/recruit-dialog";
-import {
-  DEPARTMENTS,
   getEmployeesByDepartment,
   type Employee,
 } from "@/lib/employees/catalog";
@@ -51,13 +45,6 @@ export default function EmployeesPage() {
     { revalidateOnFocus: false }
   );
 
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [defaultDepartmentId, setDefaultDepartmentId] = useState(
-    DEPARTMENTS[0]?.id ?? "engineering"
-  );
-  const [recruitError, setRecruitError] = useState<string | null>(null);
-  const [recruiting, setRecruiting] = useState(false);
-
   const departmentIds = data?.departments ?? [];
   const employees = data?.employees ?? [];
 
@@ -75,36 +62,10 @@ export default function EmployeesPage() {
         ? t("departments.marketing.description")
         : t("departments.research.description");
 
-  const departmentOptions: RecruitDepartment[] = departmentIds.map((id) => ({
-    id,
-    name: departmentName(id),
-  }));
-
-  const openRecruitDialog = (departmentId: string) => {
-    setRecruitError(null);
-    setDefaultDepartmentId(departmentId);
-    setDialogOpen(true);
-  };
-
-  const handleRecruit = async (agentId: string, departmentId: string) => {
-    setRecruiting(true);
-    setRecruitError(null);
-    try {
-      const res = await fetch("/api/employees/recruit", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ agentId, departmentId }),
-      });
-      if (!res.ok) {
-        throw new Error(`recruit failed: HTTP ${res.status}`);
-      }
-      await mutate();
-      setDialogOpen(false);
-    } catch {
-      setRecruitError(tErr("network_error"));
-    } finally {
-      setRecruiting(false);
-    }
+  const openRecruitPage = (departmentId: string) => {
+    router.push(
+      `/employees/recruit?department=${encodeURIComponent(departmentId)}`
+    );
   };
 
   return (
@@ -129,9 +90,7 @@ export default function EmployeesPage() {
           </div>
           <Button
             disabled={isLoading || !data}
-            onClick={() =>
-              openRecruitDialog(departmentIds[0] ?? "engineering")
-            }
+            onClick={() => openRecruitPage(departmentIds[0] ?? "engineering")}
             type="button"
           >
             <PlusIcon className="size-4" />
@@ -188,7 +147,7 @@ export default function EmployeesPage() {
                         {t("emptyDepartment")}
                       </p>
                       <Button
-                        onClick={() => openRecruitDialog(departmentId)}
+                        onClick={() => openRecruitPage(departmentId)}
                         size="sm"
                         type="button"
                         variant="outline"
@@ -209,18 +168,6 @@ export default function EmployeesPage() {
           )}
         </div>
       </div>
-
-      {dialogOpen && (
-        <RecruitDialog
-          busy={recruiting}
-          defaultDepartmentId={defaultDepartmentId}
-          departments={departmentOptions}
-          error={recruitError}
-          onOpenChange={setDialogOpen}
-          onRecruit={handleRecruit}
-          open={dialogOpen}
-        />
-      )}
     </div>
   );
 }
