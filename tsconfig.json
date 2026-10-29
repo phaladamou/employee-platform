@@ -41,6 +41,7 @@
   "exclude": [
     "node_modules",
     "desktop",
-    "lib/auth/route-policy.test.ts"
+    "lib/auth/route-policy.test.ts",
+    "lib/employees/catalog.test.ts"
   ]
 }
