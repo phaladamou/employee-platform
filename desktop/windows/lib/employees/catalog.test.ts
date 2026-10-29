@@ -10,6 +10,7 @@ import {
   DEPARTMENTS,
   EMPLOYEES,
   countByStatus,
+  filterAgents,
   getEmployeesByDepartment,
   isEmployeeStatus,
   recruitEmployee,
@@ -75,5 +76,51 @@ describe("employee catalog", () => {
     assert.equal(isEmployeeStatus("flying"), false);
     assert.equal(isEmployeeStatus(null), false);
     assert.equal(isEmployeeStatus(undefined), false);
+  });
+
+  it("every listed agent has marketplace metadata", () => {
+    assert.ok(AVAILABLE_AGENTS.length >= 8);
+    for (const agent of AVAILABLE_AGENTS) {
+      assert.ok(agent.category);
+      assert.ok(agent.rating >= 0 && agent.rating <= 5);
+      assert.ok(agent.reviewsCount > 0);
+      assert.ok(agent.experience.length > 0);
+      assert.ok(agent.reviews.length > 0);
+      assert.ok(agent.capabilities.length > 0);
+    }
+  });
+
+  it("filters agents by category", () => {
+    const dev = filterAgents(AVAILABLE_AGENTS, "", "development");
+    assert.equal(dev.length, 2);
+    assert.ok(dev.every((a) => a.category === "development"));
+    assert.equal(
+      filterAgents(AVAILABLE_AGENTS, "", "all").length,
+      AVAILABLE_AGENTS.length
+    );
+  });
+
+  it("searches agents by name, role and capability", () => {
+    assert.deepEqual(
+      filterAgents(AVAILABLE_AGENTS, "mira", "all").map((a) => a.id),
+      ["agent-researcher"]
+    );
+    assert.deepEqual(
+      filterAgents(AVAILABLE_AGENTS, "dAtA eNgInEeR", "all").map((a) => a.id),
+      ["agent-dataeng"]
+    );
+    assert.deepEqual(
+      filterAgents(AVAILABLE_AGENTS, "docker", "all").map((a) => a.id),
+      ["agent-devops"]
+    );
+    assert.deepEqual(filterAgents(AVAILABLE_AGENTS, "plumber", "all"), []);
+  });
+
+  it("combines search and category", () => {
+    assert.deepEqual(
+      filterAgents(AVAILABLE_AGENTS, "data", "design"),
+      []
+    );
+    assert.equal(filterAgents(AVAILABLE_AGENTS, "data", "data").length, 2);
   });
 });
