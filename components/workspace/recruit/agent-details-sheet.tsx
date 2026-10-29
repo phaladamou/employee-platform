@@ -44,6 +44,7 @@ function SheetContentNoOverlay({
         data-slot="sheet-content"
         data-side="right"
         className={cn(
+          "theme-light",
           "fixed z-50 flex flex-col bg-background bg-clip-padding text-sm shadow-2xl data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[85%] data-[side=right]:border-l data-[side=right]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:duration-400 data-open:ease-[cubic-bezier(0.32,0.72,0,1)] data-[side=right]:data-open:slide-in-from-right-full data-closed:animate-out data-closed:fade-out-0 data-closed:duration-300 data-closed:ease-[cubic-bezier(0.32,0.72,0,1)] data-[side=right]:data-closed:slide-out-to-right-full",
           className
         )}
@@ -128,13 +129,13 @@ export function AgentDetailsSheet({
               </div>
             </SheetHeader>
 
-            <div className="mt-4 rounded-xl border border-border/60 p-4">
+            <div className="mt-4 rounded-xl border border-border/60 bg-card p-5 shadow-[var(--shadow-card)]">
               <p className="text-[13px] font-medium text-foreground">
                 {t("details.recruitTitle")}
               </p>
               {recruited ? (
                 <div className="mt-3 flex flex-col gap-2">
-                  <p className="flex items-center gap-1.5 text-[12.5px] text-emerald-600 dark:text-emerald-400">
+                  <p className="flex items-center gap-1.5 text-[12.5px] text-emerald-600">
                     <CheckIcon className="size-4" />
                     {t("card.recruited")}
                   </p>
@@ -161,7 +162,7 @@ export function AgentDetailsSheet({
                       >
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="theme-light">
                         {departments.map((department) => (
                           <SelectItem
                             key={department.id}
@@ -177,6 +178,7 @@ export function AgentDetailsSheet({
                       onClick={() => onRecruit(agent.id, targetDepartmentId)}
                       size="sm"
                       type="button"
+                      variant="brand"
                     >
                       {t("card.recruitAction")}
                     </Button>
