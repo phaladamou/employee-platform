@@ -1,7 +1,7 @@
 // components/workspace/recruit/agent-card.tsx
 "use client";
 
-import { CheckIcon, StarIcon } from "lucide-react";
+import { CheckIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -13,30 +13,6 @@ function getInitials(name: string): string {
   if (parts.length === 0) return "?";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-}
-
-export function RatingStars({
-  rating,
-  className,
-}: {
-  rating: number;
-  className?: string;
-}) {
-  return (
-    <span className={cn("inline-flex items-center gap-0.5", className)}>
-      {[1, 2, 3, 4, 5].map((i) => (
-        <StarIcon
-          className={cn(
-            "size-3.5",
-            i <= Math.round(rating)
-              ? "fill-amber-400 text-amber-400"
-              : "text-muted-foreground/40"
-          )}
-          key={i}
-        />
-      ))}
-    </span>
-  );
 }
 
 const VISIBLE_CAPABILITIES = 3;
@@ -87,16 +63,6 @@ export function AgentCard({
         </div>
         <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
           {categoryLabel}
-        </span>
-      </div>
-
-      <div className="flex items-center gap-1.5 text-[12px]">
-        <StarIcon className="size-3.5 fill-amber-400 text-amber-400" />
-        <span className="font-medium text-foreground">
-          {agent.rating.toFixed(1)}
-        </span>
-        <span className="text-muted-foreground">
-          · {t("card.reviewsCount", { count: agent.reviewsCount })}
         </span>
       </div>
 

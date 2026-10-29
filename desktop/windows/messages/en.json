@@ -68,13 +68,11 @@
     "clearFilters": "Clear filters",
     "card": {
       "recruitAction": "Recruit",
-      "recruited": "Recruited",
-      "reviewsCount": "{count} reviews"
+      "recruited": "Recruited"
     },
     "details": {
       "about": "About",
       "experience": "Experience",
-      "reviews": "Reviews",
       "recruitTitle": "Recruit this agent",
       "viewInDepartment": "View in department"
     }

@@ -68,13 +68,11 @@
     "clearFilters": "Effacer les filtres",
     "card": {
       "recruitAction": "Recruter",
-      "recruited": "Recruté",
-      "reviewsCount": "{count} avis"
+      "recruited": "Recruté"
     },
     "details": {
       "about": "À propos",
       "experience": "Expérience",
-      "reviews": "Avis",
       "recruitTitle": "Recruter cet agent",
       "viewInDepartment": "Voir dans le département"
     }

@@ -68,13 +68,11 @@
     "clearFilters": "清除筛选",
     "card": {
       "recruitAction": "招聘",
-      "recruited": "已招聘",
-      "reviewsCount": "{count} 条评价"
+      "recruited": "已招聘"
     },
     "details": {
       "about": "简介",
       "experience": "经验",
-      "reviews": "评价",
       "recruitTitle": "招聘此智能体",
       "viewInDepartment": "在部门中查看"
     }
