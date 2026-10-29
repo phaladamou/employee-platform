@@ -82,10 +82,7 @@ describe("employee catalog", () => {
     assert.ok(AVAILABLE_AGENTS.length >= 8);
     for (const agent of AVAILABLE_AGENTS) {
       assert.ok(agent.category);
-      assert.ok(agent.rating >= 0 && agent.rating <= 5);
-      assert.ok(agent.reviewsCount > 0);
       assert.ok(agent.experience.length > 0);
-      assert.ok(agent.reviews.length > 0);
       assert.ok(agent.capabilities.length > 0);
     }
   });

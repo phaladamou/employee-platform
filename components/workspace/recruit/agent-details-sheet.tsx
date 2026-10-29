@@ -22,7 +22,6 @@ import {
 } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import type { AvailableAgent } from "@/lib/employees/catalog";
-import { RatingStars } from "./agent-card";
 
 export interface SheetDepartment {
   id: string;
@@ -129,16 +128,6 @@ export function AgentDetailsSheet({
               </div>
             </SheetHeader>
 
-            <div className="mt-4 flex items-center gap-2 text-[12.5px]">
-              <RatingStars rating={agent.rating} />
-              <span className="font-medium text-foreground">
-                {agent.rating.toFixed(1)}
-              </span>
-              <span className="text-muted-foreground">
-                · {t("card.reviewsCount", { count: agent.reviewsCount })}
-              </span>
-            </div>
-
             <div className="mt-4 rounded-xl border border-border/60 p-4">
               <p className="text-[13px] font-medium text-foreground">
                 {t("details.recruitTitle")}
@@ -233,29 +222,6 @@ export function AgentDetailsSheet({
               </div>
             </div>
 
-            <div className="mt-5">
-              <p className="text-[12px] font-medium text-foreground/70">
-                {t("details.reviews")}
-              </p>
-              <div className="mt-2 flex flex-col gap-3">
-                {agent.reviews.map((review) => (
-                  <div
-                    className="rounded-xl border border-border/60 p-3"
-                    key={`${review.author}-${review.text.slice(0, 12)}`}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[12.5px] font-medium text-foreground">
-                        {review.author}
-                      </p>
-                      <RatingStars rating={review.rating} />
-                    </div>
-                    <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-                      {review.text}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
           </>
         )}
       </SheetContentNoOverlay>
