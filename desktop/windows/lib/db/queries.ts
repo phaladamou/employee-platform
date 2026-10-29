@@ -22,7 +22,11 @@ import {
   chat,
   type DBMessage,
   connector,
+  type Department,
+  department,
   document,
+  type Employee,
+  employee,
   message,
   notification,
   type Suggestion,
@@ -1076,6 +1080,55 @@ export async function markAllNotificationsAsRead({
     throw new ChatbotError(
       "bad_request:database",
       "Failed to mark notifications as read"
+    );
+  }
+}
+
+// ============ MODULE EMPLOYEES (departements + employes IA) ============
+
+export async function getDepartments(): Promise<Department[]> {
+  try {
+    const db = await getDb();
+    return await db.select().from(department).orderBy(asc(department.id));
+  } catch (_error) {
+    console.error("getDepartments DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get departments"
+    );
+  }
+}
+
+export async function getEmployees(): Promise<Employee[]> {
+  try {
+    const db = await getDb();
+    return await db.select().from(employee).orderBy(asc(employee.createdAt));
+  } catch (_error) {
+    console.error("getEmployees DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to get employees");
+  }
+}
+
+export async function createEmployee({
+  name,
+  role,
+  departmentId,
+}: {
+  name: string;
+  role: string;
+  departmentId: string;
+}): Promise<Employee[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .insert(employee)
+      .values({ name, role, departmentId })
+      .returning();
+  } catch (_error) {
+    console.error("createEmployee DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create employee"
     );
   }
 }
