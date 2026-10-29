@@ -32,12 +32,16 @@ export function RecruitDialog({
   departments,
   defaultDepartmentId,
   onRecruit,
+  busy,
+  error,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   departments: RecruitDepartment[];
   defaultDepartmentId: string;
   onRecruit: (agentId: string, departmentId: string) => void;
+  busy: boolean;
+  error: string | null;
 }) {
   const t = useTranslations("employees");
   const [selection, setSelection] = useState<Record<string, string>>({});
@@ -52,6 +56,12 @@ export function RecruitDialog({
           <DialogTitle>{t("recruit.title")}</DialogTitle>
           <DialogDescription>{t("recruit.description")}</DialogDescription>
         </DialogHeader>
+
+        {error && (
+          <p className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-[12.5px] text-destructive">
+            {error}
+          </p>
+        )}
 
         <div className="flex flex-col gap-3">
           {AVAILABLE_AGENTS.map((agent) => (
@@ -83,6 +93,7 @@ export function RecruitDialog({
 
               <div className="flex shrink-0 items-center gap-2 sm:flex-col sm:items-stretch">
                 <Select
+                  disabled={busy}
                   onValueChange={(value) =>
                     setSelection((prev) => ({ ...prev, [agent.id]: value }))
                   }
@@ -103,6 +114,7 @@ export function RecruitDialog({
                   </SelectContent>
                 </Select>
                 <Button
+                  disabled={busy}
                   onClick={() =>
                     onRecruit(agent.id, departmentFor(agent.id))
                   }

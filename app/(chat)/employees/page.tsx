@@ -12,6 +12,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
+import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
 import { EmployeeCard } from "@/components/workspace/employees/employee-card";
@@ -20,13 +21,16 @@ import {
   type RecruitDepartment,
 } from "@/components/workspace/employees/recruit-dialog";
 import {
-  AVAILABLE_AGENTS,
   DEPARTMENTS,
-  EMPLOYEES,
   getEmployeesByDepartment,
-  recruitEmployee,
   type Employee,
 } from "@/lib/employees/catalog";
+import { fetcher } from "@/lib/utils";
+
+type EmployeesResponse = {
+  departments: string[];
+  employees: Employee[];
+};
 
 const DEPARTMENT_ICONS: Record<string, LucideIcon> = {
   engineering: Code2Icon,
@@ -36,12 +40,26 @@ const DEPARTMENT_ICONS: Record<string, LucideIcon> = {
 
 export default function EmployeesPage() {
   const t = useTranslations("employees");
+  const tAuth = useTranslations("auth");
+  const tErr = useTranslations("auth.errors");
+  const tErrors = useTranslations("errors");
   const router = useRouter();
-  const [employees, setEmployees] = useState<Employee[]>(EMPLOYEES);
+
+  const { data, error, isLoading, mutate } = useSWR<EmployeesResponse>(
+    "/api/employees",
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
   const [dialogOpen, setDialogOpen] = useState(false);
   const [defaultDepartmentId, setDefaultDepartmentId] = useState(
     DEPARTMENTS[0]?.id ?? "engineering"
   );
+  const [recruitError, setRecruitError] = useState<string | null>(null);
+  const [recruiting, setRecruiting] = useState(false);
+
+  const departmentIds = data?.departments ?? [];
+  const employees = data?.employees ?? [];
 
   const departmentName = (id: string) =>
     id === "engineering"
@@ -57,23 +75,36 @@ export default function EmployeesPage() {
         ? t("departments.marketing.description")
         : t("departments.research.description");
 
-  const departmentOptions: RecruitDepartment[] = DEPARTMENTS.map((d) => ({
-    id: d.id,
-    name: departmentName(d.id),
+  const departmentOptions: RecruitDepartment[] = departmentIds.map((id) => ({
+    id,
+    name: departmentName(id),
   }));
 
   const openRecruitDialog = (departmentId: string) => {
+    setRecruitError(null);
     setDefaultDepartmentId(departmentId);
     setDialogOpen(true);
   };
 
-  const handleRecruit = (agentId: string, departmentId: string) => {
-    const agent = AVAILABLE_AGENTS.find((a) => a.id === agentId);
-    if (!agent) return;
-    setEmployees((prev) =>
-      recruitEmployee(prev, agent, departmentId, crypto.randomUUID())
-    );
-    setDialogOpen(false);
+  const handleRecruit = async (agentId: string, departmentId: string) => {
+    setRecruiting(true);
+    setRecruitError(null);
+    try {
+      const res = await fetch("/api/employees/recruit", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ agentId, departmentId }),
+      });
+      if (!res.ok) {
+        throw new Error(`recruit failed: HTTP ${res.status}`);
+      }
+      await mutate();
+      setDialogOpen(false);
+    } catch {
+      setRecruitError(tErr("network_error"));
+    } finally {
+      setRecruiting(false);
+    }
   };
 
   return (
@@ -97,8 +128,9 @@ export default function EmployeesPage() {
             </p>
           </div>
           <Button
+            disabled={isLoading || !data}
             onClick={() =>
-              openRecruitDialog(DEPARTMENTS[0]?.id ?? "engineering")
+              openRecruitDialog(departmentIds[0] ?? "engineering")
             }
             type="button"
           >
@@ -110,58 +142,80 @@ export default function EmployeesPage() {
 
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-12">
-          {DEPARTMENTS.map((department) => {
-            const members = getEmployeesByDepartment(
-              employees,
-              department.id
-            );
-            const Icon = DEPARTMENT_ICONS[department.id] ?? Code2Icon;
-            return (
-              <section key={department.id}>
-                <div className="flex items-center gap-2.5">
-                  <Icon className="size-4 text-muted-foreground" />
-                  <h2 className="text-[16px] font-semibold tracking-tight text-foreground">
-                    {departmentName(department.id)}
-                  </h2>
-                  <span className="text-[12px] text-muted-foreground">
-                    · {t("memberCount", { count: members.length })}
-                  </span>
-                </div>
-                <p className="mt-1 text-[13px] text-muted-foreground">
-                  {departmentDescription(department.id)}
-                </p>
+          {isLoading ? (
+            <p className="py-16 text-center text-[13px] text-muted-foreground">
+              {tAuth("pleaseWait")}
+            </p>
+          ) : error || !data ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="text-[13px] text-muted-foreground">
+                {tErr("network_error")}
+              </p>
+              <Button
+                onClick={() => mutate()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {tErrors("retry")}
+              </Button>
+            </div>
+          ) : (
+            departmentIds.map((departmentId) => {
+              const members = getEmployeesByDepartment(
+                employees,
+                departmentId
+              );
+              const Icon = DEPARTMENT_ICONS[departmentId] ?? Code2Icon;
+              return (
+                <section key={departmentId}>
+                  <div className="flex items-center gap-2.5">
+                    <Icon className="size-4 text-muted-foreground" />
+                    <h2 className="text-[16px] font-semibold tracking-tight text-foreground">
+                      {departmentName(departmentId)}
+                    </h2>
+                    <span className="text-[12px] text-muted-foreground">
+                      · {t("memberCount", { count: members.length })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[13px] text-muted-foreground">
+                    {departmentDescription(departmentId)}
+                  </p>
 
-                {members.length === 0 ? (
-                  <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-dashed border-border p-4">
-                    <p className="text-[13px] text-muted-foreground">
-                      {t("emptyDepartment")}
-                    </p>
-                    <Button
-                      onClick={() => openRecruitDialog(department.id)}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      {t("recruitHere")}
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                    {members.map((employee) => (
-                      <EmployeeCard employee={employee} key={employee.id} />
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })}
+                  {members.length === 0 ? (
+                    <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-dashed border-border p-4">
+                      <p className="text-[13px] text-muted-foreground">
+                        {t("emptyDepartment")}
+                      </p>
+                      <Button
+                        onClick={() => openRecruitDialog(departmentId)}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {t("recruitHere")}
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                      {members.map((employee) => (
+                        <EmployeeCard employee={employee} key={employee.id} />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              );
+            })
+          )}
         </div>
       </div>
 
       {dialogOpen && (
         <RecruitDialog
+          busy={recruiting}
           defaultDepartmentId={defaultDepartmentId}
           departments={departmentOptions}
+          error={recruitError}
           onOpenChange={setDialogOpen}
           onRecruit={handleRecruit}
           open={dialogOpen}
