@@ -8,7 +8,47 @@
     "openSidebar": "Open sidebar",
     "search": "Search",
     "history": "Sessions",
-    "artefacts": "Artefacts"
+    "artefacts": "Artefacts",
+    "employees": "AI Employees"
+  },
+  "employees": {
+    "title": "AI Employees",
+    "subtitle": "Your departments and the agents working in them.",
+    "back": "Back",
+    "recruitButton": "Recruit Employee",
+    "memberCount": "{count, plural, one {# member} other {# members}}",
+    "emptyDepartment": "No employees yet.",
+    "recruitHere": "Recruit one",
+    "departments": {
+      "engineering": {
+        "name": "Engineering",
+        "description": "Builds and ships the product."
+      },
+      "marketing": {
+        "name": "Marketing",
+        "description": "Grows awareness and pipeline."
+      },
+      "research": {
+        "name": "Research",
+        "description": "Explores what comes next."
+      }
+    },
+    "status": {
+      "idle": "Idle",
+      "working": "Working",
+      "completed": "Completed"
+    },
+    "card": {
+      "currentTask": "Current task"
+    },
+    "recruit": {
+      "title": "Recruit an employee",
+      "description": "Pick an available agent and assign them to a department.",
+      "capabilities": "Capabilities",
+      "departmentLabel": "Department",
+      "recruitAction": "Recruit",
+      "close": "Close"
+    }
   },
   "settings": {
     "title": "Settings",
