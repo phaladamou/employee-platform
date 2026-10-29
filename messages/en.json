@@ -9,7 +9,8 @@
     "search": "Search",
     "history": "Sessions",
     "artefacts": "Artefacts",
-    "employees": "AI Employees"
+    "employees": "AI Employees",
+    "recruit": "Recruit"
   },
   "employees": {
     "title": "AI Employees",
@@ -51,7 +52,7 @@
     }
   },
   "recruit": {
-    "title": "Talent Directory",
+    "title": "Talent Network",
     "subtitle": "Discover and hire AI employees for your departments.",
     "back": "Employees",
     "searchPlaceholder": "Search agents, roles, skills…",

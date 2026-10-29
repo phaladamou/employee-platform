@@ -9,7 +9,8 @@
     "search": "Rechercher",
     "deepResearch": "Deep Research",
     "artefacts": "Artefacts",
-    "employees": "Employés IA"
+    "employees": "Employés IA",
+    "recruit": "Recrutement"
   },
   "employees": {
     "title": "Employés IA",
@@ -51,7 +52,7 @@
     }
   },
   "recruit": {
-    "title": "Répertoire des talents",
+    "title": "Réseau de talents",
     "subtitle": "Découvrez et recrutez des employés IA pour vos départements.",
     "back": "Employés",
     "searchPlaceholder": "Rechercher agents, rôles, compétences…",
