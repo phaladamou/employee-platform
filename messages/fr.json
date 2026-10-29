@@ -50,6 +50,35 @@
       "close": "Fermer"
     }
   },
+  "recruit": {
+    "title": "Marché des talents",
+    "subtitle": "Découvrez et recrutez des employés IA pour vos départements.",
+    "back": "Employés",
+    "searchPlaceholder": "Rechercher agents, rôles, compétences…",
+    "allCategories": "Tous",
+    "categories": {
+      "development": "Développement",
+      "research": "Recherche",
+      "data": "Données & Analyse",
+      "design": "Design",
+      "operations": "Opérations"
+    },
+    "targetLabel": "Recruter dans",
+    "noResults": "Aucun agent ne correspond à votre recherche.",
+    "clearFilters": "Effacer les filtres",
+    "card": {
+      "recruitAction": "Recruter",
+      "recruited": "Recruté",
+      "reviewsCount": "{count} avis"
+    },
+    "details": {
+      "about": "À propos",
+      "experience": "Expérience",
+      "reviews": "Avis",
+      "recruitTitle": "Recruter cet agent",
+      "viewInDepartment": "Voir dans le département"
+    }
+  },
   "settings": {
     "title": "Paramètres",
     "general": "Général",
