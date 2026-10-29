@@ -110,10 +110,10 @@ export default function Page() {
           onClick={() => signIn("github", { callbackUrl })}
           className="
             flex h-11 w-full items-center justify-center gap-2.5
-            rounded-lg bg-muted/40
+            rounded-lg border border-border bg-muted/60
             text-[13px] font-medium text-foreground
             transition-colors duration-150
-            hover:bg-muted/70
+            hover:bg-muted
           "
         >
           <svg className="size-[16px]" fill="currentColor" viewBox="0 0 24 24">
@@ -127,10 +127,10 @@ export default function Page() {
           onClick={() => signIn("google", { callbackUrl })}
           className="
             flex h-11 w-full items-center justify-center gap-2.5
-            rounded-lg bg-muted/40
+            rounded-lg border border-border bg-muted/60
             text-[13px] font-medium text-foreground
             transition-colors duration-150
-            hover:bg-muted/70
+            hover:bg-muted
           "
         >
           <svg className="size-[16px]" viewBox="0 0 24 24">

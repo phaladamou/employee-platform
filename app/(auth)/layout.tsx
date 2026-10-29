@@ -69,13 +69,13 @@ export default function AuthLayout({
       <div className="relative z-10 flex min-h-dvh w-full items-center justify-center px-6 py-12">
         <div
           className="
-            w-full max-w-[420px]
+            w-full max-w-[460px]
             rounded-2xl
-            border border-white/10
-            bg-white/[0.06]
+            border border-border/60
+            bg-card/95
             p-8
             shadow-[0_8px_32px_rgba(0,0,0,0.25)]
-            backdrop-blur-2xl
+            backdrop-blur-xl
           "
         >
           {children}

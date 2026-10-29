@@ -147,12 +147,12 @@ export function OtpLoginForm({ callbackUrl }: { callbackUrl: string }) {
             type="email"
             value={email}
             className="
-              h-11 rounded-lg border-none bg-muted/40
+              h-11 rounded-lg border border-input bg-muted/60
               px-4 text-[13px] text-foreground
               shadow-none outline-none
               placeholder:text-muted-foreground/60
               transition-colors
-              focus-visible:bg-muted/60
+              focus-visible:border-ring focus-visible:bg-muted
               focus-visible:ring-0
             "
           />
@@ -193,13 +193,13 @@ export function OtpLoginForm({ callbackUrl }: { callbackUrl: string }) {
             type="text"
             value={code}
             className="
-              h-12 rounded-lg border-none bg-muted/40
+              h-12 rounded-lg border border-input bg-muted/60
               px-4 text-center text-[20px] font-semibold tracking-[0.3em] text-foreground
               shadow-none outline-none
               placeholder:text-[13px] placeholder:font-normal placeholder:tracking-normal
               placeholder:text-muted-foreground/60
               transition-colors
-              focus-visible:bg-muted/60
+              focus-visible:border-ring focus-visible:bg-muted
               focus-visible:ring-0
             "
           />
