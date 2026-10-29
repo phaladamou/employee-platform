@@ -187,7 +187,6 @@
     "login": "登录",
     "register": "注册",
     "signOut": "退出登录",
-    "loginToAccount": "登录您的帐户",
     "viewProfile": "查看资料",
     "settings": "设置",
     "switchToLight": "切换到浅色模式",
@@ -588,7 +587,6 @@
     "privacy": "隐私",
     "dpa": "数据处理协议",
     "subProcessors": "子处理者",
-    "logOut": "退出登录",
-    "authCheckError": "正在检查身份验证状态，请重试。"
+    "logOut": "退出登录"
   }
 }

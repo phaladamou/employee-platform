@@ -187,7 +187,6 @@
     "login": "Connexion",
     "register": "Inscription",
     "signOut": "Déconnexion",
-    "loginToAccount": "Connectez-vous à votre compte",
     "viewProfile": "Voir le profil",
     "settings": "Paramètres",
     "switchToLight": "Passer en mode clair",
@@ -588,7 +587,6 @@
     "privacy": "Confidentialité",
     "dpa": "DPA",
     "subProcessors": "Sous-traitants",
-    "logOut": "Se déconnecter",
-    "authCheckError": "Vérification de l'authentification, veuillez réessayer."
+    "logOut": "Se déconnecter"
   }
 }

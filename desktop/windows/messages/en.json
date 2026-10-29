@@ -187,7 +187,6 @@
     "login": "Login",
     "register": "Register",
     "signOut": "Sign out",
-    "loginToAccount": "Login to your account",
     "viewProfile": "View profile",
     "settings": "Settings",
     "switchToLight": "Switch to light mode",
@@ -588,7 +587,6 @@
     "privacy": "Privacy",
     "dpa": "DPA",
     "subProcessors": "Sub-processors",
-    "logOut": "Log out",
-    "authCheckError": "Checking authentication status, please try again."
+    "logOut": "Log out"
   }
 }
