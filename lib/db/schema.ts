@@ -252,3 +252,31 @@ export const otpCode = pgTable(
 );
 
 export type OtpCode = InferSelectModel<typeof otpCode>;
+// ============ MODULE EMPLOYEES (departements + employes IA) ============
+
+export const department = pgTable("Department", {
+  // Slug stable, cle des libelles i18n (engineering|marketing|research).
+  id: text("id").primaryKey(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type Department = InferSelectModel<typeof department>;
+
+export const employee = pgTable(
+  "Employee",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    name: varchar("name", { length: 120 }).notNull(),
+    role: varchar("role", { length: 120 }).notNull(),
+    // Statut metier : idle | working | completed (valide cote API).
+    status: varchar("status", { length: 20 }).notNull().default("idle"),
+    departmentId: text("departmentId")
+      .notNull()
+      .references(() => department.id, { onDelete: "restrict" }),
+    currentTask: text("currentTask"),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => [index("Employee_department_idx").on(table.departmentId)]
+);
+
+export type Employee = InferSelectModel<typeof employee>;
