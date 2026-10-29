@@ -69,10 +69,10 @@ export default function EmployeesPage() {
   };
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-white dark:bg-background">
-      <div className="mx-auto w-full max-w-5xl shrink-0 px-6 pt-8 pb-6">
+    <div className="theme-light flex h-dvh w-full flex-col overflow-hidden bg-background">
+      <div className="mx-auto w-full max-w-7xl shrink-0 px-8 pt-10 pb-8">
         <button
-          className="mb-4 flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
+          className="mb-5 flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
           onClick={() => router.back()}
           type="button"
         >
@@ -84,7 +84,7 @@ export default function EmployeesPage() {
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
               {t("title")}
             </h1>
-            <p className="mt-1 text-[13px] text-muted-foreground">
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
               {t("subtitle")}
             </p>
           </div>
@@ -92,6 +92,7 @@ export default function EmployeesPage() {
             disabled={isLoading || !data}
             onClick={() => openRecruitPage(departmentIds[0] ?? "engineering")}
             type="button"
+            variant="brand"
           >
             <PlusIcon className="size-4" />
             {t("recruitButton")}
@@ -100,7 +101,7 @@ export default function EmployeesPage() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        <div className="mx-auto flex w-full max-w-5xl flex-col gap-10 px-6 pb-12">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-12 px-8 pb-16">
           {isLoading ? (
             <p className="py-16 text-center text-[13px] text-muted-foreground">
               {tAuth("pleaseWait")}
@@ -130,19 +131,19 @@ export default function EmployeesPage() {
                 <section key={departmentId}>
                   <div className="flex items-center gap-2.5">
                     <Icon className="size-4 text-muted-foreground" />
-                    <h2 className="text-[16px] font-semibold tracking-tight text-foreground">
+                    <h2 className="text-[17px] font-semibold tracking-tight text-foreground">
                       {departmentName(departmentId)}
                     </h2>
                     <span className="text-[12px] text-muted-foreground">
                       · {t("memberCount", { count: members.length })}
                     </span>
                   </div>
-                  <p className="mt-1 text-[13px] text-muted-foreground">
+                  <p className="mt-1.5 text-[13px] text-muted-foreground">
                     {departmentDescription(departmentId)}
                   </p>
 
                   {members.length === 0 ? (
-                    <div className="mt-4 flex items-center justify-between gap-4 rounded-xl border border-dashed border-border p-4">
+                    <div className="mt-5 flex items-center justify-between gap-4 rounded-xl border border-dashed border-border bg-card p-5">
                       <p className="text-[13px] text-muted-foreground">
                         {t("emptyDepartment")}
                       </p>
@@ -156,7 +157,7 @@ export default function EmployeesPage() {
                       </Button>
                     </div>
                   ) : (
-                    <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {members.map((employee) => (
                         <EmployeeCard employee={employee} key={employee.id} />
                       ))}
