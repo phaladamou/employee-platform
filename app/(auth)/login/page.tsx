@@ -2,97 +2,16 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { useActionState, useEffect, useRef, useState } from "react";
 
-import { AuthForm } from "@/components/workspace/auth-form";
 import { OtpLoginForm } from "@/components/workspace/otp-login-form";
-import { SubmitButton } from "@/components/workspace/submit-button";
-import { type LoginActionState, login } from "../actions";
 
 export default function Page() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/workspace";
   const t = useTranslations("auth");
-  const tErr = useTranslations("auth.errors");
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSuccessful, setIsSuccessful] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const processedRef = useRef<string | null>(null);
-
-  const [state, formAction] = useActionState<LoginActionState, FormData>(
-    login,
-    { status: "idle" }
-  );
-
-  useEffect(() => {
-    if (state.status === "idle" || state.status === "in_progress") {
-      return;
-    }
-
-    // Évite de traiter le même état deux fois
-    const stateKey = `${state.status}-${state.errorCode ?? ""}`;
-    if (processedRef.current === stateKey) {
-      return;
-    }
-    processedRef.current = stateKey;
-
-    if (state.status === "error" && state.errorCode) {
-      setInlineError(tErr(state.errorCode));
-      setIsSuccessful(false);
-      return;
-    }
-
-    if (state.status === "success") {
-      setIsSuccessful(true);
-      setInlineError(null);
-
-      signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-        .then((result) => {
-          if (result?.error) {
-            setInlineError(tErr("wrong_password"));
-            setIsSuccessful(false);
-          } else {
-            setEmail("");
-            setPassword("");
-            setIsRedirecting(true);
-            router.push(callbackUrl);
-            router.refresh();
-          }
-        })
-        .catch(() => {
-          setInlineError(tErr("network_error"));
-          setIsSuccessful(false);
-        });
-    }
-  }, [state, email, password, router, callbackUrl, tErr]);
-
-  const handleSubmit = (formData: FormData) => {
-    setEmail(formData.get("email") as string);
-    setPassword(formData.get("password") as string);
-    setInlineError(null);
-    processedRef.current = null;
-    formAction(formData);
-  };
-
-  if (isRedirecting) {
-    return (
-      <div className="flex min-h-[400px] w-full flex-col items-center justify-center gap-4">
-        <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-foreground" />
-        <p className="text-[13px] text-muted-foreground">{t("pleaseWait")}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex w-full flex-col">
@@ -154,53 +73,18 @@ export default function Page() {
         <div className="h-px flex-1 bg-border/50" />
       </div>
 
-      {/* INLINE ERROR */}
-      {inlineError && (
-        <div className="mb-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-          {inlineError}
-        </div>
-      )}
-
-      {/* FORM */}
-      <AuthForm action={handleSubmit} defaultEmail={email}>
-        <div className="mt-0.5">
-          <Link
-            href="/forgot-password"
-            className="
-              block text-right text-[11px] text-muted-foreground/70
-              transition-colors hover:text-foreground
-            "
-          >
-            {t("forgotPassword")}
-          </Link>
-        </div>
-
-        <SubmitButton isSuccessful={isSuccessful}>
-          {t("signIn")}
-        </SubmitButton>
-
-        <p className="mt-7 text-center text-[12.5px] text-muted-foreground">
-          {t("noAccount")}{" "}
-          <Link
-            href="/register"
-            className="font-medium text-foreground transition-colors hover:text-foreground/70"
-          >
-            {t("signUp")}
-          </Link>
-        </p>
-      </AuthForm>
-
-      {/* DIVIDER */}
-      <div className="my-7 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border/50" />
-        <span className="shrink-0 text-[11px] text-muted-foreground/70">
-          {t("otpDivider")}
-        </span>
-        <div className="h-px flex-1 bg-border/50" />
-      </div>
-
-      {/* OTP */}
+      {/* OTP : email + code, sans mot de passe */}
       <OtpLoginForm callbackUrl={callbackUrl} />
+
+      <p className="mt-7 text-center text-[12.5px] text-muted-foreground">
+        {t("noAccount")}{" "}
+        <Link
+          href="/register"
+          className="font-medium text-foreground transition-colors hover:text-foreground/70"
+        >
+          {t("signUp")}
+        </Link>
+      </p>
     </div>
   );
 }

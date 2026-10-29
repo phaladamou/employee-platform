@@ -174,7 +174,6 @@
     "login": "Login",
     "register": "Register",
     "signOut": "Sign out",
-    "loginToAccount": "Login to your account",
     "viewProfile": "View profile",
     "settings": "Settings",
     "switchToLight": "Switch to light mode",
@@ -199,7 +198,6 @@
     "signUpButton": "Create account",
     "haveAccount": "Already have an account?",
     "pleaseWait": "Please wait...",
-    "otpDivider": "or get a code",
     "otpTitle": "Sign in with a code",
     "otpSendCode": "Get a code",
     "otpSentTo": "Code sent to {email}",
@@ -589,7 +587,6 @@
     "privacy": "Privacy",
     "dpa": "DPA",
     "subProcessors": "Sub-processors",
-    "logOut": "Log out",
-    "authCheckError": "Checking authentication status, please try again."
+    "logOut": "Log out"
   }
 }

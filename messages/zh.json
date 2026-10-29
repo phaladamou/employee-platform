@@ -174,7 +174,6 @@
     "login": "登录",
     "register": "注册",
     "signOut": "退出登录",
-    "loginToAccount": "登录您的帐户",
     "viewProfile": "查看资料",
     "settings": "设置",
     "switchToLight": "切换到浅色模式",
@@ -199,7 +198,6 @@
     "signUpButton": "创建账户",
     "haveAccount": "已经有账户？",
     "pleaseWait": "请稍候...",
-    "otpDivider": "或获取验证码",
     "otpTitle": "使用验证码登录",
     "otpSendCode": "获取验证码",
     "otpSentTo": "验证码已发送至 {email}",
@@ -589,7 +587,6 @@
     "privacy": "隐私",
     "dpa": "数据处理协议",
     "subProcessors": "子处理者",
-    "logOut": "退出登录",
-    "authCheckError": "正在检查身份验证状态，请重试。"
+    "logOut": "退出登录"
   }
 }

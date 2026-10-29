@@ -2,7 +2,6 @@
 "use client";
 
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 
@@ -17,7 +16,6 @@ function formatCountdown(totalSeconds: number): string {
 }
 
 export function OtpLoginForm({ callbackUrl }: { callbackUrl: string }) {
-  const router = useRouter();
   const t = useTranslations("auth");
   const tErr = useTranslations("auth.errors");
 
@@ -104,9 +102,14 @@ export function OtpLoginForm({ callbackUrl }: { callbackUrl: string }) {
         setError(tErr("otp_invalid"));
         return;
       }
+      // Navigation dure (pas router.push) : recharge complete avec la
+      // session fraiche, sans course router-cache/refresh.
+      const safeCallback =
+        callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
+          ? callbackUrl
+          : "/workspace";
       setIsRedirecting(true);
-      router.push(callbackUrl);
-      router.refresh();
+      window.location.href = safeCallback;
     } catch {
       setError(tErr("network_error"));
     } finally {
