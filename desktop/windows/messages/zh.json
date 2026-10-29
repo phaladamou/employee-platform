@@ -8,7 +8,47 @@
     "openSidebar": "打开侧边栏",
     "search": "搜索",
     "deepResearch": "Deep Research",
-    "artefacts": "构件"
+    "artefacts": "构件",
+    "employees": "AI 员工"
+  },
+  "employees": {
+    "title": "AI 员工",
+    "subtitle": "您的部门及其中的智能体。",
+    "back": "返回",
+    "recruitButton": "招聘员工",
+    "memberCount": "{count} 名成员",
+    "emptyDepartment": "暂无员工。",
+    "recruitHere": "招聘",
+    "departments": {
+      "engineering": {
+        "name": "工程",
+        "description": "构建并交付产品。"
+      },
+      "marketing": {
+        "name": "市场",
+        "description": "提升知名度与商机。"
+      },
+      "research": {
+        "name": "研究",
+        "description": "探索未来方向。"
+      }
+    },
+    "status": {
+      "idle": "空闲",
+      "working": "工作中",
+      "completed": "已完成"
+    },
+    "card": {
+      "currentTask": "当前任务"
+    },
+    "recruit": {
+      "title": "招聘员工",
+      "description": "选择一位可用智能体并分配到部门。",
+      "capabilities": "能力",
+      "departmentLabel": "部门",
+      "recruitAction": "招聘",
+      "close": "关闭"
+    }
   },
   "settings": {
     "title": "设置",
