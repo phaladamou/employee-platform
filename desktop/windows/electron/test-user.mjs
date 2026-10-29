@@ -7,10 +7,8 @@
 // Usage playwright : await import("../../electron/test-user.mjs")
 import { randomBytes } from "node:crypto";
 
-import bcryptTs from "bcrypt-ts";
+import { genSaltSync, hashSync } from "bcrypt-ts";
 import postgres from "postgres";
-
-const { genSaltSync, hashSync } = bcryptTs;
 
 export async function createTestUser() {
   if (!process.env.POSTGRES_URL) {
