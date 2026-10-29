@@ -109,7 +109,7 @@ export function AgentDetailsSheet({
       }}
       open={agent !== null}
     >
-      <SheetContentNoOverlay className="w-full overflow-y-auto sm:max-w-lg">
+      <SheetContentNoOverlay className="w-full overflow-y-auto sm:max-w-xl">
         {agent && (
           <>
             <SheetHeader>
