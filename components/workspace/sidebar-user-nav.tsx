@@ -36,20 +36,19 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
-import { guestRegex } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { NotificationsBell } from "./notifications-bell";
 import { toast } from "./toast";
 
 function getDisplayName(user?: NextAuthUser): string {
-  if (!user) return "Guest";
+  if (!user) return "User";
   if (user.name) return user.name;
   if (user.email) return user.email.split("@")[0];
   return "User";
 }
 
 function getInitials(user?: NextAuthUser): string {
-  if (!user) return "G";
+  if (!user) return "U";
   const name = user.name?.trim();
   if (name) {
     const parts = name.split(/\s+/).filter(Boolean);
@@ -125,10 +124,14 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
   const [cachedUser, setCachedUser] = useState(rawSession?.user);
 
   useEffect(() => {
-    if (rawStatus === "authenticated" && rawSession?.user) {
-      setCachedStatus("authenticated");
-      setCachedUser(rawSession.user);
+    // Anti-flicker : ignore l'etat transitoire "loading", mais suit les
+    // transitions reelles dans les deux sens (sinon l'UI reste affichee
+    // "connectee" apres un logout).
+    if (rawStatus === "loading") {
+      return;
     }
+    setCachedStatus(rawStatus);
+    setCachedUser(rawSession?.user);
   }, [rawStatus, rawSession?.user]);
 
   const status = cachedStatus;
@@ -151,7 +154,6 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
     }
   );
 
-  const isGuest = guestRegex.test(sessionData?.user?.email ?? "");
   const currentUser = freshUser ?? sessionData?.user ?? user;
   const displayName = getDisplayName(currentUser);
 
@@ -192,7 +194,7 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
                 <UserAvatar size="small" user={currentUser} />
 
                 <span className="flex-1 truncate text-[13px] font-medium group-data-[collapsible=icon]:hidden">
-                  {isGuest ? "Guest" : displayName}
+                  {displayName}
                 </span>
 
                 <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-foreground/30 group-data-[collapsible=icon]:hidden" />
@@ -335,34 +337,21 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
             <DropdownMenuItem
               className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-red-500 transition-colors hover:bg-red-500/10 focus:bg-red-500/10"
               onSelect={() => {
-                if (status !== "authenticated") {
-                  toast({
-                    type: "error",
-                    description: tMenu("authCheckError"),
+                // Pattern officiel NextAuth : signOut detruit la session
+                // puis recharge la page vers callbackUrl. Fallback vers
+                // /login si la requete echoue (aucun toast, aucun blocage).
+                signOut({ callbackUrl: "/login" })
+                  .then(() => {
+                    window.location.replace("/login");
+                  })
+                  .catch((error: unknown) => {
+                    console.error("[LOGOUT] signOut error:", error);
+                    window.location.replace("/login");
                   });
-                  return;
-                }
-
-                if (isGuest) {
-                  router.push("/login");
-                } else {
-                  console.log("[LOGOUT] calling signOut...");
-                  signOut({ redirect: false })
-                    .then((result) => {
-                      console.log("[LOGOUT] signOut result:", result);
-                      console.log("[LOGOUT] cookies after:", document.cookie);
-                      window.location.href = "/login";
-                    })
-                    .catch((error) => {
-                      console.log("[LOGOUT] signOut error:", error);
-                    });
-                }
               }}
             >
               <LogOut className="size-4" />
-              <span className="flex-1">
-                {isGuest ? t("loginToAccount") : tMenu("logOut")}
-              </span>
+              <span className="flex-1">{tMenu("logOut")}</span>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
