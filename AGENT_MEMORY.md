@@ -40,13 +40,14 @@ Code desktop (dans `windows/` uniquement) :
   (secret CI, échec bruyant si absent), copie electron-updater dans
   `electron/dist/node_modules` (+ self-check de résolution).
 - `electron/smoke-packaged.mjs` — **gate anti-`MODULE_NOT_FOUND`** : boot
-  réel hors projet, vérifie `desktop-env.json`, signin guest, rampe des
-  routes. Requiert `POSTGRES_URL` (voir §4).
+  réel hors projet, vérifie `desktop-env.json`, signin credentials sur
+  compte jetable (créé/supprimé en base), rampe des routes. Requiert
+  `POSTGRES_URL` (voir §4).
 - `lib/db/client.ts` — `getDb()` : **même Postgres distant qu'en web**
   (`POSTGRES_URL`, erreur claire si absent). Plus de base locale.
 - `lib/desktop/settings.ts` + `app/(chat)/api/desktop/settings/route.ts` —
   clés API perso persistées localement (`settings.json`), lecture masquée.
-- Auth bureau : credentials + guest uniquement (pas d'OAuth cloud).
+- Auth bureau : credentials uniquement (pas d'OAuth cloud, plus de guest).
 - `lib/connectors/core/crypto.ts` — secrets dérivés du `authSecret` local
   en mode bureau (jamais d'env manquante au build).
 - Migrations : le bureau n'en applique plus au démarrage (base partagée,
@@ -131,7 +132,8 @@ DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-setti
   compatible layout pnpm) : `styled-jsx`+`client-only`, `@electric-sql/pglite`
   unifié. + **gate `smoke-packaged`** : copie le standalone **hors projet**
   (sinon Node masque les manques via le `node_modules` parent !), boot réel,
-  signin guest, crawl exhaustif des routes du manifeste (70), échec bruyant
+  signin credentials (compte jetable), crawl exhaustif des routes du
+  manifeste (70), échec bruyant
   sur `MODULE_NOT_FOUND`. Le gate a attrapé `@swc/helpers` puis `@next/env`.
 - **v3.1.4** — backfill `@swc/helpers` (+`tslib` via récursion).
 - **v3.1.5** — backfill `@next/env`. **CI verte, smoke 70 routes, 0 échec.**
@@ -141,8 +143,8 @@ DESKTOP=1 pnpm exec playwright test desktop-settings   # tests/e2e/desktop-setti
   `getDb`, `serverExternalPackages`, copies runtime/migrations).
   `POSTGRES_URL` injecté par la CI (secret Actions) et embarqué dans
   `desktop-env.json` (`main.ts` le charge, override via env). Smoke CI
-  requiert le secret (le signin guest crée 1 ligne guest par build dans
-  la base partagée). URL embarquée extractible du .exe : OK hackathon,
+  requiert le secret (le compte jetable est créé puis supprimé par build,
+  zéro ligne résiduelle). URL embarquée extractible du .exe : OK hackathon,
   rotation des clés prévue après par le user.
 - **v3.2.1** — mises à jour auto (Windows NSIS) : `electron-updater` dans
   `main.ts` (vérif au démarrage, téléchargement en fond, install au
