@@ -1,7 +1,9 @@
 // components/workspace/recruit/agent-details-sheet.tsx
 "use client";
 
-import { CheckIcon } from "lucide-react";
+import * as React from "react";
+import { CheckIcon, XIcon } from "lucide-react";
+import { Dialog as SheetPrimitive } from "radix-ui";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -14,17 +16,54 @@ import {
 } from "@/components/ui/select";
 import {
   Sheet,
-  SheetContent,
   SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 import type { AvailableAgent } from "@/lib/employees/catalog";
 import { RatingStars } from "./agent-card";
 
 export interface SheetDepartment {
   id: string;
   name: string;
+}
+
+/**
+ * Contenu de panneau lateral SANS overlay : repris de SheetContent
+ * (ui/sheet) en retirant le fond assombrissant/floutant. La page
+ * derriere reste visible et interactive.
+ */
+function SheetContentNoOverlay({
+  className,
+  children,
+  ...props
+}: React.ComponentProps<typeof SheetPrimitive.Content>) {
+  return (
+    <SheetPrimitive.Portal>
+      <SheetPrimitive.Content
+        data-slot="sheet-content"
+        data-side="right"
+        className={cn(
+          "fixed z-50 flex flex-col bg-background bg-clip-padding text-sm shadow-2xl data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-[85%] data-[side=right]:border-l data-[side=right]:sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:duration-400 data-open:ease-[cubic-bezier(0.32,0.72,0,1)] data-[side=right]:data-open:slide-in-from-right-full data-closed:animate-out data-closed:fade-out-0 data-closed:duration-300 data-closed:ease-[cubic-bezier(0.32,0.72,0,1)] data-[side=right]:data-closed:slide-out-to-right-full",
+          className
+        )}
+        {...props}
+      >
+        {children}
+        <SheetPrimitive.Close data-slot="sheet-close" asChild>
+          <Button
+            className="absolute top-4 right-4"
+            size="icon-sm"
+            variant="ghost"
+          >
+            <XIcon />
+            <span className="sr-only">Close</span>
+          </Button>
+        </SheetPrimitive.Close>
+      </SheetPrimitive.Content>
+    </SheetPrimitive.Portal>
+  );
 }
 
 function getInitials(name: string): string {
@@ -64,12 +103,13 @@ export function AgentDetailsSheet({
 
   return (
     <Sheet
+      modal={false}
       onOpenChange={(open) => {
         if (!open) onClose();
       }}
       open={agent !== null}
     >
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContentNoOverlay className="w-full overflow-y-auto sm:max-w-md">
         {agent && (
           <>
             <SheetHeader>
@@ -218,7 +258,7 @@ export function AgentDetailsSheet({
             </div>
           </>
         )}
-      </SheetContent>
+      </SheetContentNoOverlay>
     </Sheet>
   );
 }
