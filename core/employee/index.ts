@@ -92,11 +92,21 @@ export {
   isEmployeeSpecialization,
   MAX_PROFILE_STEPS,
 } from "./profiles/profile-spec";
-export type { ProfileRegistry } from "./profiles/profile-registry";
+export type {
+  ProfileLockfile,
+  ProfileRegistry,
+  ProfileRegistryTrust,
+} from "./profiles/profile-registry";
 export {
+  createProfileLockfile,
   createProfileRegistry,
   loadProfileRegistry,
+  PROFILE_LOCKFILE_NAME,
 } from "./profiles/profile-registry";
+export {
+  canonicalizeJson,
+  hashProfileContent,
+} from "./profiles/profile-integrity";
 export {
   TOOL_PERMISSIONS,
   resolveToolsForProfile,
