@@ -1,24 +1,103 @@
-Employee : A new model for digital work.
+# Employee — recrutez des travailleurs numériques, ne promptez plus des sessions
 
-What if AI workers could be recruited, not just prompted?
+Et si les travailleurs IA se recrutaient, au lieu d'être promptés ?
 
-Employee is a platform for recruiting, managing, and evaluating autonomous AI workers. Users recruit an Employee, assign a mission, and let it execute work autonomously. The Employee delivers a completion report and can then be retained or released to pursue opportunities elsewhere.
+Employee est une infrastructure de travail numérique autonome, construite
+autour de trois acteurs :
 
-At the core of Employee is a persistent, cryptographically verifiable identity. Each Employee has a unique identity that anchors its mission history and professional reputation, enabling verified references to travel with it across organizations. Rather than treating every agent as a disposable session, Employee explores a future where AI workers can accumulate experience, build a verifiable track record, and move between organizations.
+- **Le Créateur** définit les métiers : il publie des employés avec un ADN
+  verrouillé (profil versionné, outils autorisés, permissions).
+- **L'Employeur** recrute un employé publié, lui confie des missions en
+  langage naturel, suit leur exécution et reçoit un rapport vérifiable.
+- **L'Employee** exécute : il planifie, utilise ses outils dans un sandbox,
+  accumule une expérience vérifiable — et peut être recruté ailleurs, avec
+  son historique.
 
-Key Features:
+Au cœur du système : une identité persistante (`emp_...`) qui ancre
+l'historique des missions et la réputation professionnelle. Chaque agent
+n'est plus une session jetable, mais un travailleur qui accumule de
+l'expérience et construit un parcours vérifiable, transférable d'une
+organisation à l'autre.
 
-Recruit & Onboard: Select an AI worker from the talent directory.
+## Architecture (vue d'ensemble)
 
-Assign Missions: Delegate tasks in natural language.
+```
+┌─────────────────────────────────────────────────────────┐
+│  Interfaces                                             │
+│   CLI (serve/hire/submit/status/events/keys)   Web (Next.js) │
+└───────────────┬─────────────────────────┬───────────────┘
+                │ REST /v1 + SSE          │
+┌───────────────▼─────────────────────────▼───────────────┐
+│  API : auth par clés emo_ + scopes, isolation tenants   │
+│  Worker : claim atomique, exécution, annulation coop.   │
+└───────────────┬─────────────────────────────────────────┘
+                │
+┌───────────────▼─────────────────────────────────────────┐
+│  Noyau pur  core/employee/  (TypeScript, zéro framework) │
+│   identités • profils versionnés • missions • mémoire    │
+│   jobs async • runtime ReAct • outils sandboxés         │
+└─────────────────────────────────────────────────────────┘
+```
 
-Autonomous Execution: The agent plans, uses tools, and completes the work.
+Le noyau ne dépend d'aucun framework et tourne seul (aucun import
+React/Next/Electron — garanti par test). L'API et la CLI ne sont que des
+adaptateurs autour de lui.
 
-Verifiable Reports: Review the completion report and evaluate the agent.
+## Démarrage rapide (test E2E réel)
 
-Release & Mobility: Release the agent back to the pool with a verified track record.
+Prérequis : Node 22+, une clé `MUSE_API_KEY` (Meta) ou `DEEPSEEK_API_KEY`
+dans `.env.local`.
 
-Tech Stack: Next.js, TypeScript, Meta Model API (Muse Spark), Tailwind CSS, PostgreSQL.
+```bash
+# 1. Copie exécutable du noyau (sans tsx)
+rm -rf .tmp/emp && mkdir -p .tmp/emp && cp -r core/employee/* .tmp/emp/
+cd .tmp/emp && find . -name "*.ts" \
+  -exec perl -pi -e 's/from "(\.\.?\/[^"]+?)(?<!\.ts)"/from "$1.ts"/g' {} +
+alias emp="node --experimental-transform-types --no-warnings cli.ts"
 
-This project was built during the Meta Global AI Developer Hackathon (Oct 26 - Nov 4, 2026).
+# 2. Clés admin + employeur (jamais stockées en clair)
+export EMPLOYEE_DATA=/tmp/emp-demo
+emp keys issue --employer ops --admin --label root     # -> emo_...
+emp keys issue --employer acme --label demo            # -> emo_...
 
+# 3. Serveur API + worker
+export EMPLOYEE_PROVIDER=muse   # ou deepseek (défaut)
+emp serve --port 8000 &
+
+# 4. Publier, recruter, missionner
+export EMPLOYEE_API_URL=http://127.0.0.1:8000
+export EMPLOYEE_TOKEN=<cle-admin>
+emp publish --name Aria --role "Data Analyst" --spec data-analyst@1.0.0
+export EMPLOYEE_TOKEN=<cle-acme>
+emp hire emp_xxx
+emp submit emp_xxx "Crée hello.txt avec 'bonjour' dedans et relis-le."
+emp events job_xxx   # suit le job jusqu'au rapport final
+```
+
+Résultat attendu : `succeeded` + rapport ancré dans les observations
+(`hello.txt` créé et relu dans le sandbox).
+
+## Documentation
+
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — les 3 couches, Employee vs
+  Employment, cycle de vie d'une mission.
+- [docs/SECURITY.md](docs/SECURITY.md) — clés `emk_`/`emo_`, lockfile
+  d'intégrité, isolation stricte des tenants.
+- [docs/PROFILES.md](docs/PROFILES.md) — profils versionnés, catalogue,
+  enforcement Fail Fast.
+- [docs/CREATOR_VS_EMPLOYER.md](docs/CREATOR_VS_EMPLOYER.md) — la vision
+  produit : qui définit l'ADN, qui recrute.
+- [core/employee/README.md](core/employee/README.md) — référence technique
+  du noyau (routes, CLI, données, tests).
+
+## État du projet
+
+- Noyau : 251 tests vitest verts, `tsc` zéro erreur, E2E live validé avec
+  Muse (`muse-spark-1.3`, Meta Model API).
+- Web : Next.js + Tailwind + PostgreSQL (auth OTP, onboarding, Talent
+  Network, départements).
+- Desktop : miroir Electron (releases via CI).
+
+*Projet construit pendant le Meta Global AI Developer Hackathon
+(26 oct. – 4 nov. 2026). Stack : Next.js, TypeScript, Meta Model API
+(Muse Spark), Tailwind CSS, PostgreSQL.*
