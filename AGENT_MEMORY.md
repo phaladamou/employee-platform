@@ -290,6 +290,11 @@ Leçons dures :
 - Lancer le CLI sans `tsx` (EPERM sandbox) : copie vers `.tmp/` avec
   extensions `.ts` ajoutées aux imports relatifs, puis
   `node --experimental-transform-types` (nettoyer `.tmp` après).
+- Phase 1 auth : `core/employee/auth/` — identité permanente `emp_...`,
+  clés `emk_...` révocables (hash SHA-256 stocké, jamais le clair),
+  `issueCredential`/`verifyCredential` purs, port
+  `EmployeeCredentialStore`, backend `FileCredentialStore`
+  (`credentials.json`, quarantaine, échec fermé). 94 tests vitest.
 
 ## 9. Conventions et environnement (rappel)
 
