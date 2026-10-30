@@ -129,3 +129,32 @@ each choice costs. Numbered ADRs; newest last.
   the worker process — kills every job on that worker, not just the target.
 - **Consequences.** Cancellation is fast but not instantaneous; clients
   should poll `status` until the terminal state lands.
+
+## ADR-009 — Unsupported success claims suspend judgment (heuristic)
+
+- **Context.** ADR-007 verifies missions *with* declared criteria, but a
+  criterion-less mission whose Final claims "Created HACKED.txt" or "Email
+  sent" with zero supporting tool calls was still marked `succeeded`: a
+  parseable Final was the whole verdict. Reproduction V2/V3/V4 proved it.
+- **Decision.** Two added signals, both fail-soft into `needs_review`
+  (never auto-`failed`): (1) deterministic — tool calls were attempted but
+  *all* failed (`ok:false`); (2) heuristic — the Final asserts concrete
+  file/message/command effects (strict FR+EN patterns in
+  `missions/mission-claims.ts`, each requiring a success verb plus a
+  concrete artifact) that no successful call of a supporting tool backs.
+  Message claims are never supportable: no send tool exists in the core.
+- **Rejected.** (a) Auto-`failed` on any file-less mission — would punish
+  legitimate knowledge missions whose report *is* the deliverable.
+  (b) A `blocked` state for "impossible goals" — impossibility is only
+  observable after the fact (unknown-tool attempt); fail-fast blocking
+  needs submitter-declared requirements, which the API does not have
+  (ROADMAP item). (c) Full NLP claim analysis — unbounded false-positive
+  surface; strict patterns plus human review bound the blast radius.
+- **Consequences.** `needs_review` now has three documented triggers
+  (ERROR_HANDLING.md). Pattern misses are false negatives (a lie phrased
+  unusually still succeeds by trust), never false failures: nominalizations
+  ("procédé à la création"), off-list synonyms ("generated", "delivered")
+  and vague claims ("all files in place") all bypass the patterns —
+  verified by probe, accepted as a known limit. Third-party agents
+  ("created by the user") are excluded to protect legitimate research
+  reports. The robust path stays unchanged: declare acceptance criteria.

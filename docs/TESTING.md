@@ -17,7 +17,7 @@ adversarial cases, and honest coverage notes.
 | E2E (scripted) | `cli/e2e.test.ts` | Hire → submit → worker → status through the real CLI + server |
 | E2E (live LLM) | Manual T1–T4 runs (Muse) | The full loop works against a real provider |
 
-Current state: **41 files, 308 tests, all green** (Vitest).
+Current state: **42 files, 326 tests, all green** (Vitest).
 
 ## 2. Commands
 
@@ -51,6 +51,7 @@ Scripted tests use a fake provider. The live runs below used Meta Muse
 | T1 | Hire → file-writing mission → proof → verify | Pass: file created, Ed25519 proof verified |
 | T2 | Cross-employer access (`emo_acme` reading `emo_globex` job) | Blocked: 404 (no leak) |
 | T3a/b/c | Success semantics: fulfilled / unfulfilled / unverifiable missions | `succeeded` / `failed` / `needs_review` as specified |
+| T5a/b | Unsupported claims (file lie, all-tools-failed) through the full stack | `needs_review` with explicit reason, disk-checked |
 | T4 | Proof tampering (flip one signature char) | Rejected: invalid signature |
 
 Example — replaying the success-semantics check:
@@ -82,6 +83,15 @@ Each case below is a committed regression test, not a one-off script:
 - **Lying employee** (`missions/mission-acceptance.test.ts`): an employee that
   claims "done" without producing the expected file is detected — the job
   goes to `failed`, not `succeeded`.
+- **Unsupported success claims** (`missions/mission-claims.test.ts`,
+  `runtime/employee-runtime.test.ts`, E2E T5a): a FINAL asserting file /
+  message / command effects with no successful supporting call suspends
+  judgment (`needs_review`), in French and English, including when
+  unrelated calls succeeded.
+- **All tools failed** (`runtime/employee-runtime.test.ts`, E2E T5b): every
+  tool call returning `ok:false` before FINAL yields `needs_review` even
+  when the Final honestly reports the failure — the goal is not
+  established either way.
 - **Stale-worker theft** (`jobs/file-job-store.test.ts`): a job claimed by a
   dead worker (expired heartbeat lease) is recovered to `queued` exactly
   once; a live worker's claim cannot be stolen early.

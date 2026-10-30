@@ -17,7 +17,7 @@ to the doc or ADR that defines "done".
 | Completion proofs | Finished work carries a forgery-resistant receipt | Ed25519 proofs (ADR-002), T4 tamper test |
 | Verified success | `succeeded` means the goal was checked, not claimed | Acceptance checks, `needs_review` (ADR-007), T3a/b/c |
 
-Net: **41 test files, 308 tests green, `tsc` clean**, live-verified against
+Net: **42 test files, 326 tests green, `tsc` clean**, live-verified against
 Meta Muse. The engine runs standalone (API + N workers, zero external
 services besides the LLM provider).
 
@@ -50,6 +50,11 @@ Ordered by risk reduction, not by ease.
    API is contract-tested but no UI path calls it. *Done = Talent Directory
    "Recruit" performs a real `hire`, with the session token mapped to an
    `emo_` credential.*
+8. **Declared tool requirements → fail-fast `blocked`.** Today a goal that
+   is impossible with the employee's tools is only detected after the run
+   (unknown-tool attempt → `needs_review`). *Done = `submit` accepts
+   required tools; the server refuses with `blocked` (no LLM cost) when
+   the profile cannot provide them.*
 
 ## 3. Long-term vision
 

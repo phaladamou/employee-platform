@@ -48,9 +48,9 @@ claimed → queued            (stale lease recovered, runs again)
 
 | State | When | Who acts next |
 |---|---|---|
-| `succeeded` | All `--expect-file` / `--expect-contains` checks passed (or no expectations and a clean run) | Nobody — read the report |
-| `failed` | Tool error, provider error, invalid model output, or a verifiable expectation unmet (e.g. file missing) | Fix the cause, resubmit |
-| `needs_review` | Mission succeeded procedurally but the goal is not automatically verifiable (research brief, email draft…) | A human reads the report and accepts or rejects |
+| `succeeded` | FINAL received **and** the goal is established: acceptance criteria verified, or no criteria with a clean run (no suspicion signal — this is trust, not proof) | Nobody — read the report |
+| `failed` | Goal established as **not met**: loop error (LLM failure, steps exhausted) or a declared criterion unmet (e.g. file missing) | Fix the cause, resubmit |
+| `needs_review` | FINAL received but success **not established**: (a) reached for unavailable tools with nothing done, (b) every tool call failed, (c) the report claims concrete effects (file, message, command) no successful call supports | A human reads the report and accepts, rejects, or resubmits with criteria |
 | `cancelled` | `POST /v1/jobs/:id/cancel` confirmed by the worker | Nobody |
 
 Example — distinguishing the three non-success outcomes:
@@ -58,8 +58,17 @@ Example — distinguishing the three non-success outcomes:
 ```bash
 emp status job_ok       # status: succeeded   report: "wrote notes.md (3 checks passed)"
 emp status job_lie      # status: failed      error: "acceptance: expected file HACKED.txt not created"
-emp status job_research # status: needs_review  reviewReason: "no automatic check for brief quality"
+emp status job_claim    # status: needs_review  reviewReason: "report claims file effects with no supporting write_file call"
+emp status job_research # status: succeeded   report: "Q3 churn drivers..." (no criteria, no signals: trusted)
 ```
+
+A parseable FINAL is **not** a verdict: it only proves the model stopped.
+The verdict compares three independent inputs — observed tool facts,
+model assertions, and declared criteria ([ADR-007](DECISIONS.md),
+[ADR-009](DECISIONS.md)). There is deliberately no `blocked` state:
+impossibility is only observable after the fact (unknown-tool attempt →
+`needs_review`); fail-fast blocking would require submitter-declared tool
+requirements (see [ROADMAP.md](ROADMAP.md)).
 
 ## 3. Retry and recovery
 
