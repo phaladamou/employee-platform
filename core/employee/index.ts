@@ -27,6 +27,7 @@ export type {
 } from "./profile/employee-profile";
 export {
   createEmployeeProfile,
+  migrateEmployeeProfile,
   setEmployeeStatus,
 } from "./profile/employee-profile";
 
@@ -83,10 +84,12 @@ export type {
 export { EmployeeRuntime } from "./runtime/employee-runtime";
 export type {
   EmployeeProfileSpec,
+  EmployeeSpecialization,
   ToolPermission,
 } from "./profiles/profile-spec";
 export {
   isEmployeeProfileSpec,
+  isEmployeeSpecialization,
   MAX_PROFILE_STEPS,
 } from "./profiles/profile-spec";
 export type { ProfileRegistry } from "./profiles/profile-registry";
@@ -108,6 +111,7 @@ export {
   ACTION_MARKER,
   FINAL_MARKER,
   OBSERVATION_MAX_CHARS,
+  formatSpecializationBlock,
   PAST_EXPERIENCE_MAX_CHARS,
   PAST_EXPERIENCE_MAX_ITEMS,
   buildSystemPrompt,
