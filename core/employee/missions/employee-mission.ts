@@ -1,10 +1,16 @@
 import { randomUUID } from "node:crypto";
 
+import {
+  validateAcceptance,
+  type MissionAcceptance,
+} from "./mission-acceptance";
+
 export type EmployeeMissionStatus =
   | "pending"
   | "running"
   | "completed"
-  | "failed";
+  | "failed"
+  | "needs_review";
 
 export interface MissionReport {
   readonly summary: string;
@@ -19,6 +25,8 @@ export interface EmployeeMission {
   readonly employerId: string | null;
   readonly prompt: string;
   readonly status: EmployeeMissionStatus;
+  /** Effets machine-verifiables exiges (vide = non verifiable). */
+  readonly acceptance: MissionAcceptance;
   readonly report: MissionReport | null;
   readonly error: string | null;
   readonly createdAt: string;
@@ -35,6 +43,7 @@ export function createEmployeeMission(input: {
   prompt: string;
   now?: Date;
   employerId?: string | null;
+  acceptance?: unknown;
 }): EmployeeMission {
   const prompt = input.prompt.trim();
 
@@ -48,12 +57,15 @@ export function createEmployeeMission(input: {
     throw new Error("Employer id cannot be empty");
   }
 
+  const acceptance = validateAcceptance(input.acceptance);
+
   return {
     id: input.id ?? `msn_${randomUUID()}`,
     employeeId: null,
     employerId,
     prompt,
     status: "pending",
+    acceptance,
     report: null,
     error: null,
     createdAt: (input.now ?? new Date()).toISOString(),
@@ -148,5 +160,32 @@ export function failEmployeeMission(
     status: "failed",
     error,
     completedAt: now.toISOString(),
+  };
+}
+
+/**
+ * Suspend le jugement : le LLM a emis FINAL mais des signaux
+ * suspects ont ete observes (ex. outils hors profil tentes sans
+ * aucun appel reussi). Le rapport est preserve pour le relecteur
+ * humain ; error reste null (aucune erreur averee, juste un doute).
+ */
+export function flagMissionForReview(
+  mission: EmployeeMission,
+  report: { summary: string; content: string },
+  now: Date = new Date()
+): EmployeeMission {
+  if (mission.status !== "running") {
+    throw new Error(
+      `Mission ${mission.id} cannot flag from status "${mission.status}"`
+    );
+  }
+
+  const completedAt = now.toISOString();
+
+  return {
+    ...mission,
+    status: "needs_review",
+    report: { ...report, completedAt },
+    completedAt,
   };
 }

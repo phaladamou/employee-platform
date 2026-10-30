@@ -303,11 +303,50 @@ async function cmdSubmit(args: ParsedArgs, ctx: CliContext): Promise<CliResult> 
   const [employeeId, ...promptParts] = args.positionals;
   const prompt = promptParts.join(" ").trim();
   if (!employeeId || !prompt) {
-    ctx.output('Usage: submit <employeeId> "<prompt>"');
+    ctx.output(
+      'Usage: submit <employeeId> "<prompt>" [--expect-file a,b] [--expect-contains a=text]'
+    );
     return { exitCode: 1 };
   }
+
+  // Criteres d'acceptation : fichiers exiges (+ sous-chaines requises).
+  const files: { path: string; contains?: string | null }[] = [];
+  const expectRaw = flag(args.flags, "expect-file");
+  if (expectRaw !== undefined) {
+    for (const part of expectRaw.split(",")) {
+      const path = part.trim();
+      if (!path) {
+        ctx.output("Error: --expect-file paths cannot be empty");
+        return { exitCode: 1 };
+      }
+      files.push({ path, contains: null });
+    }
+  }
+  const containsRaw = flag(args.flags, "expect-contains");
+  if (containsRaw !== undefined) {
+    for (const part of containsRaw.split(",")) {
+      const eq = part.indexOf("=");
+      const path = (eq === -1 ? part : part.slice(0, eq)).trim();
+      const text = eq === -1 ? "" : part.slice(eq + 1);
+      if (!path || !text) {
+        ctx.output('Error: --expect-contains must look like "a.txt=text"');
+        return { exitCode: 1 };
+      }
+      const existing = files.find((entry) => entry.path === path);
+      if (existing) {
+        existing.contains = text;
+      } else {
+        files.push({ path, contains: text });
+      }
+    }
+  }
+
   try {
-    const job = await clientFor(ctx).submit(employeeId, prompt);
+    const job = await clientFor(ctx).submit(
+      employeeId,
+      prompt,
+      files.length > 0 ? { acceptance: { files } } : {}
+    );
     ctx.output(`job: ${job.id} (${job.status})`);
     return { exitCode: 0 };
   } catch (error) {
@@ -325,10 +364,12 @@ function printJob(
   }
 ): void {
   ctx.output(`job: ${job.id} (${job.status})`);
-  if (job.status === "succeeded" && job.report) {
+  // needs_review porte les deux (rapport preserve + motif) : affiche
+  // tout ce qui est present, quel que soit le statut.
+  if (job.report) {
     ctx.output(`report: ${job.report}`);
   }
-  if (job.status === "failed" && job.error) {
+  if (job.error) {
     ctx.output(`error: ${job.error}`);
   }
 }
@@ -578,7 +619,7 @@ function usage(ctx: CliContext): CliResult {
       "  recover [--stale-after-ms N]   requeue orphaned jobs",
       "  publish --name N --role R [--skills a,b] [--spec n@v]   (admin)",
       "  hire <employeeId>",
-      "  submit <employeeId> \"<prompt>\"",
+      "  submit <employeeId> \"<prompt>\" [--expect-file a,b] [--expect-contains a=text]",
       "  status <jobId>",
       "  cancel <jobId>",
       "  events <jobId>",

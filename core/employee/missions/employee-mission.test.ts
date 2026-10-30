@@ -5,6 +5,7 @@ import {
   completeEmployeeMission,
   createEmployeeMission,
   failEmployeeMission,
+  flagMissionForReview,
   startEmployeeMission,
 } from "./employee-mission";
 
@@ -100,5 +101,48 @@ describe("mission lifecycle", () => {
     expect(() =>
       createEmployeeMission({ prompt: "Bad", employerId: "  " })
     ).toThrow("Employer id cannot be empty");
+  });
+
+  it("carries validated acceptance criteria, empty by default", () => {
+    const plain = createEmployeeMission({ prompt: "Hi" });
+    expect(plain.acceptance).toEqual({ files: [] });
+
+    const scoped = createEmployeeMission({
+      prompt: "Hi",
+      acceptance: { files: [{ path: "hello.txt", contains: "yo" }] },
+    });
+    expect(scoped.acceptance.files).toHaveLength(1);
+
+    expect(() =>
+      createEmployeeMission({ prompt: "Hi", acceptance: { files: [{}] } })
+    ).toThrow("requires a path string");
+    expect(() =>
+      createEmployeeMission({
+        prompt: "Hi",
+        acceptance: { files: [{ path: "../x" }] },
+      })
+    ).toThrow("escapes the workspace");
+  });
+
+  it("flags running missions for review with the report preserved", () => {
+    const running = startEmployeeMission(
+      assignMission(createEmployeeMission({ prompt: "Hi" }), "emp_1")
+    );
+
+    const flagged = flagMissionForReview(running, {
+      summary: "Maybe",
+      content: "Maybe done.",
+    });
+
+    expect(flagged.status).toBe("needs_review");
+    expect(flagged.report?.content).toBe("Maybe done.");
+    expect(flagged.error).toBeNull();
+    expect(flagged.completedAt).not.toBeNull();
+    expect(() =>
+      flagMissionForReview(createEmployeeMission({ prompt: "Hi" }), {
+        summary: "s",
+        content: "c",
+      })
+    ).toThrow('cannot flag from status "pending"');
   });
 });

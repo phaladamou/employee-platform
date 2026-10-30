@@ -125,6 +125,15 @@ describe("HttpEmployeeClient", () => {
     }
     expect(calls[0]?.body).toEqual({ employeeId: "emp_1" });
     expect(calls[2]?.body).toEqual({ employeeId: "emp_1", prompt: "Work" });
+
+    await client.submit("emp_1", "Write", {
+      acceptance: { files: [{ path: "a.txt" }] },
+    });
+    expect(calls[7]?.body).toEqual({
+      employeeId: "emp_1",
+      prompt: "Write",
+      acceptance: { files: [{ path: "a.txt" }] },
+    });
   });
 
   it("returns null on 404", async () => {

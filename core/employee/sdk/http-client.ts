@@ -127,10 +127,17 @@ export class HttpEmployeeClient implements EmployeeClient {
     return this.request<readonly Employment[]>(hirePath());
   }
 
-  async submit(employeeId: string, prompt: string): Promise<EmployeeJob> {
+  async submit(
+    employeeId: string,
+    prompt: string,
+    options: { acceptance?: unknown } = {}
+  ): Promise<EmployeeJob> {
     return this.request<EmployeeJob>(jobsPath(), {
       method: "POST",
-      body: { employeeId, prompt },
+      body:
+        options.acceptance === undefined
+          ? { employeeId, prompt }
+          : { employeeId, prompt, acceptance: options.acceptance },
     });
   }
 

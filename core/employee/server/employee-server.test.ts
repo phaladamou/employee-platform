@@ -280,6 +280,51 @@ describe("createEmployeeHandler", () => {
     expect(mission.status).toBe(200);
   });
 
+  it("accepts valid acceptance criteria, rejects malformed ones", async () => {
+    const { handle, tokens } = await makeWorld();
+    await call(handle, "POST", "/v1/employees", {
+      token: tokens.admin,
+      body: { name: "Aria", role: "Dev" },
+    });
+    const catalog = (await call(handle, "GET", "/v1/employees", {
+      token: tokens.employer,
+    })).json as { id: string }[];
+    const employeeId = catalog[0].id;
+    await call(handle, "POST", "/v1/hires", {
+      token: tokens.employer,
+      body: { employeeId },
+    });
+
+    const ok = await call(handle, "POST", "/v1/jobs", {
+      token: tokens.employer,
+      body: {
+        employeeId,
+        prompt: "Write hello",
+        acceptance: { files: [{ path: "hello.txt", contains: "hi" }] },
+      },
+    });
+    expect(ok.status).toBe(202);
+    const job = ok.json as { missionId: string };
+    const mission = (await call(handle, "GET", `/v1/missions/${job.missionId}`, {
+      token: tokens.employer,
+    })).json as { acceptance: unknown };
+    expect(mission.acceptance).toEqual({
+      files: [{ path: "hello.txt", contains: "hi" }],
+    });
+
+    for (const acceptance of [
+      { files: [{ path: "../escape.txt" }] },
+      { files: [{ path: "" }] },
+      { files: "nope" },
+    ]) {
+      const bad = await call(handle, "POST", "/v1/jobs", {
+        token: tokens.employer,
+        body: { employeeId, prompt: "Write hello", acceptance },
+      });
+      expect(bad.status).toBe(400);
+    }
+  });
+
   it("isolates tenants on every scoped route", async () => {
     const { handle, tokens } = await makeWorld();
     await call(handle, "POST", "/v1/employees", {

@@ -77,6 +77,15 @@ export interface JobStore {
     now?: Date
   ): Promise<EmployeeJob>;
 
+  /** Suspension pour revue (flagJobForReview). */
+  markNeedsReview(
+    jobId: string,
+    workerId: string,
+    report: string,
+    reason: string,
+    now?: Date
+  ): Promise<EmployeeJob>;
+
   /**
    * Battement du worker proprietaire (heartbeatEmployeeJob) : renouvelle
    * le bail. Leve si le job est inconnu, termine, ou verrouille par un

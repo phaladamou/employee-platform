@@ -41,8 +41,17 @@ export {
   completeEmployeeMission,
   createEmployeeMission,
   failEmployeeMission,
+  flagMissionForReview,
   startEmployeeMission,
 } from "./missions/employee-mission";
+export {
+  EMPTY_ACCEPTANCE,
+  validateAcceptance,
+  verifyAcceptance,
+  type AcceptanceResult,
+  type FileExpectation,
+  type MissionAcceptance,
+} from "./missions/mission-acceptance";
 
 export type { EmployeeCredentialStore } from "./auth/credential-store";
 export type {
@@ -93,6 +102,7 @@ export {
   claimEmployeeJob,
   createEmployeeJob,
   failEmployeeJob,
+  flagJobForReview,
   heartbeatEmployeeJob,
   isJobStale,
   isTerminalJobStatus,

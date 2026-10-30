@@ -6,6 +6,7 @@ import {
   completeEmployeeMission,
   createEmployeeMission,
   failEmployeeMission,
+  flagMissionForReview,
   startEmployeeMission,
 } from "./employee-mission";
 import {
@@ -86,6 +87,20 @@ describe("generateMissionProof", () => {
     );
     expect(() => generateMissionProof(unscoped, keys.privateKeyPem)).toThrow(
       "has no employer"
+    );
+
+    // Pas de certificat pour le travail non revu : seul completed prouve.
+    const flagged = flagMissionForReview(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "x", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "s", content: "c" }
+    );
+    expect(() => generateMissionProof(flagged, keys.privateKeyPem)).toThrow(
+      "is not completed"
     );
   });
 });

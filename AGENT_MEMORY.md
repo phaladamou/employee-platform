@@ -363,6 +363,12 @@ Leçons dures :
   (CLI+HTTP+memoire), researcher sans shell (preuve disque), preuves
   forgees rejetees sur run reel. Piege : flip base64url JAMAIS en
   dernier caractere (bits de padding ignores). 284 tests.
+- Semantique succes (faille ChatGPT : Final auto-declare) : criteres
+  d'acceptation declares verifies disque (non satisfaits -> failed),
+  etat terminal `needs_review` (moyens hors profil + zero appels
+  reussis, rapport preserve, zero preuve), sinon confiance inchangee.
+  T3a/b/c E2E. Test heartbeat rendu deterministe (attente observee,
+  plus de sleep fixe). 307 tests.
 
 ## 9. Conventions et environnement (rappel)
 

@@ -7,6 +7,7 @@ import { InMemoryJobSignal } from "../jobs/job-signal";
 import { createEmployeeProfile } from "../profile/employee-profile";
 import { createEmployeeMission } from "../missions/employee-mission";
 import { createReadFileTool } from "../tools/read-file";
+import { createWriteFileTool } from "../tools/write-file";
 import type { ToolContext } from "../tools/tool";
 import { EmployeeRuntime } from "./employee-runtime";
 import { FetchLLMProvider } from "./fetch-llm-provider";
@@ -192,6 +193,99 @@ describe("EmployeeRuntime.run", () => {
 
     expect(result.cancelled).toBe(false);
     expect(result.error).toBeNull();
+  });
+
+  it("fails missions whose acceptance criteria are unmet", async () => {
+    const provider = new ScriptedProvider(["FINAL: File created, trust me."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const mission = createEmployeeMission({
+      prompt: "Create hello.txt",
+      acceptance: { files: [{ path: "hello.txt", contains: "hi" }] },
+    });
+
+    const result = await runtime.run(makeProfile(), mission);
+
+    expect(result.mission.status).toBe("failed");
+    expect(result.error).toContain("verification failed");
+    expect(result.error).toContain("hello.txt");
+    expect(result.report).toBeNull();
+    expect(result.needsReview).toBe(false);
+  });
+
+  it("succeeds missions whose acceptance criteria hold", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "hi"}}',
+      "FINAL: Created.",
+    ]);
+    const ctx = await sandbox();
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: ctx,
+    });
+    const mission = createEmployeeMission({
+      prompt: "Create hello.txt",
+      acceptance: { files: [{ path: "hello.txt", contains: "hi" }] },
+    });
+
+    const result = await runtime.run(makeProfile(), mission);
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.error).toBeNull();
+  });
+
+  it("flags for review when reaching outside the profile with nothing done", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "run_shell", "args": {"command": "touch x"}}',
+      "FINAL: All done.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.needsReview).toBe(true);
+    expect(result.reviewReason).toContain("run_shell");
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.report?.content).toBe("All done.");
+    expect(result.error).toBeNull();
+    expect(result.cancelled).toBe(false);
+  });
+
+  it("trusts clean runs without criteria or signals", async () => {
+    const provider = new ScriptedProvider(["FINAL: Answered from knowledge."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.needsReview).toBe(false);
+  });
+
+  it("succeeds when the agent adapts after an unknown attempt", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "run_shell", "args": {"command": "ls"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Read it.",
+    ]);
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.needsReview).toBe(false);
   });
 });
 

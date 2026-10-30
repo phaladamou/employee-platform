@@ -301,6 +301,29 @@ describe("FileJobStore", () => {
     expect(reclaimed?.error).toContain("recovered after worker silence");
   });
 
+  it("marks jobs for review with ownership checks", async () => {
+    const store = await makeStore();
+    await store.enqueue(job("job_1"));
+    await store.claim("job_1", "worker-1");
+
+    const flagged = await store.markNeedsReview(
+      "job_1",
+      "worker-1",
+      "Maybe done.",
+      "reached for run_shell"
+    );
+
+    expect(flagged.status).toBe("needs_review");
+    expect(flagged.report).toBe("Maybe done.");
+    expect((await store.load("job_1"))?.status).toBe("needs_review");
+
+    await store.enqueue(job("job_2"));
+    await store.claim("job_2", "worker-1");
+    await expect(
+      store.markNeedsReview("job_2", "worker-2", "R", "why")
+    ).rejects.toThrow("locked by another worker");
+  });
+
   it("falls back to startedAt for pre-heartbeat job files", async () => {
     const store = await makeStore();
     await writeFile(

@@ -49,6 +49,10 @@ Demo locale sans serveur : `emp run "Relis briefing.txt et resume-le"`.
 - **Annulation en deux temps** : `queued -> cancelled` immediat ;
   `running -> cancellation_requested`, le worker s'interrompt au prochain
   pas LLM puis confirme (`cancelled`). Distinguer de `failed`.
+- **Succes verifie, jamais auto-declare** : criteres d'acceptation
+  declares (`--expect-file`, `--expect-contains`) controles sur disque
+  (echec -> `failed`) ; sans criteres, moyens hors profil tentes sans
+  rien accomplir -> `needs_review` (rapport preserve, pas de preuve).
 - **Isolation tenants** : `employerId` derive du token verifie, jamais du
   body/URL ; lectures scopees (`loadScoped`) indistinguables (404 unique,
   pas de fuite d'existence) ; memoire partitionnee par

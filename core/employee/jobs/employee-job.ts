@@ -17,7 +17,8 @@ export type JobStatus =
   | "cancellation_requested"
   | "succeeded"
   | "failed"
-  | "cancelled";
+  | "cancelled"
+  | "needs_review";
 
 export interface EmployeeJob {
   readonly id: string;
@@ -42,7 +43,10 @@ export interface EmployeeJob {
 
 export function isTerminalJobStatus(status: JobStatus): boolean {
   return (
-    status === "succeeded" || status === "failed" || status === "cancelled"
+    status === "succeeded" ||
+    status === "failed" ||
+    status === "cancelled" ||
+    status === "needs_review"
   );
 }
 
@@ -207,6 +211,32 @@ export function succeedEmployeeJob(
     job,
     workerId,
     { status: "succeeded", report, error: null },
+    now
+  );
+}
+
+/**
+ * Suspend le jugement : le Final est suspect (voir runtime), le rapport
+ * est preserve dans `report` et le motif dans `error` pour le relecteur.
+ * Etat terminal : la revue se fait hors systeme (pas de transition out).
+ */
+export function flagJobForReview(
+  job: EmployeeJob,
+  workerId: string,
+  report: string,
+  reason: string,
+  now: Date = new Date()
+): EmployeeJob {
+  if (!report.trim()) {
+    throw new Error("Job report cannot be empty");
+  }
+  if (!reason.trim()) {
+    throw new Error("Review reason cannot be empty");
+  }
+  return finishJob(
+    job,
+    workerId,
+    { status: "needs_review", report, error: reason },
     now
   );
 }

@@ -6,6 +6,10 @@ import type {
   EmployeeMissionStatus,
   MissionReport,
 } from "./employee-mission";
+import {
+  validateAcceptance,
+  type MissionAcceptance,
+} from "./mission-acceptance";
 import type { MissionStore } from "./mission-store";
 
 const STATUSES: readonly string[] = [
@@ -13,6 +17,7 @@ const STATUSES: readonly string[] = [
   "running",
   "completed",
   "failed",
+  "needs_review",
 ];
 
 function sanitizeId(id: string): string {
@@ -104,12 +109,22 @@ function parseMission(raw: unknown): EmployeeMission | null {
     return null;
   }
 
+  // Archives pre-verification : criteres absents => aucun (confiance).
+  // Criteres presents mais malformes => quarantaine (fail closed).
+  let acceptance: MissionAcceptance;
+  try {
+    acceptance = validateAcceptance(raw.acceptance ?? undefined);
+  } catch {
+    return null;
+  }
+
   return {
     id,
     employeeId: employee,
     employerId: employer,
     prompt,
     status: status as EmployeeMissionStatus,
+    acceptance,
     report,
     error: asNullableString(error),
     createdAt: raw.createdAt,

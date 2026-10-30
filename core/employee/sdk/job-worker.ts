@@ -116,6 +116,14 @@ export async function runClaimedJob(
     if (result.cancelled) {
       return deps.jobs.markCancelled(claimed.id, workerId);
     }
+    if (result.needsReview && result.report) {
+      return deps.jobs.markNeedsReview(
+        claimed.id,
+        workerId,
+        result.report.content,
+        result.reviewReason ?? "flagged for review"
+      );
+    }
     if (result.error || !result.report) {
       return deps.jobs.markFailed(
         claimed.id,

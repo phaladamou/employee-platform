@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createEmployeeJob } from "../jobs/employee-job";
 import { FileJobStore } from "../jobs/file-job-store";
+import type { JobStore } from "../jobs/job-store";
 import {
   assignMission,
   createEmployeeMission,
@@ -217,14 +218,28 @@ describe("runJobOnce", () => {
   });
 
   it("heartbeats the lease during long runs", async () => {
-    const slow: EmployeeLLMProvider = {
-      id: "slow",
+    // Deterministe : le provider attend d'OBSERVER un battement (pas
+    // un sleep fixe qui flake sous charge).
+    let jobs: JobStore | null = null;
+    const observing: EmployeeLLMProvider = {
+      id: "observing",
       generate: async () => {
-        await new Promise((resolve) => setTimeout(resolve, 150));
-        return { content: "FINAL: Done.", model: "slow" };
+        const start = Date.now();
+        for (;;) {
+          const current = await jobs?.load("job_1");
+          if (current && current.lastHeartbeatAt !== current.startedAt) {
+            break;
+          }
+          if (Date.now() - start > 10_000) {
+            throw new Error("no heartbeat observed");
+          }
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        return { content: "FINAL: Done.", model: "observing" };
       },
     };
-    const { deps } = await makeDeps(slow);
+    const { deps } = await makeDeps(observing);
+    jobs = deps.jobs;
     const jobId = await seedPending(deps);
 
     const finished = await runJobOnce(
@@ -261,6 +276,31 @@ describe("runJobOnce", () => {
     expect(finished?.status).toBe("failed");
     expect((await deps.missions.load(finished?.missionId ?? ""))?.status).toBe(
       "failed"
+    );
+  });
+
+  it("settles suspected runs as needs_review, not succeeded", async () => {
+    const { deps } = await makeDeps(
+      new ScriptedProvider([
+        'ACTION: {"tool": "run_shell", "args": {"command": "touch x"}}',
+        "FINAL: All done.",
+      ])
+    );
+    const jobId = await seedPending(deps);
+
+    const finished = await runJobOnce(
+      { ...deps, tools: [], heartbeatIntervalMs: 0 },
+      jobId,
+      "worker-1"
+    );
+
+    expect(finished?.status).toBe("needs_review");
+    expect(finished?.report).toBe("All done.");
+    expect(finished?.error).toContain("run_shell");
+
+    const job = finished as NonNullable<typeof finished>;
+    expect((await deps.missions.load(job.missionId))?.status).toBe(
+      "needs_review"
     );
   });
 

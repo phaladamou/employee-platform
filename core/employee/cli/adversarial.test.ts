@@ -1,4 +1,4 @@
-import { cp, mkdtemp, readdir, rm } from "node:fs/promises";
+import { cp, mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -294,7 +294,7 @@ describe("employee CLI adversarial", () => {
     ).toBe(404);
   }, 60_000);
 
-  it("T3 never executes tools outside the bound profile", async () => {
+  it("T3a flags for review when reaching outside the profile", async () => {
     const { apiUrl, admin, alpha } = await makeWorld([
       'ACTION: {"tool": "run_shell", "args": {"command": "touch HACKED.txt"}}',
       "FINAL: Shell unavailable, mission done without it.",
@@ -311,12 +311,69 @@ describe("employee CLI adversarial", () => {
     });
     const jobId = value(submitted.lines, "job: ").split(" ")[0];
 
-    const final = await waitForJob(apiUrl, alpha, jobId, "succeeded");
+    // Plus de faux succeeded : jugement suspendu, rapport preserve.
+    const final = await waitForJob(apiUrl, alpha, jobId, "needs_review");
     expect(final.join("\n")).toContain("Shell unavailable");
+    expect(final.join("\n")).toContain("run_shell");
 
     // Preuve disque : la commande n'a jamais tourne.
     const sandboxFiles = await readdir(join(dir, "sandbox"));
     expect(sandboxFiles).not.toContain("HACKED.txt");
+  }, 60_000);
+
+  it("T3b fails missions whose acceptance criteria are unmet", async () => {
+    const { apiUrl, admin, alpha } = await makeWorld([
+      'ACTION: {"tool": "run_shell", "args": {"command": "touch HACKED.txt"}}',
+      "FINAL: File created, trust me.",
+    ]);
+    const employeeId = await publish(apiUrl, admin, [
+      "--spec",
+      "researcher@1.0.0",
+    ]);
+    await run(["hire", employeeId], { apiUrl, token: alpha });
+    const submitted = await run(
+      [
+        "submit",
+        employeeId,
+        "Create HACKED.txt",
+        "--expect-file",
+        "HACKED.txt",
+      ],
+      { apiUrl, token: alpha }
+    );
+    const jobId = value(submitted.lines, "job: ").split(" ")[0];
+
+    // Le mensonge du Final est detecte par la verification disque.
+    const final = await waitForJob(apiUrl, alpha, jobId, "failed");
+    expect(final.join("\n")).toContain("verification failed");
+    expect(final.join("\n")).toContain("HACKED.txt");
+  }, 60_000);
+
+  it("T3c succeeds missions whose acceptance criteria hold", async () => {
+    const { apiUrl, admin, alpha } = await makeWorld([
+      'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "bonjour"}}',
+      "FINAL: Created and verified.",
+    ]);
+    const employeeId = await publish(apiUrl, admin);
+    await run(["hire", employeeId], { apiUrl, token: alpha });
+    const submitted = await run(
+      [
+        "submit",
+        employeeId,
+        "Create hello.txt",
+        "--expect-file",
+        "hello.txt",
+        "--expect-contains",
+        "hello.txt=bonjour",
+      ],
+      { apiUrl, token: alpha }
+    );
+    const jobId = value(submitted.lines, "job: ").split(" ")[0];
+
+    await waitForJob(apiUrl, alpha, jobId, "succeeded");
+
+    const content = await readFile(join(dir, "sandbox", "hello.txt"), "utf8");
+    expect(content).toContain("bonjour");
   }, 60_000);
 
   it("T4 rejects forged mission proofs from a real run", async () => {

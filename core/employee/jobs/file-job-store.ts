@@ -7,6 +7,7 @@ import {
   claimEmployeeJob,
   type EmployeeJob,
   failEmployeeJob,
+  flagJobForReview,
   heartbeatEmployeeJob,
   isJobStale,
   type JobStatus,
@@ -24,6 +25,7 @@ const JOB_STATUSES: readonly JobStatus[] = [
   "succeeded",
   "failed",
   "cancelled",
+  "needs_review",
 ];
 
 /**
@@ -461,6 +463,18 @@ export class FileJobStore implements JobStore {
   ): Promise<EmployeeJob> {
     return this.finish(jobId, workerId, now, (current) =>
       failEmployeeJob(current, workerId, error, now)
+    );
+  }
+
+  async markNeedsReview(
+    jobId: string,
+    workerId: string,
+    report: string,
+    reason: string,
+    now: Date = new Date()
+  ): Promise<EmployeeJob> {
+    return this.finish(jobId, workerId, now, (current) =>
+      flagJobForReview(current, workerId, report, reason, now)
     );
   }
 

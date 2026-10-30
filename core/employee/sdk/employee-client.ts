@@ -17,9 +17,15 @@ export interface EmployeeClient {
 
   /**
    * Soumet une mission a un employe recrute (engagement actif requis)
-   * et retourne le job queued correspondant.
+   * et retourne le job queued correspondant. `acceptance` (optionnel)
+   * declare les effets machine-verifiables : le Final qui ne les
+   * satisfait pas termine failed, pas succeeded.
    */
-  submit(employeeId: string, prompt: string): Promise<EmployeeJob>;
+  submit(
+    employeeId: string,
+    prompt: string,
+    options?: { acceptance?: unknown }
+  ): Promise<EmployeeJob>;
 
   /** Statut d'un job du tenant, null si inconnu ou etranger. */
   status(jobId: string): Promise<EmployeeJob | null>;

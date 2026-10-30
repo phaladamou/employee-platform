@@ -270,6 +270,27 @@ describe("runReasoningLoop", () => {
     expect(provider.seen).toHaveLength(0);
   });
 
+  it("tracks unknown tools distinctly in encounter order", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "run_shell", "args": {"command": "ls"}}',
+      'ACTION: {"tool": "teleport", "args": {}}',
+      'ACTION: {"tool": "run_shell", "args": {"command": "pwd"}}',
+      "FINAL: Done.",
+    ]);
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do it.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.unknownTools).toEqual(["run_shell", "teleport"]);
+    expect(result.toolCalls).toEqual([]);
+  });
+
   it("completes missions with chatty model replies", async () => {
     const provider = new ScriptedProvider([
       'Je lis le fichier.ACTION: {"tool": "read_file", "args": {"path": "a.txt"}}',

@@ -5,6 +5,7 @@ import {
   completeEmployeeMission,
   createEmployeeMission,
   failEmployeeMission,
+  flagMissionForReview,
   startEmployeeMission,
 } from "../missions/employee-mission";
 import { hashReportContent } from "../missions/mission-proof";
@@ -234,6 +235,25 @@ describe("EmployeeMemory.history", () => {
       hashReportContent("Report body.")
     );
     expect(memory.record(ko).reportHash).toBeNull();
+  });
+
+  it("records needs_review missions without a report hash", () => {
+    const memory = new EmployeeMemory();
+    const flagged = flagMissionForReview(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Risky", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "Maybe", content: "Maybe done." }
+    );
+
+    const record = memory.record(flagged);
+
+    expect(record.status).toBe("needs_review");
+    expect(record.summary).toBe("Maybe");
+    expect(record.reportHash).toBeNull();
   });
 
   it("returns a defensive copy", () => {

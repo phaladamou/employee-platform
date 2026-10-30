@@ -50,6 +50,11 @@ export interface ReactLoopResult {
   readonly error: string | null;
   /** Vrai si le run a ete interrompu par le signal d'annulation. */
   readonly cancelled: boolean;
+  /**
+   * Outils tentes mais hors profil (distincts, ordre d'apparition).
+   * Signal de moyens manquants pour la revue (needs_review).
+   */
+  readonly unknownTools: readonly string[];
 }
 
 /**
@@ -82,6 +87,7 @@ export async function runReasoningLoop(
     { role: "user", content: options.missionPrompt },
   ];
   const toolCalls: ReactToolCall[] = [];
+  const unknownTools: string[] = [];
   let steps = 0;
 
   for (let step = 0; step < maxSteps; step += 1) {
@@ -93,6 +99,7 @@ export async function runReasoningLoop(
         toolCalls,
         error: "cancelled",
         cancelled: true,
+        unknownTools: [...unknownTools],
       };
     }
 
@@ -109,6 +116,7 @@ export async function runReasoningLoop(
         toolCalls,
         error: error instanceof Error ? error.message : String(error),
         cancelled: false,
+        unknownTools: [...unknownTools],
       };
     }
 
@@ -125,6 +133,7 @@ export async function runReasoningLoop(
         toolCalls,
         error: null,
         cancelled: false,
+        unknownTools: [...unknownTools],
       };
     }
 
@@ -132,6 +141,9 @@ export async function runReasoningLoop(
       const tool = tools.find((candidate) => candidate.name === parsed.tool);
 
       if (!tool) {
+        if (!unknownTools.includes(parsed.tool)) {
+          unknownTools.push(parsed.tool);
+        }
         const names = tools.map((candidate) => candidate.name).join(", ");
         messages.push({
           role: "user",
@@ -180,5 +192,6 @@ export async function runReasoningLoop(
     toolCalls,
     error: `mission not finished after ${maxSteps} steps`,
     cancelled: false,
+    unknownTools: [...unknownTools],
   };
 }

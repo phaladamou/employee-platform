@@ -5,6 +5,7 @@ import {
   claimEmployeeJob,
   createEmployeeJob,
   failEmployeeJob,
+  flagJobForReview,
   heartbeatEmployeeJob,
   isJobStale,
   isTerminalJobStatus,
@@ -160,6 +161,43 @@ describe("isTerminalJobStatus", () => {
     expect(isTerminalJobStatus("succeeded")).toBe(true);
     expect(isTerminalJobStatus("failed")).toBe(true);
     expect(isTerminalJobStatus("cancelled")).toBe(true);
+    expect(isTerminalJobStatus("needs_review")).toBe(true);
+  });
+});
+
+describe("flagJobForReview", () => {
+  it("preserves the report and the reason for the reviewer", () => {
+    const running = claimEmployeeJob(queued(), "worker-1");
+
+    const flagged = flagJobForReview(
+      running,
+      "worker-1",
+      "Maybe done.",
+      "reached for run_shell"
+    );
+
+    expect(flagged.status).toBe("needs_review");
+    expect(flagged.report).toBe("Maybe done.");
+    expect(flagged.error).toBe("reached for run_shell");
+    expect(flagged.lockOwner).toBeNull();
+    expect(flagged.finishedAt).not.toBeNull();
+  });
+
+  it("enforces ownership, runnability and non-empty payloads", () => {
+    const running = claimEmployeeJob(queued(), "worker-1");
+
+    expect(() => flagJobForReview(running, "worker-2", "R", "why")).toThrow(
+      "locked by another worker"
+    );
+    expect(() => flagJobForReview(queued(), "worker-1", "R", "why")).toThrow(
+      'cannot finish (status "queued")'
+    );
+    expect(() => flagJobForReview(running, "worker-1", "  ", "why")).toThrow(
+      "Job report cannot be empty"
+    );
+    expect(() => flagJobForReview(running, "worker-1", "R", "  ")).toThrow(
+      "Review reason cannot be empty"
+    );
   });
 });
 

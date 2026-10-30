@@ -170,6 +170,25 @@ describe("InProcessEmployeeClient", () => {
     expect(await client.mission(job.missionId)).not.toBeNull();
   });
 
+  it("attaches validated acceptance criteria to missions", async () => {
+    const { client, creator } = await makeWorld("acme");
+    await creator.publishEmployee({ id: "emp_1", name: "Aria", role: "Dev" });
+    await client.hire("emp_1");
+
+    const job = await client.submit("emp_1", "Write hello", {
+      acceptance: { files: [{ path: "hello.txt" }] },
+    });
+    expect((await client.mission(job.missionId))?.acceptance).toEqual({
+      files: [{ path: "hello.txt", contains: null }],
+    });
+
+    await expect(
+      client.submit("emp_1", "Write hello", {
+        acceptance: { files: [{ path: "../x" }] },
+      })
+    ).rejects.toThrow("escapes the workspace");
+  });
+
   it("cancels queued jobs immediately", async () => {
     const { client, creator } = await makeWorld("acme");
     await creator.publishEmployee({ id: "emp_1", name: "Aria", role: "Dev" });

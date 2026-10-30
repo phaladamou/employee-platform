@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import {
   setEmployeeStatus,
   type EmployeeProfile,
@@ -6,10 +8,12 @@ import {
   assignMission,
   completeEmployeeMission,
   failEmployeeMission,
+  flagMissionForReview,
   startEmployeeMission,
   type EmployeeMission,
   type MissionReport,
 } from "../missions/employee-mission";
+import { verifyAcceptance } from "../missions/mission-acceptance";
 import type { ProfileRegistry } from "../profiles/profile-registry";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
 import { createCoreTools } from "../tools/tool";
@@ -24,6 +28,7 @@ import type { EmployeeLLMProvider } from "./llm-provider";
 import { resolveToolsForProfile } from "./profile-tools";
 import { formatSpecializationBlock } from "./react-protocol";
 import {
+  DEFAULT_SANDBOX_DIR,
   runReasoningLoop,
   type ReactToolCall,
 } from "./react-loop";
@@ -35,6 +40,13 @@ export interface EmployeeRunResult {
   readonly error: string | null;
   /** Vrai si le run a ete interrompu par le signal d'annulation. */
   readonly cancelled: boolean;
+  /**
+   * Vrai si le Final est suspect (outils hors profil tentes sans
+   * aucun appel reussi) : mission en needs_review, rapport preserve
+   * pour le relecteur humain, `reviewReason` explique pourquoi.
+   */
+  readonly needsReview: boolean;
+  readonly reviewReason: string | null;
   /** Appels LLM effectues pendant la mission. */
   readonly steps: number;
   /** Outils executes, dans l'ordre. */
@@ -228,13 +240,69 @@ export class EmployeeRuntime {
         steps: loop.steps,
         toolCalls: loop.toolCalls,
         cancelled: loop.cancelled,
+        needsReview: false,
+        reviewReason: null,
       };
     }
 
-    const completed = completeEmployeeMission(running, {
+    const report = {
       summary: summarize(loop.reportContent),
       content: loop.reportContent,
-    });
+    };
+
+    // 1. Criteres declares : verification deterministe contre le sandbox.
+    //    Un Final qui ne les satisfait pas est un echec, pas un succes.
+    if (running.acceptance.files.length > 0) {
+      const sandboxRoot =
+        this.options.toolContext?.sandboxRoot ?? resolve(DEFAULT_SANDBOX_DIR);
+      const check = await verifyAcceptance(sandboxRoot, running.acceptance);
+
+      if (!check.passed) {
+        const failed = failEmployeeMission(
+          running,
+          `verification failed: ${check.failures.join("; ")}`
+        );
+        await this.persistMemory(profile, failed);
+
+        return {
+          profile: setEmployeeStatus(working, "idle"),
+          mission: failed,
+          report: null,
+          error: failed.error,
+          steps: loop.steps,
+          toolCalls: loop.toolCalls,
+          cancelled: false,
+          needsReview: false,
+          reviewReason: null,
+        };
+      }
+    } else if (
+      loop.unknownTools.length > 0 &&
+      !loop.toolCalls.some((call) => call.ok)
+    ) {
+      // 2. Sans criteres : l'agent a tendu la main hors de son profil
+      //    sans rien accomplir d'observable — jugement suspendu, pas
+      //    de succes auto-declare. Le rapport est preserve pour revue.
+      const flagged = flagMissionForReview(running, report);
+      const reason =
+        `reached for unavailable tools (${loop.unknownTools.join(", ")}) ` +
+        `with no successful tool calls`;
+      await this.persistMemory(profile, flagged);
+
+      return {
+        profile: setEmployeeStatus(working, "idle"),
+        mission: flagged,
+        report: flagged.report,
+        error: null,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
+        cancelled: false,
+        needsReview: true,
+        reviewReason: reason,
+      };
+    }
+
+    const completed = completeEmployeeMission(running, report);
     await this.persistMemory(profile, completed);
 
     return {
@@ -245,6 +313,8 @@ export class EmployeeRuntime {
       steps: loop.steps,
       toolCalls: loop.toolCalls,
       cancelled: false,
+      needsReview: false,
+      reviewReason: null,
     };
   }
 }

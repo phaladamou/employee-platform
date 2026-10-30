@@ -75,4 +75,42 @@ describe("FileMissionStore", () => {
     const files = await readdir(dir);
     expect(files.some((name) => name.includes(".corrupt."))).toBe(true);
   });
+
+  it("defaults legacy missions to empty acceptance", async () => {
+    const store = await makeStore();
+    await writeFile(
+      join(dir, "mission_mis_old.json"),
+      JSON.stringify({
+        id: "mis_old",
+        employeeId: "emp_1",
+        employerId: "acme",
+        prompt: "Old",
+        status: "pending",
+        report: null,
+        error: null,
+        createdAt: "2025-01-01T00:00:00.000Z",
+        startedAt: null,
+        completedAt: null,
+      }),
+      "utf8"
+    );
+
+    const loaded = await store.load("mis_old");
+    expect(loaded?.acceptance).toEqual({ files: [] });
+  });
+
+  it("quarantines missions with malformed acceptance", async () => {
+    const store = await makeStore();
+    const mission = createEmployeeMission({ prompt: "Audit" });
+    await writeFile(
+      join(dir, `mission_${mission.id}.json`),
+      JSON.stringify({ ...mission, acceptance: { files: [{ path: "../x" }] } }),
+      "utf8"
+    );
+
+    expect(await store.load(mission.id)).toBeNull();
+
+    const files = await readdir(dir);
+    expect(files.some((name) => name.includes(".corrupt."))).toBe(true);
+  });
 });

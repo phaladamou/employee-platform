@@ -8,7 +8,7 @@ export interface MissionRecord {
   /** null = archive legacy (avant cloisonnement), lisible partout. */
   readonly employerId: string | null;
   readonly prompt: string;
-  readonly status: "completed" | "failed";
+  readonly status: "completed" | "failed" | "needs_review";
   readonly summary: string | null;
   /**
    * SHA-256 hex du rapport si completed, null sinon (echec ou archive
@@ -30,7 +30,9 @@ export function isMissionRecord(value: unknown): value is MissionRecord {
     typeof record.employeeId === "string" &&
     (typeof record.employerId === "string" || record.employerId === null) &&
     typeof record.prompt === "string" &&
-    (record.status === "completed" || record.status === "failed") &&
+    (record.status === "completed" ||
+      record.status === "failed" ||
+      record.status === "needs_review") &&
     (typeof record.summary === "string" || record.summary === null) &&
     (typeof record.reportHash === "string" || record.reportHash === null) &&
     typeof record.completedAt === "string"
@@ -50,7 +52,11 @@ export class EmployeeMemory {
    * terminees (completed/failed) sont acceptables.
    */
   record(mission: EmployeeMission): MissionRecord {
-    if (mission.status !== "completed" && mission.status !== "failed") {
+    if (
+      mission.status !== "completed" &&
+      mission.status !== "failed" &&
+      mission.status !== "needs_review"
+    ) {
       throw new Error(
         `Mission ${mission.id} is not finished (status "${mission.status}")`
       );

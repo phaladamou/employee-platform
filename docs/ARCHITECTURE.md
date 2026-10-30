@@ -100,17 +100,23 @@ A user mission becomes a traceable **job**. States:
                     ┌────▼─────┐
                     │ running  │  locked by lockOwner
                     └────┬─────┘
-           ┌─────────────┼──────────────┐
-           │             │              │ cancel (employer)
-      ┌────▼─────┐ ┌─────▼────┐ ┌───────▼──────────────┐
-      │succeeded │ │  failed  │ │cancellation_requested│
-      │+ report  │ │ + error  │ └──────────┬───────────┘
-      └──────────┘ └──────────┘            │ worker stops at the
-                                           │ next step, then confirms
-                                      ┌────▼─────┐
-                                      │cancelled │
-                                      └──────────┘
+           ┌─────────────┼──────────────┬─────────────┐
+           │             │              │             │ cancel
+      ┌────▼─────┐ ┌─────▼────┐ ┌──────▼──────┐ ┌─────▼──────────────┐
+      │succeeded │ │  failed  │ │needs_review │ │cancellation_req.   │
+      │+ report  │ │ + error  │ │report + why │ └─────────┬──────────┘
+      └──────────┘ └──────────┘ └─────────────┘     worker stops, confirms
+                                              ┌────▼─────┐
+                                              │cancelled │
+                                              └──────────┘
 ```
+
+Success is never self-certified: after FINAL, the runtime applies three
+rules in order — (1) declared acceptance criteria are checked against the
+sandbox (unmet → `failed`), (2) reaching outside the profile with zero
+successful calls suspends judgment (`needs_review`, report preserved for
+a human), (3) otherwise the run is trusted (`succeeded`). Unreviewed work
+gets no mission proof (certificates require `completed`).
 
 Design points:
 

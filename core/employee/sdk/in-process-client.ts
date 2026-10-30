@@ -68,7 +68,11 @@ export class InProcessEmployeeClient implements EmployeeClient {
     return this.employments.listByEmployer(this.employerId);
   }
 
-  async submit(employeeId: string, prompt: string): Promise<EmployeeJob> {
+  async submit(
+    employeeId: string,
+    prompt: string,
+    options: { acceptance?: unknown } = {}
+  ): Promise<EmployeeJob> {
     const profile = await this.profiles.load(employeeId);
     if (!profile) {
       throw new Error(`Employee ${employeeId} not found`);
@@ -84,8 +88,13 @@ export class InProcessEmployeeClient implements EmployeeClient {
       );
     }
 
+    // createEmployeeMission valide les criteres (leve si malformes).
     const mission = assignMission(
-      createEmployeeMission({ prompt, employerId: this.employerId }),
+      createEmployeeMission({
+        prompt,
+        employerId: this.employerId,
+        acceptance: options.acceptance,
+      }),
       profile.id
     );
     await this.missions.save(mission);

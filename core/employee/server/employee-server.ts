@@ -52,6 +52,7 @@ const JOB_STATUSES: readonly string[] = [
   "succeeded",
   "failed",
   "cancelled",
+  "needs_review",
 ];
 
 function json(status: number, payload: unknown): EmployeeHttpResponse {
@@ -112,7 +113,7 @@ function toHttpError(error: unknown): EmployeeHttpResponse {
     return apiError(403, "not_hired", message);
   }
   if (
-    /cannot be empty|requires |Unknown profile|Invalid |must be |is invalid/.test(
+    /cannot be empty|requires |Unknown profile|Invalid |must be |is invalid|escapes the workspace|Acceptance /.test(
       message
     )
   ) {
@@ -245,7 +246,9 @@ export function createEmployeeHandler(deps: EmployeeServerDeps) {
       try {
         return json(
           202,
-          await clientFor(auth.employerId).submit(employeeId, prompt)
+          await clientFor(auth.employerId).submit(employeeId, prompt, {
+            acceptance: record?.acceptance,
+          })
         );
       } catch (error) {
         return toHttpError(error);
