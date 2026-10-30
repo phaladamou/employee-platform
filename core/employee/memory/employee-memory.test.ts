@@ -7,6 +7,7 @@ import {
   failEmployeeMission,
   startEmployeeMission,
 } from "../missions/employee-mission";
+import { hashReportContent } from "../missions/mission-proof";
 import { EmployeeMemory } from "./employee-memory";
 
 function finishedMission(
@@ -78,6 +79,7 @@ describe("EmployeeMemory.restore", () => {
         prompt: "New",
         status: "completed",
         summary: "Done",
+        reportHash: null,
         completedAt: "2026-02-01T00:00:00.000Z",
       },
     ]);
@@ -100,6 +102,7 @@ describe("EmployeeMemory.restore", () => {
         prompt: "Audit",
         status: "completed" as const,
         summary: "Done",
+        reportHash: null,
         completedAt: "2026-01-01T00:00:00.000Z",
       },
     ];
@@ -168,6 +171,7 @@ describe("EmployeeMemory.history", () => {
         prompt: "Acme work",
         status: "completed",
         summary: null,
+        reportHash: null,
         completedAt: "2026-01-01T00:00:00.000Z",
       },
       {
@@ -177,6 +181,7 @@ describe("EmployeeMemory.history", () => {
         prompt: "Globex work",
         status: "completed",
         summary: null,
+        reportHash: null,
         completedAt: "2026-01-02T00:00:00.000Z",
       },
       {
@@ -186,6 +191,7 @@ describe("EmployeeMemory.history", () => {
         prompt: "Legacy work",
         status: "completed",
         summary: null,
+        reportHash: null,
         completedAt: "2026-01-03T00:00:00.000Z",
       },
     ]);
@@ -201,6 +207,33 @@ describe("EmployeeMemory.history", () => {
       "Globex work",
       "Legacy work",
     ]);
+  });
+
+  it("anchors completed reports by hash, failures stay null", () => {
+    const memory = new EmployeeMemory();
+    const done = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Scoped", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "Done", content: "Report body." }
+    );
+    const ko = failEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Failed", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      "boom"
+    );
+
+    expect(memory.record(done).reportHash).toBe(
+      hashReportContent("Report body.")
+    );
+    expect(memory.record(ko).reportHash).toBeNull();
   });
 
   it("returns a defensive copy", () => {

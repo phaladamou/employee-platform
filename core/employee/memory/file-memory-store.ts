@@ -24,19 +24,22 @@ function isEnvelope(value: unknown): value is { records: unknown } {
   );
 }
 
-/** Archives pre-cloisonnement : champ absent => null (lisible partout). */
+/** Archives pre-cloisonnement / pre-preuves : champs absents => null. */
 function normalizeRecord(value: unknown): unknown {
   if (typeof value !== "object" || value === null) {
     return value;
   }
 
-  const record = value as Record<string, unknown>;
+  let record = value as Record<string, unknown>;
 
   if (!("employerId" in record)) {
-    return { ...record, employerId: null };
+    record = { ...record, employerId: null };
+  }
+  if (!("reportHash" in record)) {
+    record = { ...record, reportHash: null };
   }
 
-  return value;
+  return record;
 }
 
 /**

@@ -93,13 +93,17 @@ export {
   claimEmployeeJob,
   createEmployeeJob,
   failEmployeeJob,
+  heartbeatEmployeeJob,
+  isJobStale,
   isTerminalJobStatus,
   requestEmployeeJobCancellation,
+  requeueStaleJob,
+  settleStaleCancellation,
   succeedEmployeeJob,
   type EmployeeJob,
   type JobStatus,
 } from "./jobs/employee-job";
-export { FileJobStore } from "./jobs/file-job-store";
+export { DEFAULT_STALE_AFTER_MS, FileJobStore } from "./jobs/file-job-store";
 export {
   createPollingJobSignal,
   createStaticJobSignal,
@@ -110,6 +114,16 @@ export {
 export type { JobStore } from "./jobs/job-store";
 export type { MissionStore } from "./missions/mission-store";
 export { FileMissionStore } from "./missions/file-mission-store";
+export {
+  generateMissionProof,
+  generateOperatorKeyPair,
+  hashReportContent,
+  verifyMissionProof,
+  verifyReportDisclosure,
+  MISSION_PROOF_VERSION,
+  type MissionProof,
+  type OperatorKeyPair,
+} from "./missions/mission-proof";
 export type { ProfileStore } from "./profile/profile-store";
 export { FileProfileStore } from "./profile/file-profile-store";
 export type { EmployeeClient } from "./sdk/employee-client";
@@ -122,6 +136,7 @@ export {
 export { InProcessEmployeeClient } from "./sdk/in-process-client";
 export { InProcessEmployeeCreator } from "./sdk/in-process-creator";
 export {
+  DEFAULT_HEARTBEAT_INTERVAL_MS,
   runClaimedJob,
   runJobOnce,
   type JobWorkerDeps,

@@ -341,6 +341,15 @@ Leçons dures :
   verifie). Correctif requis : parseur ReAct tolerant (Muse prepose
   du bavardage ; premiere directive gagne + extraction JSON equilibree,
   contenu toujours strict). 251 tests.
+- Garantie 2 (recovery) : bail par heartbeat (`lastHeartbeatAt`, 15 s,
+  best-effort) + `recoverStaleJobs` (running stale -> queued avec trace,
+  cancellation_requested stale -> cancelled), sweep au demarrage du
+  worker + CLI `recover`. Legacy sans battement : repli sur startedAt.
+- Garantie 3 (CV verifiable) : `missions/mission-proof.ts` — SHA-256 du
+  rapport stocke en memoire (`reportHash`, null si echec/legacy),
+  `generateMissionProof` (certificat Ed25519 operateur, sans contenu
+  confidentiel), `verifyMissionProof` (+ pinning emetteur optionnel),
+  `verifyReportDisclosure` (divulgation selective). 272 tests.
 
 ## 9. Conventions et environnement (rappel)
 

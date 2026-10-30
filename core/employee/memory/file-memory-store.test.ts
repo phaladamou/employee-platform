@@ -9,7 +9,11 @@ import type { EmployeeMemoryScope } from "./memory-store";
 
 const SCOPE: EmployeeMemoryScope = { employeeId: "emp_1", employerId: "acme" };
 
-function makeRecord(prompt: string, employerId: string | null = "acme"): MissionRecord {
+function makeRecord(
+  prompt: string,
+  employerId: string | null = "acme",
+  reportHash: string | null = null
+): MissionRecord {
   return {
     missionId: `mis_${prompt}`,
     employeeId: "emp_1",
@@ -17,6 +21,7 @@ function makeRecord(prompt: string, employerId: string | null = "acme"): Mission
     prompt,
     status: "completed",
     summary: `Summary ${prompt}`,
+    reportHash,
     completedAt: "2026-01-01T00:00:00.000Z",
   };
 }
@@ -103,6 +108,7 @@ describe("FileMemoryStore", () => {
     expect(loaded).toHaveLength(1);
     expect(loaded[0]?.prompt).toBe("Old");
     expect(loaded[0]?.employerId).toBeNull();
+    expect(loaded[0]?.reportHash).toBeNull();
 
     // Sauvegarde scopee : le legacy reste (autres employeurs).
     await store.save(SCOPE, loaded);

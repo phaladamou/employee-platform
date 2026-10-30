@@ -1,4 +1,5 @@
 import type { EmployeeMission } from "../missions/employee-mission";
+import { hashReportContent } from "../missions/mission-proof";
 import { LOCAL_EMPLOYER_ID } from "./memory-store";
 
 export interface MissionRecord {
@@ -9,6 +10,11 @@ export interface MissionRecord {
   readonly prompt: string;
   readonly status: "completed" | "failed";
   readonly summary: string | null;
+  /**
+   * SHA-256 hex du rapport si completed, null sinon (echec ou archive
+   * legacy). Ancre verifiable du CV : prouve le contenu sans l'exposer.
+   */
+  readonly reportHash: string | null;
   readonly completedAt: string;
 }
 
@@ -26,6 +32,7 @@ export function isMissionRecord(value: unknown): value is MissionRecord {
     typeof record.prompt === "string" &&
     (record.status === "completed" || record.status === "failed") &&
     (typeof record.summary === "string" || record.summary === null) &&
+    (typeof record.reportHash === "string" || record.reportHash === null) &&
     typeof record.completedAt === "string"
   );
 }
@@ -62,6 +69,10 @@ export class EmployeeMemory {
       prompt: mission.prompt,
       status: mission.status,
       summary: mission.report?.summary ?? null,
+      reportHash:
+        mission.status === "completed" && mission.report
+          ? hashReportContent(mission.report.content)
+          : null,
       completedAt: mission.completedAt,
     };
     this.records.push(record);

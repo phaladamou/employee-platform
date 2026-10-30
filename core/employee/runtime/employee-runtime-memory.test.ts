@@ -82,6 +82,7 @@ function seededRecord(prompt: string, employerId: string | null = "acme"): Missi
     prompt,
     status: "completed",
     summary: `Summary ${prompt}`,
+    reportHash: null,
     completedAt: "2026-01-01T00:00:00.000Z",
   };
 }
