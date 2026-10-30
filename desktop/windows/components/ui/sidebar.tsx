@@ -41,7 +41,7 @@ const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 
 /* Petite sidebar uniquement */
-const SIDEBAR_WIDTH_ICON = "3.5rem"
+const SIDEBAR_WIDTH_ICON = "4rem"
 
 const SIDEBAR_KEYBOARD_SHORTCUT = "b"
 
