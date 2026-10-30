@@ -146,3 +146,38 @@ emp status job_latest   # recent jobs reaching terminal states?
 # 3. Anything stuck?
 emp recover             # expect "(no stale jobs)" on a healthy system
 ```
+
+## 7. Run in Docker (isolated)
+
+Same API + worker as a least-privilege container (see ADR-011).
+One image, two roles — extra workers just override `CMD`:
+
+```bash
+docker build -t employee-core .
+
+# API + embedded worker, read-only root FS, capped resources
+docker run -d --name emp \
+  --read-only --tmpfs /tmp:uid=1000,gid=1000 \
+  -v emp-data:/data -v emp-sandbox:/sandbox \
+  -m 512m --cpus=1.0 -p 8000:8000 \
+  -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
+  employee-core serve --port 8000
+
+# Second worker on the same data dir (atomic claims)
+docker run -d --name emp-w2 \
+  --read-only --tmpfs /tmp \
+  -v emp-data:/data -v emp-sandbox:/sandbox \
+  -m 512m --cpus=1.0 \
+  -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
+  employee-core worker --id worker_docker_2
+```
+
+Notes:
+
+- The container runs as `node` (uid 1000, non-root); only `/tmp`,
+  `/data` and `/sandbox` are writable.
+- Back up the named volumes (`emp-data`, `emp-sandbox`) exactly like
+  §3 (`tar` the volume contents).
+- `emp recover` / `keys revoke` work unchanged — run them in a
+  throwaway container on the same volumes, e.g.
+  `docker run --rm -v emp-data:/data … employee-core recover`.

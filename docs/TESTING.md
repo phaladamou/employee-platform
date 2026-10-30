@@ -16,8 +16,10 @@ adversarial cases, and honest coverage notes.
 | Adversarial | `cli/adversarial.test.ts` + `missions/*.test.ts` | Forged proofs, cross-tenant access, lying employees (see §4) |
 | E2E (scripted) | `cli/e2e.test.ts` | Hire → submit → worker → status through the real CLI + server |
 | E2E (live LLM) | Manual T1–T4 runs (Muse) | The full loop works against a real provider |
+| Native (Rust) | `cargo test` in `rust/` | Ed25519 roundtrip/tamper, sandbox timeout/overflow/env |
+| WASM interop | `rust/ts/wrapper.test.ts` | Rust↔Node signatures byte-identical both directions |
 
-Current state: **42 files, 326 tests, all green** (Vitest).
+Current state: **43 files, 330 tests, all green** (Vitest) **+ 11 Rust tests** (`cargo test`).
 
 ## 2. Commands
 
@@ -33,6 +35,10 @@ cd core/employee && ../../node_modules/.bin/vitest run missions/mission-proof.te
 
 # Type gate — must be clean before any commit
 ./node_modules/.bin/tsc --noEmit --incremental false
+
+# Rust security modules (crypto + sandbox)
+cd rust && cargo test            # 11 tests: roundtrips, tamper, timeout/overflow kills
+./rust/build.sh                  # rebuild rust/dist/employee_native.wasm (committed)
 ```
 
 There is no separate `test:adversarial` script: adversarial tests are regular

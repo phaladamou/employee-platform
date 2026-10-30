@@ -158,3 +158,69 @@ each choice costs. Numbered ADRs; newest last.
   verified by probe, accepted as a known limit. Third-party agents
   ("created by the user") are excluded to protect legitimate research
   reports. The robust path stays unchanged: declare acceptance criteria.
+
+## ADR-010 — Rust for security-critical modules (WASM crypto, native sandbox)
+
+- **Context.** Two components carry disproportionate risk: Ed25519
+  signing/verification (forgery breaks mission proofs) and subprocess
+  execution (a hostile child must never escape, hang, or OOM the host).
+  The TypeScript core is intentionally dependency-free and must stay so.
+- **Decision.** A `rust/` crate (`employee-native`) implements both:
+  `crypto` (Ed25519 via `ed25519-dalek`, no-std-compatible, compiled to
+  `wasm32-unknown-unknown` and driven from TypeScript through a minimal
+  hand-rolled ABI + `rust/ts` wrapper — no wasm-bindgen CLI needed);
+  `sandbox` (argv-direct spawn, wall-clock kill, concurrent output caps,
+  Unix rlimits) compiled for native targets only, cfg-gated out of WASM
+  (processes cannot exist there). Entropy comes from the host
+  (`crypto.randomBytes`), never from in-WASM randomness.
+- **Rejected.** (a) Pure-Node crypto everywhere — fine functionally, but a
+  memory-safe, dependency-audited Rust core raises the bar for the exact
+  code attackers target. (b) wasm-bindgen + wasm-pack — heavier toolchain
+  (CLI post-processing, npm glue) for an ABI small enough to hand-roll
+  and audit in one file. (c) Rewriting the TS core in Rust — rejected:
+  the core stays TypeScript; Rust covers two modules, nothing more.
+- **Consequences.** Interop is proven, not assumed: the wrapper test
+  cross-verifies signatures against Node `crypto` in both directions
+  (byte-identical). The built `.wasm` is committed (`rust/dist/`) so
+  tests run without a Rust toolchain; `rust/build.sh` rebuilds it.
+  `sandbox` is library-only for now (no CLI binary).
+
+## ADR-011 — Docker image for isolated execution
+
+- **Context.** The API + worker run as a plain host process with the
+  user's privileges and a writable tree — acceptable for development,
+  weak as a deployment story.
+- **Decision.** A single `Dockerfile` (API + worker, `node:22-slim`):
+  non-root user (`node`, uid 1000), read-only root filesystem (only
+  `/tmp` tmpfs and the `/data` + `/sandbox` volumes writable), resource
+  envelope enforced at run time (`-m 512m --cpus=1.0`), healthcheck on
+  the authenticated probe (`401` = alive). Same image serves API and
+  extra workers (`CMD` override). The image was logic-validated
+  (transform byte-identical to the README recipe, smoke-tested CLI);
+  `docker build` itself could not run in the dev sandbox (no daemon).
+- **Rejected.** (a) One image per role — the roles are one binary with
+  different argv; two images would only drift. (b) Baking limits into the
+  image — impossible by design; limits live with the orchestrator and
+  are documented as run flags. (c) Kubernetes manifests — still
+  premature (see ROADMAP non-goal); plain `docker run` first.
+- **Consequences.** Deployment gains a reproducible, least-privilege
+  unit. The Dockerfile pins only `dotenv` (the core's single
+  dependency); everything else is the dependency-free core.
+
+## ADR-012 — Keyless Cosign signing of release artifacts
+
+- **Context.** The Windows installer (`.exe`) is published to GitHub
+  Releases with no integrity proof: users cannot tell a genuine build
+  from a tampered upload.
+- **Decision.** The `desktop` workflow signs every installer with Cosign
+  keyless (Fulcio OIDC, `id-token: write`, no long-lived keys to guard):
+  `sign-blob` emits `.sig` + `.pem` next to the `.exe`, a `verify-blob`
+  step re-verifies immediately (pinned to this repo's identity), and all
+  three files ship as workflow artifacts and release assets.
+- **Rejected.** (a) Long-lived Cosign keys in secrets — key custody and
+  rotation burden for no benefit over keyless OIDC. (b) Signing only on
+  tags — signing every packaged build (including manual dispatches)
+  keeps the path exercised and artifacts uniformly verifiable.
+- **Consequences.** Anyone can verify an installer against the Sigstore
+  transparency log with the repo identity. The workflow needs no new
+  secrets; revocation is the platform's (Fulcio/Rekor), not ours.
