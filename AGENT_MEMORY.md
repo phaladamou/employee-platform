@@ -305,7 +305,12 @@ Leçons dures :
   l'embauche (immuable), `run()` resout via registre (jamais latest,
   `tools` ignores si lie, maxSteps restreint seulement), migration
   explicite `migrateEmployeeProfile` (nouvel objet, meme id), prompt
-  spec delimite + ligne de preseance. 126 tests vitest.
+  spec delimite + ligne de preseance.
+- Registre : `profiles.lock.json` (SHA-256 contenu canonique), verifie
+  au chargement (strict defaut, `trust.lockfilePath` separable,
+  `verify:false` dev only), `createProfileLockfile` cote Createur,
+  README trust model. Signatures Ed25519 reservees phase 3.
+  138 tests vitest.
 
 ## 9. Conventions et environnement (rappel)
 
