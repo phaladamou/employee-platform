@@ -6,14 +6,25 @@ export type CredentialScope =
   | "missions:submit"
   | "missions:read"
   | "memory:read"
+  | "employments:read"
+  | "employments:write"
   | "admin";
 
 const KNOWN_SCOPES: readonly CredentialScope[] = [
   "missions:submit",
   "missions:read",
   "memory:read",
+  "employments:read",
+  "employments:write",
   "admin",
 ];
+
+export function isCredentialScope(value: unknown): value is CredentialScope {
+  return (
+    typeof value === "string" &&
+    (KNOWN_SCOPES as readonly string[]).includes(value)
+  );
+}
 
 // Prefixe volontairement distinct des IDs employe (`emp_...`) pour ne
 // jamais confondre une cle secrete et un identifiant public.
@@ -113,7 +124,7 @@ export function issueCredential(input: {
     throw new Error("Credential requires at least one scope");
   }
   for (const scope of input.scopes) {
-    if (!(KNOWN_SCOPES as readonly string[]).includes(scope)) {
+    if (!isCredentialScope(scope)) {
       throw new Error(`Unknown credential scope: ${String(scope)}`);
     }
   }
