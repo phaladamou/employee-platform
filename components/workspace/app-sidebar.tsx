@@ -18,9 +18,8 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import useSWRInfinite from "swr/infinite";
@@ -40,7 +39,7 @@ import {
 } from "@/components/workspace/sidebar-history";
 
 import { SidebarUserNav } from "@/components/workspace/sidebar-user-nav";
-import { NotificationsBell } from "@/components/workspace/notifications-bell";
+import { useStickySession } from "@/components/workspace/use-sticky-session";
 
 import {
   Sidebar,
@@ -79,16 +78,7 @@ interface NavItem {
 
 function HistoryTooltipContent() {
   const t = useTranslations("chat");
-  const { data: rawSession } = useSession();
-  const [cachedUser, setCachedUser] = useState(rawSession?.user);
-
-  useEffect(() => {
-    if (rawSession?.user) {
-      setCachedUser(rawSession.user);
-    }
-  }, [rawSession?.user]);
-
-  const user = rawSession?.user ?? cachedUser;
+  const { user } = useStickySession();
   const router = useRouter();
 
   const { data, isLoading, setSize, size, isValidating } = useSWRInfinite<{
@@ -160,16 +150,9 @@ function HistoryTooltipContent() {
 export function AppSidebar() {
   const t = useTranslations("sidebar");
 
-  const { data: rawSession } = useSession();
-  const [cachedUser, setCachedUser] = useState(rawSession?.user);
-
-  useEffect(() => {
-    if (rawSession?.user) {
-      setCachedUser(rawSession.user);
-    }
-  }, [rawSession?.user]);
-
-  const user = rawSession?.user ?? cachedUser;
+  // Sticky : si le serveur est coupe, la sidebar garde le dernier etat
+  // connecte connu (icone compte + historique) au lieu de basculer.
+  const { user } = useStickySession();
 
   const router = useRouter();
   const pathname = usePathname();

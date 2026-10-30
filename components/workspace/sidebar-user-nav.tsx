@@ -14,9 +14,8 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import type { User as NextAuthUser } from "next-auth";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
 import { usePathname } from "next/navigation";
 import useSWR from "swr";
@@ -37,8 +36,10 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { clearStickyUser } from "@/lib/auth/sticky-session";
 import { NotificationsBell } from "./notifications-bell";
 import { toast } from "./toast";
+import { useStickySession } from "./use-sticky-session";
 
 function getDisplayName(user?: NextAuthUser): string {
   if (!user) return "User";
@@ -119,23 +120,9 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
   const router = useRouter();
   const pathname = usePathname();
   const locale = useLocale();
-  const { data: rawSession, status: rawStatus } = useSession();
-  const [cachedStatus, setCachedStatus] = useState(rawStatus);
-  const [cachedUser, setCachedUser] = useState(rawSession?.user);
-
-  useEffect(() => {
-    // Anti-flicker : ignore l'etat transitoire "loading", mais suit les
-    // transitions reelles dans les deux sens (sinon l'UI reste affichee
-    // "connectee" apres un logout).
-    if (rawStatus === "loading") {
-      return;
-    }
-    setCachedStatus(rawStatus);
-    setCachedUser(rawSession?.user);
-  }, [rawStatus, rawSession?.user]);
-
-  const status = cachedStatus;
-  const sessionData = { user: cachedUser };
+  // Sticky : une coupure serveur ne doit pas afficher l'etat "login".
+  // Seul un logout confirme (sonde serveur) fait basculer.
+  const { user: stickyUser, status } = useStickySession();
   const t = useTranslations("auth");
   const tMenu = useTranslations("userMenu");
 
@@ -154,7 +141,7 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
     }
   );
 
-  const currentUser = freshUser ?? sessionData?.user ?? user;
+  const currentUser = freshUser ?? stickyUser ?? user;
   const displayName = getDisplayName(currentUser);
 
   const changeLocale = (nextLocale: string) => {
@@ -340,6 +327,9 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
             <DropdownMenuItem
               className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-red-500 transition-colors hover:bg-red-500/10 focus:bg-red-500/10"
               onSelect={() => {
+                // Logout explicite : purge la reference sticky AVANT
+                // signOut, pour ne jamais reafficher l'etat connecte.
+                clearStickyUser();
                 // Pattern officiel NextAuth : signOut detruit la session
                 // puis recharge la page vers callbackUrl. Fallback vers
                 // /login si la requete echoue (aucun toast, aucun blocage).
