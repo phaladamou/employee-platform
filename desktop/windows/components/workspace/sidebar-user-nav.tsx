@@ -188,9 +188,9 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
     <SidebarMenu>
       <SidebarMenuItem>
         <DropdownMenu>
-          <div className="flex w-full items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-1.5">
+          <div className="flex w-full items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
             <DropdownMenuTrigger asChild>
-              <SidebarMenuButton className="h-12 flex-1 cursor-pointer rounded-lg bg-transparent px-2.5 text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-12! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:p-0!">
+              <SidebarMenuButton className="h-12 flex-1 cursor-pointer rounded-lg bg-transparent px-2.5 text-sidebar-foreground/70 transition-colors duration-150 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground group-data-[collapsible=icon]:size-12! group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!">
                 <UserAvatar size="small" user={currentUser} />
 
                 <span className="flex-1 truncate text-[13px] font-medium group-data-[collapsible=icon]:hidden">
