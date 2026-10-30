@@ -55,10 +55,30 @@ export {
   CREDENTIAL_TOKEN_PREFIX,
   generateCredentialToken,
   hashCredentialToken,
+  isCredentialScope,
   isEmployeeCredential,
   issueCredential,
   verifyCredential,
 } from "./auth/employee-credential";
+export type { EmployerCredentialStore } from "./auth/employer-credential-store";
+export type { EmployerCredential } from "./auth/employer-credential";
+export {
+  EMPLOYER_CREDENTIAL_ID_PREFIX,
+  EMPLOYER_TOKEN_PREFIX,
+  generateEmployerToken,
+  isEmployerCredential,
+  issueEmployerCredential,
+  verifyEmployerCredential,
+} from "./auth/employer-credential";
+export { FileEmployerCredentialStore } from "./auth/file-employer-credential-store";
+export type { EmploymentStore } from "./employments/employment-store";
+export type { Employment } from "./employments/employment";
+export {
+  EMPLOYMENT_ID_PREFIX,
+  createEmployment,
+  isEmployment,
+} from "./employments/employment";
+export { FileEmploymentStore } from "./employments/file-employment-store";
 export { FileCredentialStore } from "./auth/file-credential-store";
 
 export type { MissionRecord } from "./memory/employee-memory";
