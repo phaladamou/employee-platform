@@ -49,6 +49,25 @@ describe("decideRoute", () => {
     });
   });
 
+  it("/onboarding sans session redirige vers /login (etape email d'abord)", () => {
+    assert.deepEqual(decideRoute("/onboarding", "", false), {
+      action: "redirect",
+      location: "/login?callbackUrl=%2Fonboarding",
+    });
+  });
+
+  it("/onboarding avec session laisse passer (la page tranche ensuite)", () => {
+    assert.deepEqual(decideRoute("/onboarding", "", true), {
+      action: "next",
+    });
+  });
+
+  it("POST /api/onboarding sans session -> 401", () => {
+    assert.deepEqual(decideRoute("/api/onboarding", "", false), {
+      action: "unauthorized",
+    });
+  });
+
   it("favicons et icones metadata restent publics sans session", () => {
     for (const pathname of [
       "/favicon.ico",
