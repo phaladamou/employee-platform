@@ -108,8 +108,25 @@ export function OtpLoginForm({ callbackUrl }: { callbackUrl: string }) {
         callbackUrl.startsWith("/") && !callbackUrl.startsWith("//")
           ? callbackUrl
           : "/workspace";
+      let destination = safeCallback;
+      try {
+        // Nouveau compte -> ecran d'accueil (sinon le layout serveur tranche).
+        const sessionRes = await fetch("/api/auth/session", {
+          cache: "no-store",
+        });
+        if (sessionRes.ok) {
+          const fresh = (await sessionRes.json()) as {
+            user?: { onboarded?: boolean };
+          };
+          if (fresh?.user && fresh.user.onboarded === false) {
+            destination = "/onboarding";
+          }
+        }
+      } catch {
+        // Session illisible : le layout serveur tranchera.
+      }
       setIsRedirecting(true);
-      window.location.href = safeCallback;
+      window.location.href = destination;
     } catch {
       setError(tErr("network_error"));
     } finally {

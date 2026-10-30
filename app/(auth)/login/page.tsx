@@ -1,7 +1,6 @@
 // app/(auth)/login/page.tsx
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
@@ -76,14 +75,8 @@ export default function Page() {
       {/* OTP : email + code, sans mot de passe */}
       <OtpLoginForm callbackUrl={callbackUrl} />
 
-      <p className="mt-7 text-center text-[12.5px] text-muted-foreground">
-        {t("noAccount")}{" "}
-        <Link
-          href="/register"
-          className="font-medium text-foreground transition-colors hover:text-foreground/70"
-        >
-          {t("signUp")}
-        </Link>
+      <p className="mx-auto mt-7 max-w-[340px] text-center text-[12.5px] text-muted-foreground">
+        {t("signupHint")}
       </p>
     </div>
   );
