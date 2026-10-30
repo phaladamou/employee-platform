@@ -310,7 +310,10 @@ Leçons dures :
   au chargement (strict defaut, `trust.lockfilePath` separable,
   `verify:false` dev only), `createProfileLockfile` cote Createur,
   README trust model. Signatures Ed25519 reservees phase 3.
-  138 tests vitest.
+- Phase 3 B1 : cles employeurs `emo_` + store fichier (chmod 600),
+  scopes employments:read/write, relation Employment (`hire_` :
+  hire idempotent, terminate sans destruction) + file store.
+  156 tests vitest.
 
 ## 9. Conventions et environnement (rappel)
 
