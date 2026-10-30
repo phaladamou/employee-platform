@@ -18,6 +18,7 @@ import {
 import { EmployeeRuntime } from "./runtime/employee-runtime";
 import { DEFAULT_SANDBOX_DIR } from "./runtime/react-loop";
 import { FetchLLMProvider } from "./runtime/fetch-llm-provider";
+import type { EmployeeLLMProvider } from "./runtime/llm-provider";
 
 /**
  * Demonstration standalone du noyau Employee (sans l'application).
@@ -31,9 +32,42 @@ import { FetchLLMProvider } from "./runtime/fetch-llm-provider";
  * - Sans --id, une identite neuve est generee (historique vide).
  *   Reutilisez le meme --id pour que l'employe retrouve son passe.
  *
- * Requiert DEEPSEEK_API_KEY dans .env.local (optionnels :
- * DEEPSEEK_BASE_URL, DEEPSEEK_MODEL).
+ * Fournisseur LLM via EMPLOYEE_PROVIDER dans .env.local :
+ * - "deepseek" (defaut) : requiert DEEPSEEK_API_KEY (optionnels :
+ *   DEEPSEEK_BASE_URL, DEEPSEEK_MODEL).
+ * - "muse" (Meta Muse, API compatible OpenAI) : requiert MUSE_API_KEY
+ *   (cle dev.meta.ai ; optionnels : MUSE_BASE_URL, MUSE_MODEL).
  */
+function createLLMProvider(providerName: string): EmployeeLLMProvider {
+  if (providerName === "deepseek") {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) {
+      throw new Error("DEEPSEEK_API_KEY is missing (.env.local)");
+    }
+    return new FetchLLMProvider({
+      apiKey,
+      baseUrl: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
+      model: process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
+    });
+  }
+
+  if (providerName === "muse" || providerName === "meta") {
+    const apiKey = process.env.MUSE_API_KEY;
+    if (!apiKey) {
+      throw new Error("MUSE_API_KEY is missing (.env.local)");
+    }
+    return new FetchLLMProvider({
+      apiKey,
+      baseUrl: process.env.MUSE_BASE_URL ?? "https://api.meta.ai/v1",
+      model: process.env.MUSE_MODEL ?? "muse-spark-1.3",
+    });
+  }
+
+  throw new Error(
+    `Unknown EMPLOYEE_PROVIDER "${providerName}" (expected "deepseek" or "muse")`
+  );
+}
+
 async function main(): Promise<void> {
   const rawArgs = process.argv.slice(2);
   const idFlag = rawArgs.indexOf("--id");
@@ -50,11 +84,10 @@ async function main(): Promise<void> {
     throw new Error('Usage: tsx core/employee/cli.ts "<mission prompt>"');
   }
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (!apiKey) {
-    throw new Error("DEEPSEEK_API_KEY is missing (.env.local)");
-  }
+  const providerName = (
+    process.env.EMPLOYEE_PROVIDER ?? "deepseek"
+  ).toLowerCase();
+  const llmProvider = createLLMProvider(providerName);
 
   const identity = employeeId ?? generateEmployeeIdentity().id;
   const profile = createEmployeeProfile({
@@ -83,13 +116,7 @@ async function main(): Promise<void> {
   if (process.platform === "win32" && process.env.SystemRoot) {
     shellEnv.SystemRoot = process.env.SystemRoot;
   }
-  const runtime = new EmployeeRuntime(
-    new FetchLLMProvider({
-      apiKey,
-      baseUrl: process.env.DEEPSEEK_BASE_URL ?? "https://api.deepseek.com",
-      model: process.env.DEEPSEEK_MODEL ?? "deepseek-chat",
-    }),
-    {
+  const runtime = new EmployeeRuntime(llmProvider, {
       toolContext: { sandboxRoot: resolve(DEFAULT_SANDBOX_DIR), env: shellEnv },
       memory,
       memoryStore,
