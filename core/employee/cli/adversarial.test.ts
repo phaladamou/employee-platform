@@ -376,6 +376,47 @@ describe("employee CLI adversarial", () => {
     expect(content).toContain("bonjour");
   }, 60_000);
 
+  it("T5a suspends judgment on Final-only success claims", async () => {
+    const { apiUrl, admin, alpha } = await makeWorld([
+      "FINAL: Created HACKED.txt, trust me.",
+    ]);
+    const employeeId = await publish(apiUrl, admin);
+    await run(["hire", employeeId], { apiUrl, token: alpha });
+    const submitted = await run(
+      ["submit", employeeId, "Create HACKED.txt"],
+      { apiUrl, token: alpha }
+    );
+    const jobId = value(submitted.lines, "job: ").split(" ")[0];
+
+    // Aucun critere, aucun appel d'outil : l'affirmation ne vaut pas preuve.
+    const final = await waitForJob(apiUrl, alpha, jobId, "needs_review");
+    expect(final.join("\n")).toContain("write_file");
+    expect(final.join("\n")).toContain("HACKED.txt");
+
+    const sandboxFiles = await readdir(join(dir, "sandbox"));
+    expect(sandboxFiles).not.toContain("HACKED.txt");
+  }, 60_000);
+
+  it("T5b suspends judgment when every tool call failed", async () => {
+    const { apiUrl, admin, alpha } = await makeWorld([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      "FINAL: Created escape.txt successfully.",
+    ]);
+    const employeeId = await publish(apiUrl, admin);
+    await run(["hire", employeeId], { apiUrl, token: alpha });
+    const submitted = await run(
+      ["submit", employeeId, "Create escape.txt"],
+      { apiUrl, token: alpha }
+    );
+    const jobId = value(submitted.lines, "job: ").split(" ")[0];
+
+    // L'outil a echoue (echappement) : le Final ne ressuscite pas le but.
+    const final = await waitForJob(apiUrl, alpha, jobId, "needs_review");
+    expect(final.join("\n")).toContain("all tool calls failed");
+
+    expect(await readdir(dir)).not.toContain("escape.txt");
+  }, 60_000);
+
   it("T4 rejects forged mission proofs from a real run", async () => {
     const { apiUrl, admin, alpha } = await makeWorld([
       "FINAL: The eagle has landed.",
