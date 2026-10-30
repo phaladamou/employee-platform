@@ -43,6 +43,22 @@ export {
   startEmployeeMission,
 } from "./missions/employee-mission";
 
+export type { EmployeeCredentialStore } from "./auth/credential-store";
+export type {
+  CredentialScope,
+  EmployeeCredential,
+} from "./auth/employee-credential";
+export {
+  CREDENTIAL_ID_PREFIX,
+  CREDENTIAL_TOKEN_PREFIX,
+  generateCredentialToken,
+  hashCredentialToken,
+  isEmployeeCredential,
+  issueCredential,
+  verifyCredential,
+} from "./auth/employee-credential";
+export { FileCredentialStore } from "./auth/file-credential-store";
+
 export type { MissionRecord } from "./memory/employee-memory";
 export { EmployeeMemory, isMissionRecord } from "./memory/employee-memory";
 export type { EmployeeMemoryStore } from "./memory/memory-store";
