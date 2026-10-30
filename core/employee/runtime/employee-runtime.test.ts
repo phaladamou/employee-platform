@@ -1,7 +1,12 @@
-import { describe, expect, it, vi } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEmployeeProfile } from "../profile/employee-profile";
 import { createEmployeeMission } from "../missions/employee-mission";
+import { createReadFileTool } from "../tools/read-file";
+import type { ToolContext } from "../tools/tool";
 import { EmployeeRuntime } from "./employee-runtime";
 import { FetchLLMProvider } from "./fetch-llm-provider";
 import type {
@@ -23,15 +28,21 @@ function makeMission() {
   return createEmployeeMission({ prompt: "Audit churn" });
 }
 
-class FakeProvider implements EmployeeLLMProvider {
-  readonly id = "fake";
+class ScriptedProvider implements EmployeeLLMProvider {
+  readonly id = "scripted";
   readonly seen: EmployeeLLMRequest[] = [];
 
-  constructor(private readonly text: string) {}
+  constructor(private readonly replies: string[]) {}
 
   async generate(request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
     this.seen.push(request);
-    return { content: this.text, model: "fake-model" };
+    const content = this.replies.shift();
+
+    if (content === undefined) {
+      throw new Error("script exhausted");
+    }
+
+    return { content, model: "scripted" };
   }
 }
 
@@ -44,9 +55,26 @@ class FailingProvider implements EmployeeLLMProvider {
 }
 
 describe("EmployeeRuntime.run", () => {
+  let dir = "";
+
+  afterEach(async () => {
+    if (dir) {
+      await rm(dir, { recursive: true, force: true });
+      dir = "";
+    }
+  });
+
+  async function sandbox(): Promise<ToolContext> {
+    dir = await mkdtemp(join(tmpdir(), "emp-runtime-"));
+    return { sandboxRoot: dir };
+  }
+
   it("runs a mission and produces a report", async () => {
-    const provider = new FakeProvider("Churn is seasonal.\nDetails...");
-    const runtime = new EmployeeRuntime(provider);
+    const provider = new ScriptedProvider(["FINAL: Churn is seasonal."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
 
     const result = await runtime.run(makeProfile(), makeMission());
 
@@ -55,15 +83,40 @@ describe("EmployeeRuntime.run", () => {
     expect(result.mission.status).toBe("completed");
     expect(result.mission.employeeId).toBe("emp_1");
     expect(result.report?.summary).toBe("Churn is seasonal.");
-    expect(result.report?.content).toBe("Churn is seasonal.\nDetails...");
+    expect(result.report?.content).toBe("Churn is seasonal.");
+    expect(result.steps).toBe(1);
 
     const systemPrompt = provider.seen[0]?.messages[0]?.content ?? "";
     expect(systemPrompt).toContain("Aria");
     expect(systemPrompt).toContain("Data Analyst");
   });
 
+  it("uses tools through the reasoning loop", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Sales reached 42 in Q1.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.error).toBeNull();
+    expect(result.mission.status).toBe("completed");
+    expect(result.report?.summary).toBe("Sales reached 42 in Q1.");
+    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: true }]);
+    expect(result.steps).toBe(2);
+  });
+
   it("restores idle and fails the mission when the LLM fails", async () => {
-    const runtime = new EmployeeRuntime(new FailingProvider());
+    const runtime = new EmployeeRuntime(new FailingProvider(), {
+      tools: [],
+      toolContext: await sandbox(),
+    });
 
     const result = await runtime.run(makeProfile(), makeMission());
 
@@ -73,8 +126,25 @@ describe("EmployeeRuntime.run", () => {
     expect(result.mission.status).toBe("failed");
   });
 
+  it("fails the mission when the loop never finishes", async () => {
+    const runtime = new EmployeeRuntime(
+      new ScriptedProvider(["nope", "nope", "nope", "nope"]),
+      { tools: [], toolContext: await sandbox(), maxSteps: 3 }
+    );
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("failed");
+    expect(result.profile.status).toBe("idle");
+    expect(result.error).toContain("3 steps");
+    expect(result.report).toBeNull();
+  });
+
   it("rejects suspended profiles and foreign missions", async () => {
-    const runtime = new EmployeeRuntime(new FakeProvider("ok"));
+    const runtime = new EmployeeRuntime(new ScriptedProvider(["FINAL: ok"]), {
+      tools: [],
+      toolContext: await sandbox(),
+    });
     const profile = makeProfile();
 
     await expect(

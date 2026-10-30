@@ -1,5 +1,5 @@
 export interface EmployeeLLMMessage {
-  readonly role: "system" | "user";
+  readonly role: "system" | "user" | "assistant";
   readonly content: string;
 }
 

@@ -10,13 +10,36 @@ import {
   type EmployeeMission,
   type MissionReport,
 } from "../missions/employee-mission";
+import type { EmployeeTool, ToolContext } from "../tools/tool";
+import type { EmployeeMemory } from "../memory/employee-memory";
+import type { EmployeeMemoryStore } from "../memory/memory-store";
 import type { EmployeeLLMProvider } from "./llm-provider";
+import {
+  runReasoningLoop,
+  type ReactToolCall,
+} from "./react-loop";
 
 export interface EmployeeRunResult {
   readonly profile: EmployeeProfile;
   readonly mission: EmployeeMission;
   readonly report: MissionReport | null;
   readonly error: string | null;
+  /** Appels LLM effectues pendant la mission. */
+  readonly steps: number;
+  /** Outils executes, dans l'ordre. */
+  readonly toolCalls: readonly ReactToolCall[];
+}
+
+export interface EmployeeRuntimeOptions {
+  readonly tools?: readonly EmployeeTool[];
+  readonly toolContext?: ToolContext;
+  readonly maxSteps?: number;
+  /**
+   * Memoire + backend : quand les deux sont fournis, l'historique est
+   * recharge au demarrage et chaque mission terminee est sauvegardee.
+   */
+  readonly memory?: EmployeeMemory;
+  readonly memoryStore?: EmployeeMemoryStore;
 }
 
 function summarize(content: string): string {
@@ -33,13 +56,31 @@ function summarize(content: string): string {
 
 /**
  * Moteur d'execution d'un Employee : prend son profil, une mission en
- * attente et un fournisseur LLM injecte, produit un rapport. Ne leve
- * jamais d'exception pour un echec metier (panne LLM -> mission failed
- * dans le resultat) ; seules les erreurs de programmation levent
- * (profil suspendu, mission non executable).
+ * attente et un fournisseur LLM injecte, puis pilote une boucle de
+ * raisonnement ReAct (outils + observations) jusqu'au rapport final.
+ * Ne leve jamais d'exception pour un echec metier (panne LLM, boucle
+ * epuisee -> mission failed dans le resultat) ; seules les erreurs de
+ * programmation levent (profil suspendu, mission non executable).
  */
 export class EmployeeRuntime {
-  constructor(private readonly provider: EmployeeLLMProvider) {}
+  constructor(
+    private readonly provider: EmployeeLLMProvider,
+    private readonly options: EmployeeRuntimeOptions = {}
+  ) {}
+
+  private async persistMemory(
+    profile: EmployeeProfile,
+    mission: EmployeeMission
+  ): Promise<void> {
+    const { memory, memoryStore } = this.options;
+
+    if (!memory || !memoryStore) {
+      return;
+    }
+
+    memory.record(mission);
+    await memoryStore.save(profile.id, memory.history(profile.id));
+  }
 
   async run(
     profile: EmployeeProfile,
@@ -68,43 +109,56 @@ export class EmployeeRuntime {
     const working = setEmployeeStatus(profile, "working");
     const running = startEmployeeMission(assigned);
 
-    try {
-      const response = await this.provider.generate({
-        messages: [
-          {
-            role: "system",
-            content:
-              `You are ${working.name}, ${working.role}. ` +
-              `Skills: ${working.skills.join(", ") || "generalist"}. ` +
-              "Produce a concise work report.",
-          },
-          { role: "user", content: running.prompt },
-        ],
-      });
+    const { memory, memoryStore } = this.options;
+    let pastExperience: readonly string[] = [];
 
-      const completed = completeEmployeeMission(running, {
-        summary: summarize(response.content),
-        content: response.content,
-      });
+    if (memory && memoryStore) {
+      memory.restore(await memoryStore.load(profile.id));
+      pastExperience = memory
+        .history(profile.id)
+        .map((record) => record.summary ?? record.prompt);
+    }
 
-      return {
-        profile: setEmployeeStatus(working, "idle"),
-        mission: completed,
-        report: completed.report,
-        error: null,
-      };
-    } catch (error) {
+    const loop = await runReasoningLoop({
+      provider: this.provider,
+      profile: working,
+      missionPrompt: running.prompt,
+      tools: this.options.tools,
+      toolContext: this.options.toolContext,
+      maxSteps: this.options.maxSteps,
+      pastExperience,
+    });
+
+    if (!loop.completed || loop.reportContent === null) {
       const failed = failEmployeeMission(
         running,
-        error instanceof Error ? error.message : String(error)
+        loop.error ?? "reasoning loop did not complete"
       );
+      await this.persistMemory(profile, failed);
 
       return {
         profile: setEmployeeStatus(working, "idle"),
         mission: failed,
         report: null,
         error: failed.error,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
       };
     }
+
+    const completed = completeEmployeeMission(running, {
+      summary: summarize(loop.reportContent),
+      content: loop.reportContent,
+    });
+    await this.persistMemory(profile, completed);
+
+    return {
+      profile: setEmployeeStatus(working, "idle"),
+      mission: completed,
+      report: completed.report,
+      error: null,
+      steps: loop.steps,
+      toolCalls: loop.toolCalls,
+    };
   }
 }
