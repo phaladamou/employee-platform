@@ -336,6 +336,11 @@ Leçons dures :
   legacy), E2E maintenu `cli/e2e.test.ts` (cles -> publish lie ->
   hire -> submit -> worker -> events -> revocation), README noyau.
   Binaire via `.tmp/` + réécriture `.ts` + transform-types.
+- Live Muse (api.meta.ai muse-spark-1.3) : E2E reel vert (publish lie
+  -> hire -> submit -> succeeded ~15s, rapport grounded, hello.txt
+  verifie). Correctif requis : parseur ReAct tolerant (Muse prepose
+  du bavardage ; premiere directive gagne + extraction JSON equilibree,
+  contenu toujours strict). 251 tests.
 
 ## 9. Conventions et environnement (rappel)
 

@@ -109,43 +109,84 @@ function invalid(reason: string, raw: string): ParsedInvalid {
 }
 
 /**
- * Parse une reponse LLM en etape ReAct. Toute reponse hors protocole est
- * explicite (jamais d'exception) pour que la boucle puisse corriger le tir.
+ * Localise la premiere directive (ACTION ou FINAL) dans la reponse.
+ * Les modeles bavards preposent du texte ("Voici le resultat. ACTION:
+ * ...") ; seule la premiere directive compte, le reste est ignore.
+ */
+function locateMarker(text: string): { action: boolean; at: number } | null {
+  const actionAt = text.indexOf(ACTION_MARKER);
+  const finalAt = text.indexOf(FINAL_MARKER);
+
+  if (actionAt === -1 && finalAt === -1) {
+    return null;
+  }
+  if (actionAt !== -1 && (finalAt === -1 || actionAt < finalAt)) {
+    return { action: true, at: actionAt };
+  }
+  return { action: false, at: finalAt };
+}
+
+/**
+ * Extrait le premier objet JSON equilibre (accolades, chaines et
+ * echappements respectes) pour survivre au texte autour du JSON.
+ * Leve si aucun objet complet n'est trouve.
+ */
+function extractJsonObject(text: string): unknown {
+  const start = text.indexOf("{");
+  if (start === -1) {
+    throw new Error("no JSON object");
+  }
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === "{") {
+      depth += 1;
+    } else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return JSON.parse(text.slice(start, i + 1)) as unknown;
+      }
+    }
+  }
+
+  throw new Error("unbalanced JSON object");
+}
+
+/**
+ * Parse une reponse LLM en etape ReAct. Tolerant au bavardage autour
+ * de la directive (premiere occurrence gagnee) mais strict sur le
+ * contenu (JSON objet avec tool + args, rapport non vide). Toute
+ * reponse hors protocole est explicite (jamais d'exception) pour que
+ * la boucle puisse corriger le tir.
  */
 export function parseStepOutput(content: string): ParsedStep {
   const text = content.trim();
+  const marker = locateMarker(text);
 
-  if (text.startsWith(ACTION_MARKER)) {
-    const payload = stripFences(text.slice(ACTION_MARKER.length));
-    let data: unknown;
-
-    try {
-      data = JSON.parse(payload);
-    } catch {
-      return invalid("ACTION payload is not valid JSON", content);
-    }
-    if (typeof data !== "object" || data === null || Array.isArray(data)) {
-      return invalid("ACTION payload must be a JSON object", content);
-    }
-
-    const { tool, args } = data as Record<string, unknown>;
-
-    if (typeof tool !== "string" || tool.length === 0) {
-      return invalid('ACTION requires a "tool" string', content);
-    }
-    if (typeof args !== "object" || args === null || Array.isArray(args)) {
-      return invalid('ACTION requires an "args" object', content);
-    }
-
-    return {
-      type: "action",
-      tool,
-      args: args as { readonly [key: string]: unknown },
-    };
+  if (!marker) {
+    return invalid('reply must contain "ACTION:" or "FINAL:"', content);
   }
 
-  if (text.startsWith(FINAL_MARKER)) {
-    const report = text.slice(FINAL_MARKER.length).trim();
+  if (!marker.action) {
+    const report = text.slice(marker.at + FINAL_MARKER.length).trim();
 
     if (!report) {
       return invalid("FINAL requires a non-empty report", content);
@@ -154,7 +195,36 @@ export function parseStepOutput(content: string): ParsedStep {
     return { type: "final", report };
   }
 
-  return invalid('reply must start with "ACTION:" or "FINAL:"', content);
+  const payload = stripFences(text.slice(marker.at + ACTION_MARKER.length));
+  let data: unknown;
+
+  try {
+    data = JSON.parse(payload) as unknown;
+  } catch {
+    try {
+      data = extractJsonObject(payload);
+    } catch {
+      return invalid("ACTION payload is not valid JSON", content);
+    }
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return invalid("ACTION payload must be a JSON object", content);
+  }
+
+  const { tool, args } = data as Record<string, unknown>;
+
+  if (typeof tool !== "string" || tool.length === 0) {
+    return invalid('ACTION requires a "tool" string', content);
+  }
+  if (typeof args !== "object" || args === null || Array.isArray(args)) {
+    return invalid('ACTION requires an "args" object', content);
+  }
+
+  return {
+    type: "action",
+    tool,
+    args: args as { readonly [key: string]: unknown },
+  };
 }
 
 /**

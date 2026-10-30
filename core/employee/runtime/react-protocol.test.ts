@@ -118,6 +118,53 @@ describe("parseStepOutput", () => {
     });
   });
 
+  it("accepts leading chatter before the directive (chatty models)", () => {
+    const action = parseStepOutput(
+      'Je crée votre fichier hello.txt.ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "bonjour"}}'
+    );
+    expect(action).toEqual({
+      type: "action",
+      tool: "write_file",
+      args: { path: "hello.txt", content: "bonjour" },
+    });
+
+    const final = parseStepOutput(
+      "Mission accomplie, voici mon rapport.\nFINAL: File written and verified."
+    );
+    expect(final).toEqual({
+      type: "final",
+      report: "File written and verified.",
+    });
+  });
+
+  it("lets the first directive win", () => {
+    const finalFirst = parseStepOutput(
+      'FINAL: Done. (The draft ACTION: {"tool": "x", "args": {}} was discarded.)'
+    );
+    expect(finalFirst.type).toBe("final");
+
+    const actionFirst = parseStepOutput(
+      'ACTION: {"tool": "read_file", "args": {"path": "a.txt"}} — FINAL: later'
+    );
+    expect(actionFirst).toEqual({
+      type: "action",
+      tool: "read_file",
+      args: { path: "a.txt" },
+    });
+  });
+
+  it("extracts JSON with trailing prose", () => {
+    const parsed = parseStepOutput(
+      'ACTION: {"tool": "run_shell", "args": {"command": "ls"}} et voilà !'
+    );
+
+    expect(parsed).toEqual({
+      type: "action",
+      tool: "run_shell",
+      args: { command: "ls" },
+    });
+  });
+
   it("rejects malformed steps with an explicit reason", () => {
     const cases = [
       "just some prose",

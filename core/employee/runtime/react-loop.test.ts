@@ -142,7 +142,7 @@ describe("runReasoningLoop", () => {
     expect(contents.some((text) => text.includes("unknown tool"))).toBe(true);
     expect(
       contents.some((text) =>
-        text.includes('must start with "ACTION:" or "FINAL:"')
+        text.includes('must contain "ACTION:" or "FINAL:"')
       )
     ).toBe(true);
   });
@@ -268,6 +268,25 @@ describe("runReasoningLoop", () => {
     expect(result.error).toBe("cancelled");
     expect(result.steps).toBe(0);
     expect(provider.seen).toHaveLength(0);
+  });
+
+  it("completes missions with chatty model replies", async () => {
+    const provider = new ScriptedProvider([
+      'Je lis le fichier.ACTION: {"tool": "read_file", "args": {"path": "a.txt"}}',
+      "C'est lu, voici mon rapport.\nFINAL: File contains hello.",
+    ]);
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Read a.txt.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.reportContent).toBe("File contains hello.");
+    expect(result.toolCalls).toHaveLength(1);
   });
 
   it("interrupts mid-run without new calls or tools", async () => {
