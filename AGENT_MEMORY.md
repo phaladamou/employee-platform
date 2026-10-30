@@ -250,6 +250,10 @@ Leçons dures :
   OTP propre (chaque étape filtre par email) ; cause probable = session /
   cookie stale dans le navigateur de test. Trancher via les logs + test en
   navigation privée avant toute autre hypothèse.
+- Brouillon du champ chat scopé par compte (`lib/chat-draft.ts` + test,
+  `use-draft-input.ts`) : clé `input:<userId>`, jamais la clé globale
+  `input` (partagée entre comptes, nettoyée au montage). Câblé dans
+  `multimodal-input.tsx` et `multimodal-input-websites.tsx`.
 
 ## 7. Web : session sidebar « sticky » (2026-10-30)
 
