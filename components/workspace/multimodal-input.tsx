@@ -20,7 +20,7 @@ import {
   useState,
 } from "react";
 import { toast } from "sonner";
-import { useLocalStorage, useWindowSize } from "usehooks-ts";
+import { useWindowSize } from "usehooks-ts";
 import {
   Popover,
   PopoverContent,
@@ -40,6 +40,8 @@ import {
 import { Button } from "../ui/button";
 import { StopIcon } from "./icons";
 import { type ModeType, PlusMenu } from "./plus-menu";
+import { useDraftInput } from "./use-draft-input";
+import { useStickySession } from "./use-sticky-session";
 import { PreviewAttachment } from "./preview-attachment";
 import {
   type SlashCommand,
@@ -130,9 +132,10 @@ function PureMultimodalInput({
     }
   }, [width]);
 
-  const [localStorageInput, setLocalStorageInput] = useLocalStorage(
-    "input",
-    ""
+  // Brouillon lie au compte (jamais partage entre comptes).
+  const { user: stickyUser } = useStickySession();
+  const [localStorageInput, setLocalStorageInput] = useDraftInput(
+    stickyUser?.id
   );
   useEffect(() => {
     if (textareaRef.current) {
