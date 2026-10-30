@@ -14,6 +14,13 @@ export interface ToolContext {
    * par chemin absolu). L'hote ajoute explicitement ce qu'il autorise.
    */
   readonly env?: { readonly [variable: string]: string | undefined };
+  /**
+   * Chemin absolu du binaire `emp-sandbox` (Rust). Quand il est pose,
+   * `run_shell` execute via le sandbox (timeouts stricts, plafonds de
+   * sortie, rlimits Unix) ; quand le binaire est introuvable, repli
+   * silencieux sur Node `exec` (memes messages, meme contrat).
+   */
+  readonly sandboxBin?: string;
 }
 
 export type ToolArgs = {

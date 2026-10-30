@@ -6,7 +6,13 @@
 //! - stdout/stderr caps with kill on overflow (concurrent draining,
 //!   so a child flooding a pipe can neither deadlock nor OOM us),
 //! - stdin `/dev/null`, optional clean environment and work dir,
-//! - Unix extras via `pre_exec`: RLIMIT_CPU + RLIMIT_FSIZE.
+//! - Unix extras via `pre_exec`: RLIMIT_CPU + RLIMIT_FSIZE, plus its
+//!   own process group so timeout/overflow kills reach grandchildren
+//!   (a killed shell must not orphan a pipe-holding `sleep`).
+//!
+//! Non-goal: fork-bomb containment (RLIMIT_NPROC would apply to the
+//! whole host user, not the sandbox). Cap total abuse with the Docker
+//! CPU/memory envelope instead (defense in depth).
 
 use std::io::{self, Read};
 #[cfg(unix)]
@@ -29,6 +35,8 @@ pub struct SandboxLimits {
     pub work_dir: Option<PathBuf>,
     /// Drop the parent environment instead of inheriting it.
     pub clear_env: bool,
+    /// Explicit variables, applied after clearing (never inherited).
+    pub extra_env: Vec<(String, String)>,
 }
 
 impl Default for SandboxLimits {
@@ -38,6 +46,7 @@ impl Default for SandboxLimits {
             max_output_bytes: 1_000_000,
             work_dir: None,
             clear_env: true,
+            extra_env: Vec::new(),
         }
     }
 }
@@ -84,16 +93,23 @@ pub fn run_sandboxed(
     if limits.clear_env {
         command.env_clear();
     }
+    for (key, value) in &limits.extra_env {
+        command.env(key, value);
+    }
     if let Some(dir) = &limits.work_dir {
         command.current_dir(dir);
     }
     // SAFETY: pre_exec runs after fork, before exec. Only async-signal-safe
-    // libc calls (setrlimit), no allocation, no locks.
+    // libc calls (setrlimit, setpgid), no allocation, no locks.
     #[cfg(unix)]
     unsafe {
         let cpu_secs = limits.timeout.as_secs().saturating_add(2);
         let max_file = limits.max_output_bytes.saturating_mul(4) as u64;
         command.pre_exec(move || {
+            // Own process group: kill_tree() below reaches grandchildren.
+            if libc::setpgid(0, 0) != 0 {
+                return Err(io::Error::last_os_error());
+            }
             let cpu = libc::rlimit {
                 rlim_cur: cpu_secs,
                 rlim_max: cpu_secs,
@@ -150,7 +166,7 @@ pub fn run_sandboxed(
     let mut timed_out = false;
     let exit_code = loop {
         if overflowed.load(Ordering::Relaxed) {
-            let _ = child.kill();
+            kill_tree(&mut child);
             break None;
         }
         match child.try_wait()? {
@@ -158,7 +174,7 @@ pub fn run_sandboxed(
             None => {
                 if Instant::now() >= deadline {
                     timed_out = true;
-                    let _ = child.kill();
+                    kill_tree(&mut child);
                     // Reap after kill so we never leak a zombie.
                     let _ = child.wait();
                     break None;
@@ -181,12 +197,32 @@ pub fn run_sandboxed(
     })
 }
 
+/// Kill the child AND its process group (Unix): grandchildren that
+/// inherited the pipes must die too, otherwise the drain threads
+/// block forever on still-open writers. Best-effort, never fails.
+#[cfg(unix)]
+fn kill_tree(child: &mut std::process::Child) {
+    // SAFETY: killpg with a live pid is async-signal-safe; ESRCH
+    // (already gone) and EPERM are ignored by design.
+    unsafe {
+        libc::killpg(child.id() as i32, libc::SIGKILL);
+    }
+    let _ = child.kill();
+}
+
+/// Non-Unix: single kill (no process groups).
+#[cfg(not(unix))]
+fn kill_tree(child: &mut std::process::Child) {
+    let _ = child.kill();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     fn limits() -> SandboxLimits {
         SandboxLimits {
+            extra_env: Vec::new(),
             timeout: Duration::from_secs(5),
             max_output_bytes: 64_000,
             work_dir: None,
@@ -218,6 +254,32 @@ mod tests {
         assert!(result.timed_out);
         assert_eq!(result.exit_code, None);
         assert!(started.elapsed() < Duration::from_secs(10));
+    }
+
+    #[test]
+    fn kills_grandchildren_holding_pipes_open() {
+        // sh spawns sleep: killing sh alone would orphan sleep with the
+        // pipes open and hang the drain threads. Guarded join so a
+        // regression FAILS (timeout) instead of hanging the suite.
+        let done = std::sync::mpsc::channel();
+        thread::spawn(move || {
+            let result = run_sandboxed(
+                "sh",
+                &["-c", "sleep 30"],
+                &SandboxLimits {
+                    timeout: Duration::from_millis(200),
+                    ..limits()
+                },
+            )
+            .unwrap();
+            let _ = done.0.send(result);
+        });
+        let result = done
+            .1
+            .recv_timeout(Duration::from_secs(10))
+            .expect("sandbox hung on grandchild pipes");
+        assert!(result.timed_out);
+        assert_eq!(result.exit_code, None);
     }
 
     #[test]

@@ -11,6 +11,10 @@ crate-type = ["cdylib", "rlib"]
 [dependencies]
 # rand_core = SigningKey::generate (native only, see crypto::generate).
 ed25519-dalek = { version = "2", features = ["rand_core"] }
+# emp-sandbox JSON report. Used by the binary only (unlinked from the
+# WASM module); unconditional so `cargo test` always covers the binary.
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 # OsRng for native key generation (sandboxed hosts). NOT for WASM:
 # getrandom has no backend on wasm32-unknown-unknown without the

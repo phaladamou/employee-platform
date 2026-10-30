@@ -1,4 +1,4 @@
-import { mkdtemp, realpath, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -136,5 +136,95 @@ describe("run_shell tool", () => {
     );
     expect(badTimeout.ok).toBe(false);
     expect(badTimeout.output).toContain("timeoutMs");
+  });
+
+  it("falls back to exec when the sandbox binary is missing", async () => {
+    const ctx = await sandbox();
+    const tool = createRunShellTool();
+
+    const result = await tool.execute(
+      { command: `${NODE} -e "process.stdout.write('hi')"` },
+      { ...ctx, sandboxBin: join(dir, "no-such-binary") }
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("hi");
+  });
+
+  async function fakeSandboxBin(script: string): Promise<string> {
+    const bin = join(dir, `fake-sandbox-${Date.now()}-${Math.floor(Math.random() * 1e6)}.sh`);
+    await writeFile(bin, `#!/bin/sh\n${script}\n`);
+    await chmod(bin, 0o755);
+    return bin;
+  }
+
+  it("runs through emp-sandbox when the binary answers", async () => {
+    const ctx = await sandbox({ KEEP: "yes" });
+    const seenArgs = join(dir, "seen-args.txt");
+    const bin = await fakeSandboxBin(
+      `echo "$@" > ${JSON.stringify(seenArgs)}\n` +
+        `printf '%s' '{"exit_code":0,"stdout":"via-rust\\n","stderr":"","timed_out":false,"output_truncated":false}'`
+    );
+    const tool = createRunShellTool();
+
+    const result = await tool.execute({ command: "echo ignored" }, { ...ctx, sandboxBin: bin });
+
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("via-rust");
+
+    // Le pont transmet limites, cwd, env et commande shell.
+    const argv = await readFile(seenArgs, "utf8");
+    expect(argv).toContain("--timeout-ms 30000");
+    expect(argv).toContain(`--work-dir ${dir}`);
+    expect(argv).toContain("--env KEEP=yes");
+    expect(argv).toContain("-- /bin/sh -c echo ignored");
+  });
+
+  it("maps sandbox timeouts and failures without falling back", async () => {
+    const ctx = await sandbox();
+    const tool = createRunShellTool();
+
+    const timedOut = await fakeSandboxBin(
+      `printf '%s' '{"exit_code":null,"stdout":"","stderr":"","timed_out":true,"output_truncated":false}'`
+    );
+    const timeoutResult = await tool.execute(
+      { command: "sleep 30" },
+      { ...ctx, sandboxBin: timedOut }
+    );
+    expect(timeoutResult.ok).toBe(false);
+    expect(timeoutResult.output).toContain("timed out");
+
+    const failing = await fakeSandboxBin(
+      `printf '%s' '{"exit_code":3,"stdout":"out","stderr":"boom","timed_out":false,"output_truncated":false}'`
+    );
+    const failed = await tool.execute(
+      { command: "whatever" },
+      { ...ctx, sandboxBin: failing }
+    );
+    expect(failed.ok).toBe(false);
+    expect(failed.output).toContain("exit code 3");
+    expect(failed.output).toContain("boom");
+  });
+
+  it("fails closed on sandbox errors and corrupt reports", async () => {
+    const ctx = await sandbox();
+    const tool = createRunShellTool();
+
+    // Exit 2 = erreur sandbox : surfacer, jamais de repli silencieux.
+    const erroring = await fakeSandboxBin(`echo "bad flags" >&2\nexit 2`);
+    const errored = await tool.execute(
+      { command: `${NODE} --version` },
+      { ...ctx, sandboxBin: erroring }
+    );
+    expect(errored.ok).toBe(false);
+    expect(errored.output).toContain("sandbox error");
+
+    const corrupt = await fakeSandboxBin(`printf '%s' 'not json'`);
+    const corrupted = await tool.execute(
+      { command: `${NODE} --version` },
+      { ...ctx, sandboxBin: corrupt }
+    );
+    expect(corrupted.ok).toBe(false);
+    expect(corrupted.output).toContain("invalid JSON");
   });
 });

@@ -40,6 +40,8 @@ export interface CliContext {
   readonly providerError?: string;
   /** Env restreinte transmise au shell (construite par cli.ts). */
   readonly shellEnv: Readonly<Record<string, string>>;
+  /** Binaire emp-sandbox (EMPLOYEE_SANDBOX_BIN), absent = repli Node. */
+  readonly sandboxBin?: string;
   readonly output: (line: string) => void;
 }
 
@@ -463,7 +465,7 @@ async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
 
   try {
     const runtime = new EmployeeRuntime(ctx.provider, {
-      toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv } },
+      toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv }, sandboxBin: ctx.sandboxBin },
       memory,
       memoryStore,
     });
@@ -569,7 +571,7 @@ export async function startWorker(
     missions: stores.missions,
     profiles: stores.profiles,
     provider,
-    toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv } },
+    toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv }, sandboxBin: ctx.sandboxBin },
     profilesRegistry: registry,
     memory: new EmployeeMemory(),
     memoryStore: stores.memory,
@@ -683,7 +685,7 @@ function usage(ctx: CliContext): CliResult {
       '  run "<prompt>" [--id <employeeId>]   local demo (no server)',
       "",
       "Env: EMPLOYEE_API_URL, EMPLOYEE_TOKEN, EMPLOYEE_DATA, EMPLOYEE_PROFILES,",
-      "     EMPLOYEE_SANDBOX, EMPLOYEE_PROVIDER (+ provider keys).",
+      "     EMPLOYEE_SANDBOX, EMPLOYEE_SANDBOX_BIN, EMPLOYEE_PROVIDER (+ provider keys).",
     ].join("\n")
   );
   return { exitCode: 1 };

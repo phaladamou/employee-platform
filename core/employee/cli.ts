@@ -98,6 +98,7 @@ function buildContext(): CliContext {
     token: process.env.EMPLOYEE_TOKEN,
     profilesDir: resolve(process.env.EMPLOYEE_PROFILES ?? "core/employee/profiles"),
     sandboxDir: resolve(process.env.EMPLOYEE_SANDBOX ?? ".data/workspace"),
+    sandboxBin: process.env.EMPLOYEE_SANDBOX_BIN,
     provider,
     providerError,
     shellEnv,
