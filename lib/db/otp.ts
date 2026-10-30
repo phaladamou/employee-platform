@@ -202,21 +202,37 @@ export async function getOrCreateVerifiedUser(email: string): Promise<{
   id: string;
   email: string;
   name: string | null;
+  onboarded: boolean;
 }> {
   try {
     const db = await getDb();
     const [existing] = await db
-      .select({ id: user.id, email: user.email, name: user.name })
+      .select({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        onboarded: user.onboarded,
+      })
       .from(user)
       .where(eq(user.email, email))
       .limit(1);
     if (existing) {
+      // OTP prouve l'email : marquer verifie meme les comptes pre-OTP.
+      await db
+        .update(user)
+        .set({ emailVerified: true })
+        .where(eq(user.id, existing.id));
       return existing;
     }
     const [created] = await db
       .insert(user)
       .values({ email, emailVerified: true } as any)
-      .returning({ id: user.id, email: user.email, name: user.name });
+      .returning({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        onboarded: user.onboarded,
+      });
     return created;
   } catch (_error) {
     console.error("getOrCreateVerifiedUser DB Error:", _error);

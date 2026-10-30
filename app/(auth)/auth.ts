@@ -28,6 +28,7 @@ declare module "next-auth" {
     user: {
       id: string;
       type: UserType;
+      onboarded: boolean;
     } & DefaultSession["user"];
   }
 
@@ -36,6 +37,7 @@ declare module "next-auth" {
     email?: string | null;
     type: UserType;
     isLink?: boolean;
+    onboarded?: boolean;
   }
 }
 
@@ -43,6 +45,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
     type: UserType;
+    onboarded?: boolean;
     image?: string | null;
     name?: string | null;
     email?: string | null;
@@ -150,7 +153,13 @@ export const {
         }
 
         console.log("[AUTHORIZE] success — returning user");
-        return { id: u.id, email: u.email, name: u.name, type: "regular" };
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          type: "regular",
+          onboarded: u.onboarded,
+        };
       },
     }),
     Credentials({
@@ -162,16 +171,33 @@ export const {
       async authorize(credentials) {
         const email = normalizeOtpEmail(String(credentials.email ?? ""));
         const code = String(credentials.code ?? "").trim();
+        console.log("[AUTHORIZE-OTP] email:", email);
         if (!email || !new RegExp(`^\\d{${OTP_CODE_LENGTH}}$`).test(code)) {
+          console.log("[AUTHORIZE-OTP] bad shape — returning null");
           return null;
         }
         try {
-          if ((await verifyOtpCode(email, code)) !== "ok") {
+          const verdict = await verifyOtpCode(email, code);
+          console.log("[AUTHORIZE-OTP] verify verdict:", verdict);
+          if (verdict !== "ok") {
             return null;
           }
           const u = await getOrCreateVerifiedUser(email);
-          return { id: u.id, email: u.email, name: u.name, type: "regular" };
+          console.log(
+            "[AUTHORIZE-OTP] success — user id:",
+            u.id,
+            "email:",
+            u.email
+          );
+          return {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            type: "regular",
+            onboarded: u.onboarded,
+          };
         } catch {
+          console.log("[AUTHORIZE-OTP] exception — returning null");
           return null;
         }
       },
@@ -210,6 +236,7 @@ export const {
           token.image = user.image as string;
           token.name = user.name as string;
           token.email = user.email as string;
+          token.onboarded = user.onboarded;
         }
       }
 
@@ -233,6 +260,7 @@ export const {
               token.type = "regular";
               token.image = existing[0].image as string;
               token.name = existing[0].name as string;
+              token.onboarded = existing[0].onboarded;
             } else {
               const [newUser] = await db
                 .insert(userTable)
@@ -245,6 +273,7 @@ export const {
                 .returning({ id: userTable.id });
               token.id = newUser.id;
               token.type = "regular";
+              token.onboarded = false;
             }
           } catch (err) {
             console.error("jwt DB error:", err);
@@ -259,6 +288,9 @@ export const {
       if (session.user) {
         session.user.id = token.id;
         session.user.type = token.type;
+        // Inconnu (vieux cookie, provider sans mapping DB) = on ne bloque
+        // pas : seuls les comptes explicitement non-onboardes sont rediriges.
+        session.user.onboarded = token.onboarded ?? true;
         session.user.image = token.image ?? session.user.image;
         session.user.name = token.name ?? session.user.name;
         session.user.email = token.email ?? session.user.email;
