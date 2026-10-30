@@ -213,4 +213,86 @@ describe("FileJobStore", () => {
 
     expect(claimed?.lockOwner).toBe("worker-1");
   });
+
+  it("heartbeats renew the lease with ownership checks", async () => {
+    const store = await makeStore();
+    await store.enqueue(job("job_1"));
+    await store.claim("job_1", "worker-1", new Date("2020-01-01T00:00:00.000Z"));
+
+    const touched = await store.heartbeat(
+      "job_1",
+      "worker-1",
+      new Date("2026-01-01T00:00:00.000Z")
+    );
+    expect(touched.lastHeartbeatAt).toBe("2026-01-01T00:00:00.000Z");
+
+    await expect(store.heartbeat("job_1", "worker-2")).rejects.toThrow(
+      "locked by another worker"
+    );
+    await expect(store.heartbeat("job_missing", "worker-1")).rejects.toThrow(
+      "Job job_missing not found"
+    );
+
+    await store.enqueue(job("job_2"));
+    await expect(store.heartbeat("job_2", "worker-1")).rejects.toThrow(
+      'cannot heartbeat (status "queued")'
+    );
+  });
+
+  it("recovers orphaned jobs and settles orphaned cancellations", async () => {
+    const store = await makeStore();
+    const old = new Date("2020-01-01T00:00:00.000Z");
+
+    await store.enqueue(job("job_orphan"));
+    await store.claim("job_orphan", "dead-worker", old);
+
+    await store.enqueue(job("job_cancelled"));
+    await store.claim("job_cancelled", "dead-worker", old);
+    await store.requestCancellation("job_cancelled", old);
+
+    await store.enqueue(job("job_fresh"));
+    await store.claim("job_fresh", "worker-1", old);
+    await store.heartbeat("job_fresh", "worker-1", new Date());
+
+    await store.enqueue(job("job_queued"));
+
+    const recovered = await store.recoverStaleJobs({ staleAfterMs: 1000 });
+    const byId = new Map(recovered.map((entry) => [entry.id, entry.status]));
+
+    expect(byId.get("job_orphan")).toBe("queued");
+    expect(byId.get("job_cancelled")).toBe("cancelled");
+    expect(byId.has("job_fresh")).toBe(false);
+    expect(byId.has("job_queued")).toBe(false);
+
+    // Le job re-file est reclaimable, avec sa trace d'audit.
+    const reclaimed = await store.claim("job_orphan", "worker-2");
+    expect(reclaimed?.lockOwner).toBe("worker-2");
+    expect(reclaimed?.error).toContain("recovered after worker silence");
+  });
+
+  it("falls back to startedAt for pre-heartbeat job files", async () => {
+    const store = await makeStore();
+    await writeFile(
+      join(dir, "job_job_legacy.json"),
+      JSON.stringify({
+        id: "job_legacy",
+        missionId: "mis_legacy",
+        employeeId: "emp_1",
+        employerId: "acme",
+        status: "running",
+        lockOwner: "dead-worker",
+        report: null,
+        error: null,
+        createdAt: "2020-01-01T00:00:00.000Z",
+        startedAt: "2020-01-01T00:00:00.000Z",
+        finishedAt: null,
+      }),
+      "utf8"
+    );
+
+    const recovered = await store.recoverStaleJobs({ staleAfterMs: 1000 });
+
+    expect(recovered.map((entry) => entry.id)).toEqual(["job_legacy"]);
+    expect(recovered[0]?.status).toBe("queued");
+  });
 });

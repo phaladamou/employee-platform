@@ -7,8 +7,12 @@ import {
   claimEmployeeJob,
   type EmployeeJob,
   failEmployeeJob,
+  heartbeatEmployeeJob,
+  isJobStale,
   type JobStatus,
   requestEmployeeJobCancellation,
+  requeueStaleJob,
+  settleStaleCancellation,
   succeedEmployeeJob,
 } from "./employee-job";
 import type { JobStore } from "./job-store";
@@ -29,6 +33,12 @@ const JOB_STATUSES: readonly JobStatus[] = [
  * un worker mort en running laisse le job verrouille (at-least-once).
  */
 const STALE_LOCK_MS = 60_000;
+
+/**
+ * Silence worker au-dela duquel un job running est presume orphelin.
+ * Doit rester tres superieur a l'intervalle de heartbeat (15 s).
+ */
+export const DEFAULT_STALE_AFTER_MS = 120_000;
 
 function sanitizeId(id: string): string {
   const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
@@ -82,6 +92,7 @@ function parseJob(raw: unknown): EmployeeJob | null {
     employerId,
     status: status as JobStatus,
     lockOwner: asNullableString(raw.lockOwner),
+    lastHeartbeatAt: asNullableString(raw.lastHeartbeatAt),
     report: asNullableString(raw.report),
     error: asNullableString(raw.error),
     createdAt,
@@ -276,7 +287,8 @@ export class FileJobStore implements JobStore {
     return null;
   }
 
-  private async listQueuedOldestFirst(): Promise<EmployeeJob[]> {
+  /** Tous les jobs valides du repertoire (corrompus ignores). */
+  private async scanJobs(): Promise<EmployeeJob[]> {
     let names: string[];
     try {
       names = await readdir(this.directory);
@@ -287,7 +299,7 @@ export class FileJobStore implements JobStore {
       throw error;
     }
 
-    const queued: EmployeeJob[] = [];
+    const jobs: EmployeeJob[] = [];
     for (const name of names) {
       if (!name.startsWith("job_") || !name.endsWith(".json")) {
         continue;
@@ -301,11 +313,18 @@ export class FileJobStore implements JobStore {
         continue;
       }
       const job = parseJob(parsed);
-      if (job?.status === "queued") {
-        queued.push(job);
+      if (job) {
+        jobs.push(job);
       }
     }
 
+    return jobs;
+  }
+
+  private async listQueuedOldestFirst(): Promise<EmployeeJob[]> {
+    const queued = (await this.scanJobs()).filter(
+      (job) => job.status === "queued"
+    );
     queued.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
     return queued;
   }
@@ -443,5 +462,65 @@ export class FileJobStore implements JobStore {
     return this.finish(jobId, workerId, now, (current) =>
       failEmployeeJob(current, workerId, error, now)
     );
+  }
+
+  async heartbeat(
+    jobId: string,
+    workerId: string,
+    now: Date = new Date()
+  ): Promise<EmployeeJob> {
+    const touched = await this.withLock(jobId, workerId, async (current) => {
+      if (!current) {
+        throw new Error(`Job ${jobId} not found`);
+      }
+      const next = heartbeatEmployeeJob(current, workerId, now);
+      await this.writeJob(next);
+      return next;
+    });
+
+    if (!touched) {
+      throw new Error(`Job ${jobId} is locked by another worker`);
+    }
+    return touched;
+  }
+
+  async recoverStaleJobs(options: {
+    staleAfterMs?: number;
+    now?: Date;
+  } = {}): Promise<readonly EmployeeJob[]> {
+    const staleAfterMs = options.staleAfterMs ?? DEFAULT_STALE_AFTER_MS;
+    const now = options.now ?? new Date();
+    const recovered: EmployeeJob[] = [];
+
+    const candidates = (await this.scanJobs()).filter((job) =>
+      isJobStale(job, staleAfterMs, now)
+    );
+    candidates.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+
+    for (const candidate of candidates) {
+      // Re-lecture sous verrou : le job a pu bouger depuis le scan.
+      const settled = await this.withLock(
+        candidate.id,
+        "recovery",
+        async (current) => {
+          if (!current || !isJobStale(current, staleAfterMs, now)) {
+            return null;
+          }
+          const next =
+            current.status === "cancellation_requested"
+              ? settleStaleCancellation(current, now)
+              : requeueStaleJob(current);
+          await this.writeJob(next);
+          return next;
+        }
+      );
+
+      // null = verrou tenu par un tiers (passe suivante) ou plus stale.
+      if (settled) {
+        recovered.push(settled);
+      }
+    }
+
+    return recovered;
   }
 }

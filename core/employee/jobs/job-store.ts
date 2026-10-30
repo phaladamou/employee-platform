@@ -7,8 +7,9 @@ import type { EmployeeJob, JobStatus } from "./employee-job";
  * - toute lecture cote client est scopee par employerId (isolation
  *   stricte des tenants) ;
  * - livraison at-least-once : un worker qui meurt en running laisse
- *   le job verrouille (pas de TTL ni de heartbeat a ce stade, le
- *   re-claim manuel reste possible via une passe de maintenance).
+ *   le job verrouille jusqu'au recovery (bail par heartbeat,
+ *   `recoverStaleJobs` re-file les orphelins) ; un bail expire a tort
+ *   peut faire tourner le job deux fois.
  */
 export interface JobStore {
   /** File un job queued. Leve si l'id existe deja. */
@@ -75,4 +76,22 @@ export interface JobStore {
     error: string,
     now?: Date
   ): Promise<EmployeeJob>;
+
+  /**
+   * Battement du worker proprietaire (heartbeatEmployeeJob) : renouvelle
+   * le bail. Leve si le job est inconnu, termine, ou verrouille par un
+   * autre worker.
+   */
+  heartbeat(jobId: string, workerId: string, now?: Date): Promise<EmployeeJob>;
+
+  /**
+   * Recovery des jobs orphelins (crash worker) : les running stales
+   * sont re-files, les cancellation_requested stales sont soldees en
+   * cancelled. Retourne les jobs traites. Les jobs verrouilles par un
+   * tiers au moment du balayage sont sautes (repris au prochain tour).
+   */
+  recoverStaleJobs(options?: {
+    staleAfterMs?: number;
+    now?: Date;
+  }): Promise<readonly EmployeeJob[]>;
 }

@@ -117,7 +117,10 @@ Design points:
 1. **At-least-once queue.** Claiming goes through a lock file created in
    exclusive mode: across N workers (even on separate processes), a single
    one gets the job. Documented trade-off: a worker dying in `running`
-   leaves the job locked (no TTL or heartbeat — manual recovery).
+   leaves the job locked until recovery: the worker renews a lease by
+   heartbeat, and `recoverStaleJobs` (startup sweep + `recover` command)
+   re-queues orphaned jobs — or settles orphaned cancellations as
+   `cancelled` instead of re-filing them.
 2. **Cooperative cancellation, never brutal.** A running job is never
    killed: the employer requests (`cancellation_requested`), the worker
    observes the signal before each LLM step, stops cleanly, then confirms

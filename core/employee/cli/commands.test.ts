@@ -3,6 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { createEmployeeJob } from "../jobs/employee-job";
+import { FileJobStore } from "../jobs/file-job-store";
 import { runCommand, type CliContext } from "./commands";
 
 describe("runCommand", () => {
@@ -131,5 +133,28 @@ describe("runCommand", () => {
     // Prompt nu (sans sous-commande) => run.
     expect((await runCommand(["Hello", "world"], ctx)).exitCode).toBe(1);
     expect(lines.join("\n")).toContain("DEEPSEEK_API_KEY is missing");
+  });
+
+  it("recovers orphaned jobs from the data dir", async () => {
+    const { ctx, lines } = await makeCtx();
+    const jobs = new FileJobStore({ directory: join(dir, "data", "jobs") });
+    await jobs.enqueue(
+      createEmployeeJob({
+        id: "job_1",
+        missionId: "mis_1",
+        employeeId: "emp_1",
+        employerId: "acme",
+      })
+    );
+    await jobs.claim("job_1", "dead-worker", new Date("2020-01-01T00:00:00.000Z"));
+
+    expect(
+      (await runCommand(["recover", "--stale-after-ms", "1000"], ctx)).exitCode
+    ).toBe(0);
+    expect(lines.join("\n")).toContain("recovered: job_1 -> queued");
+
+    lines.length = 0;
+    expect((await runCommand(["recover"], ctx)).exitCode).toBe(0);
+    expect(lines.join("\n")).toContain("(no stale jobs)");
   });
 });

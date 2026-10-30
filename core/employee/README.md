@@ -32,6 +32,7 @@ emp submit emp_xxx "Audit churn"
 emp status job_xxx
 emp events job_xxx        # SSE jusqu'a l'etat terminal
 emp cancel job_xxx
+emp recover   # re-file les jobs orphelins d'un crash worker
 ```
 
 Demo locale sans serveur : `emp run "Relis briefing.txt et resume-le"`.
@@ -43,7 +44,8 @@ Demo locale sans serveur : `emp run "Relis briefing.txt et resume-le"`.
   l'employeur recrute un employe publie, il ne definit jamais l'ADN.
 - **File at-least-once** : `claim` atomique (fichier verrou `wx`) — un seul
   worker gagne ; un worker mort en `running` laisse le job verrouille
-  (pas de TTL ni heartbeat : reprise manuelle documentee).
+  (bail par heartbeat : `recoverStaleJobs` re-file les orphelins,
+  annulations orphelines soldees en `cancelled`).
 - **Annulation en deux temps** : `queued -> cancelled` immediat ;
   `running -> cancellation_requested`, le worker s'interrompt au prochain
   pas LLM puis confirme (`cancelled`). Distinguer de `failed`.

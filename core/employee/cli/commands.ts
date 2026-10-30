@@ -512,6 +512,35 @@ export async function startServe(
   };
 }
 
+async function cmdRecover(
+  args: ParsedArgs,
+  ctx: CliContext
+): Promise<CliResult> {
+  const staleRaw = flag(args.flags, "stale-after-ms");
+  const staleAfterMs = staleRaw !== undefined ? Number(staleRaw) : undefined;
+  if (staleRaw !== undefined && !Number.isFinite(staleAfterMs)) {
+    ctx.output("Error: --stale-after-ms must be a number");
+    return { exitCode: 1 };
+  }
+
+  try {
+    const stores = openLocalStores(ctx.dataDir);
+    const recovered = await stores.jobs.recoverStaleJobs(
+      staleAfterMs === undefined ? {} : { staleAfterMs }
+    );
+    if (recovered.length === 0) {
+      ctx.output("(no stale jobs)");
+      return { exitCode: 0 };
+    }
+    for (const job of recovered) {
+      ctx.output(`recovered: ${job.id} -> ${job.status}`);
+    }
+    return { exitCode: 0 };
+  } catch (error) {
+    return printError(ctx, error);
+  }
+}
+
 async function cmdServe(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
   const portRaw = flag(args.flags, "port");
   const host = flag(args.flags, "host");
@@ -543,6 +572,7 @@ function usage(ctx: CliContext): CliResult {
       "Usage: cli.ts <command> [args]",
       "",
       "  serve [--port N] [--host H]   start API + worker",
+      "  recover [--stale-after-ms N]   requeue orphaned jobs",
       "  publish --name N --role R [--skills a,b] [--spec n@v]   (admin)",
       "  hire <employeeId>",
       "  submit <employeeId> \"<prompt>\"",
@@ -580,6 +610,8 @@ export async function runCommand(
   switch (command) {
     case "serve":
       return cmdServe(args, ctx);
+    case "recover":
+      return cmdRecover(args, ctx);
     case "publish":
       return cmdPublish(args, ctx);
     case "hire":

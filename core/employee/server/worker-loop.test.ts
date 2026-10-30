@@ -113,6 +113,34 @@ describe("startWorkerLoop", () => {
     expect((await deps.jobs.load("job_2"))?.report).toBe("Two.");
   });
 
+  it("recovers crash-orphaned jobs at startup, then processes them", async () => {
+    const deps = await makeDeps(["FINAL: Recovered."]);
+    await seedJob(deps, "job_orphan");
+    // Simule un crash : job running, worker mort, bail perime.
+    await deps.jobs.claim(
+      "job_orphan",
+      "dead-worker",
+      new Date("2020-01-01T00:00:00.000Z")
+    );
+
+    const loop = startWorkerLoop(deps, {
+      workerId: "worker-1",
+      intervalMs: 10,
+      staleAfterMs: 1000,
+    });
+    try {
+      await waitFor(async () => {
+        return (
+          (await deps.jobs.load("job_orphan"))?.status === "succeeded"
+        );
+      });
+    } finally {
+      await loop.stop();
+    }
+
+    expect((await deps.jobs.load("job_orphan"))?.report).toBe("Recovered.");
+  });
+
   it("idles on an empty queue and stops cleanly", async () => {
     const deps = await makeDeps(["FINAL: Late."]);
 

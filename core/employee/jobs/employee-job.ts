@@ -27,6 +27,12 @@ export interface EmployeeJob {
   readonly status: JobStatus;
   /** Worker detenteur du verrou (claim), null hors running. */
   readonly lockOwner: string | null;
+  /**
+   * Dernier battement du worker proprietaire (bail). Un job running
+   * sans battement recent est presume orphelin (crash) et eligible
+   * au recovery. Null = jamais battu (seuil sur startedAt).
+   */
+  readonly lastHeartbeatAt: string | null;
   readonly report: string | null;
   readonly error: string | null;
   readonly createdAt: string;
@@ -72,6 +78,7 @@ export function createEmployeeJob(input: {
     employerId,
     status: "queued",
     lockOwner: null,
+    lastHeartbeatAt: null,
     report: null,
     error: null,
     createdAt: (input.now ?? new Date()).toISOString(),
@@ -101,11 +108,14 @@ export function claimEmployeeJob(
     );
   }
 
+  const at = now.toISOString();
+
   return {
     ...job,
     status: "running",
     lockOwner: owner,
-    startedAt: now.toISOString(),
+    startedAt: at,
+    lastHeartbeatAt: at,
   };
 }
 
@@ -216,4 +226,98 @@ export function failEmployeeJob(
     { status: "failed", report: null, error },
     now
   );
+}
+
+/**
+ * Battement du worker proprietaire : renouvelle le bail. Seul le
+ * detenteur du verrou peut battre (sinon leve) ; les jobs hors
+ * running/cancellation_requested levent aussi.
+ */
+export function heartbeatEmployeeJob(
+  job: EmployeeJob,
+  workerId: string,
+  now: Date = new Date()
+): EmployeeJob {
+  if (job.status !== "running" && job.status !== "cancellation_requested") {
+    throw new Error(
+      `Job ${job.id} cannot heartbeat (status "${job.status}")`
+    );
+  }
+  if (job.lockOwner !== workerId) {
+    throw new Error(`Job ${job.id} is locked by another worker`);
+  }
+
+  return { ...job, lastHeartbeatAt: now.toISOString() };
+}
+
+/**
+ * Orphelin presume (crash worker) ? Vrai si le job est en cours et que
+ * son dernier signe de vie (battement, sinon debut, sinon creation)
+ * depasse staleAfterMs. Les jobs termines ou queued ne sont jamais
+ * stales.
+ */
+export function isJobStale(
+  job: EmployeeJob,
+  staleAfterMs: number,
+  now: Date = new Date()
+): boolean {
+  if (job.status !== "running" && job.status !== "cancellation_requested") {
+    return false;
+  }
+
+  const reference =
+    job.lastHeartbeatAt ?? job.startedAt ?? job.createdAt;
+  const at = Date.parse(reference);
+
+  if (Number.isNaN(at)) {
+    return true;
+  }
+  return now.getTime() - at > staleAfterMs;
+}
+
+/**
+ * Recovery d'un running orphelin : re-file pour une nouvelle tentative
+ * (bail et verrou remis a zero). At-least-once : si l'ancien worker
+ * vit encore (bail expire a tort), le job peut tourner deux fois.
+ */
+export function requeueStaleJob(job: EmployeeJob): EmployeeJob {
+  if (job.status !== "running") {
+    throw new Error(
+      `Job ${job.id} cannot be requeued (status "${job.status}")`
+    );
+  }
+
+  return {
+    ...job,
+    status: "queued",
+    lockOwner: null,
+    lastHeartbeatAt: null,
+    startedAt: null,
+    finishedAt: null,
+    error: `recovered after worker silence (previously started ${job.startedAt ?? "unknown"})`,
+    report: null,
+  };
+}
+
+/**
+ * Recovery d'une annulation orpheline : le worker est mort alors que
+ * l'employeur avait demande l'annulation — rien ne tourne, on honore
+ * la demande au lieu de re-filer le job.
+ */
+export function settleStaleCancellation(
+  job: EmployeeJob,
+  now: Date = new Date()
+): EmployeeJob {
+  if (job.status !== "cancellation_requested") {
+    throw new Error(
+      `Job ${job.id} has no pending cancellation (status "${job.status}")`
+    );
+  }
+
+  return {
+    ...job,
+    status: "cancelled",
+    lockOwner: null,
+    finishedAt: now.toISOString(),
+  };
 }

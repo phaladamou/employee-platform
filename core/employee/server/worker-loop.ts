@@ -4,6 +4,11 @@ export interface WorkerLoopOptions {
   readonly workerId?: string;
   /** Pause entre deux tours sans job (defaut 250 ms). */
   readonly intervalMs?: number;
+  /**
+   * Silence worker au-dela duquel un job running est presume orphelin
+   * (defaut du store). `null` = pas de sweep au demarrage.
+   */
+  readonly staleAfterMs?: number | null;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -24,6 +29,20 @@ export function startWorkerLoop(
   let stopped = false;
 
   const running: Promise<void> = (async () => {
+    // Sweep au demarrage : les jobs laisses running par un crash
+    // precedent sont re-files (ou soldes) avant tout nouveau claim.
+    if (options.staleAfterMs !== null) {
+      try {
+        await deps.jobs.recoverStaleJobs(
+          options.staleAfterMs === undefined
+            ? {}
+            : { staleAfterMs: options.staleAfterMs }
+        );
+      } catch {
+        // Store indisponible : la boucle reessaiera au fil des tours.
+      }
+    }
+
     while (!stopped) {
       try {
         // claimNext atomique : N workers peuvent tourner en parallele.

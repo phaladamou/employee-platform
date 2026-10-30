@@ -215,4 +215,38 @@ describe("runJobOnce", () => {
     expect(finished?.status).toBe("failed");
     expect(finished?.error).toContain("suspended");
   });
+
+  it("heartbeats the lease during long runs", async () => {
+    const slow: EmployeeLLMProvider = {
+      id: "slow",
+      generate: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 150));
+        return { content: "FINAL: Done.", model: "slow" };
+      },
+    };
+    const { deps } = await makeDeps(slow);
+    const jobId = await seedPending(deps);
+
+    const finished = await runJobOnce(
+      { ...deps, heartbeatIntervalMs: 20 },
+      jobId,
+      "worker-1"
+    );
+
+    expect(finished?.status).toBe("succeeded");
+    const stored = await deps.jobs.load(jobId);
+    expect(Date.parse(stored?.lastHeartbeatAt ?? "")).toBeGreaterThan(
+      Date.parse(stored?.startedAt ?? "")
+    );
+  });
+
+  it("leaves the lease untouched when heartbeats are disabled", async () => {
+    const { deps } = await makeDeps(new ScriptedProvider(["FINAL: Done."]));
+    const jobId = await seedPending(deps);
+
+    await runJobOnce({ ...deps, heartbeatIntervalMs: 0 }, jobId, "worker-1");
+
+    const stored = await deps.jobs.load(jobId);
+    expect(stored?.lastHeartbeatAt).toBe(stored?.startedAt);
+  });
 });

@@ -22,7 +22,14 @@ export interface JobWorkerDeps {
   readonly profilesRegistry?: ProfileRegistry;
   readonly memory?: EmployeeMemory;
   readonly memoryStore?: EmployeeMemoryStore;
+  /**
+   * Battement du bail pendant le run (defaut 15 s, 0 = desactive).
+   * Best-effort : un battement rate n'echoue jamais la mission.
+   */
+  readonly heartbeatIntervalMs?: number;
 }
+
+export const DEFAULT_HEARTBEAT_INTERVAL_MS = 15_000;
 
 /**
  * Execute un job DEJA claimé par workerId : run du runtime avec
@@ -91,6 +98,16 @@ export async function runClaimedJob(
     signal: createPollingJobSignal(deps.jobs, claimed.id),
   });
 
+  const heartbeatMs = deps.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+  const heartbeatTimer =
+    heartbeatMs > 0
+      ? setInterval(() => {
+          void deps.jobs.heartbeat(claimed.id, workerId).catch(() => undefined);
+        }, heartbeatMs)
+      : null;
+  // Ne retient jamais le processus (tests, arret brutal).
+  heartbeatTimer?.unref?.();
+
   try {
     const result = await runtime.run(profile, mission);
     await deps.missions.save(result.mission);
@@ -115,6 +132,10 @@ export async function runClaimedJob(
       await deps.profiles.save(setEmployeeStatus(current, "idle"));
     }
     return deps.jobs.markFailed(claimed.id, workerId, message);
+  } finally {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+    }
   }
 }
 

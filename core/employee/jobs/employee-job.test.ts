@@ -5,8 +5,12 @@ import {
   claimEmployeeJob,
   createEmployeeJob,
   failEmployeeJob,
+  heartbeatEmployeeJob,
+  isJobStale,
   isTerminalJobStatus,
   requestEmployeeJobCancellation,
+  requeueStaleJob,
+  settleStaleCancellation,
   succeedEmployeeJob,
 } from "./employee-job";
 
@@ -156,5 +160,79 @@ describe("isTerminalJobStatus", () => {
     expect(isTerminalJobStatus("succeeded")).toBe(true);
     expect(isTerminalJobStatus("failed")).toBe(true);
     expect(isTerminalJobStatus("cancelled")).toBe(true);
+  });
+});
+
+describe("heartbeatEmployeeJob", () => {
+  it("renews the lease for the lock owner", () => {
+    const claimed = claimEmployeeJob(queued(), "worker-1", new Date(1000));
+
+    const touched = heartbeatEmployeeJob(
+      claimed,
+      "worker-1",
+      new Date(2000)
+    );
+
+    expect(touched.lastHeartbeatAt).toBe("1970-01-01T00:00:02.000Z");
+    expect(touched.status).toBe("running");
+  });
+
+  it("enforces ownership and runnability", () => {
+    const claimed = claimEmployeeJob(queued(), "worker-1");
+
+    expect(() => heartbeatEmployeeJob(claimed, "worker-2")).toThrow(
+      "locked by another worker"
+    );
+    expect(() => heartbeatEmployeeJob(queued(), "worker-1")).toThrow(
+      'cannot heartbeat (status "queued")'
+    );
+  });
+});
+
+describe("isJobStale", () => {
+  it("flags silent running jobs, spares fresh and settled ones", () => {
+    const claimed = claimEmployeeJob(queued(), "worker-1", new Date(1000));
+
+    expect(isJobStale(claimed, 60_000, new Date(1000 + 61_000))).toBe(true);
+    expect(isJobStale(claimed, 60_000, new Date(1000 + 10_000))).toBe(false);
+
+    const fresh = heartbeatEmployeeJob(claimed, "worker-1", new Date(50_000));
+    expect(isJobStale(fresh, 60_000, new Date(1000 + 61_000))).toBe(false);
+
+    expect(isJobStale(queued(), 0)).toBe(false);
+    expect(
+      isJobStale(succeedEmployeeJob(claimed, "worker-1", "R"), 0)
+    ).toBe(false);
+  });
+});
+
+describe("requeueStaleJob / settleStaleCancellation", () => {
+  it("requeues orphaned running jobs with an audit trace", () => {
+    const claimed = claimEmployeeJob(queued(), "worker-1", new Date(1000));
+
+    const requeued = requeueStaleJob(claimed);
+
+    expect(requeued.status).toBe("queued");
+    expect(requeued.lockOwner).toBeNull();
+    expect(requeued.startedAt).toBeNull();
+    expect(requeued.error).toContain("recovered after worker silence");
+    expect(() => requeueStaleJob(queued())).toThrow(
+      'cannot be requeued (status "queued")'
+    );
+  });
+
+  it("settles orphaned cancellations instead of re-filing", () => {
+    const requested = requestEmployeeJobCancellation(
+      claimEmployeeJob(queued(), "worker-1")
+    );
+
+    const settled = settleStaleCancellation(requested);
+
+    expect(settled.status).toBe("cancelled");
+    expect(settled.lockOwner).toBeNull();
+    expect(settled.finishedAt).not.toBeNull();
+    expect(() => settleStaleCancellation(queued())).toThrow(
+      "has no pending cancellation"
+    );
   });
 });
