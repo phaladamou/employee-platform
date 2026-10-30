@@ -1,79 +1,78 @@
-# CREATOR vs EMPLOYER — la vision produit
+# CREATOR vs EMPLOYER — the product vision
 
-Il y a une règle fondamentale dans Employee, et tout le système est
-construit pour la rendre **inviolable techniquement**, pas seulement
-contractuelle :
+There is one fundamental rule in Employee, and the whole system is built
+to make it **technically unbreakable**, not just contractual:
 
-> **Le Créateur définit l'ADN. L'Employeur recrute — il ne redéfinit pas.**
+> **The Creator defines the DNA. The Employer recruits — never redefines.**
 
-## Ce que fait le Créateur
+## What the Creator does
 
-Le Créateur est l'éditeur de métiers. Lui seul peut :
+The Creator is the trade publisher. Only they can:
 
-- **publier un profil** (`data-analyst@1.0.0`) : prompt système, outils
-  autorisés, permissions, budget de pas — puis **épingler son empreinte**
-  dans `profiles.lock.json` ;
-- **publier un employé** en lui attachant une spécialisation exacte
-  (`specialization: {name, version}`) — l'ADN, posé une fois, immuable ;
-- **suspendre / réactiver** un employé (un suspendu ne peut plus runner).
+- **publish a profile** (`data-analyst@1.0.0`): system prompt, allowed
+  tools, permissions, step budget — then **pin its fingerprint** in
+  `profiles.lock.json`;
+- **publish an employee** by attaching an exact specialization
+  (`specialization: {name, version}`) — the DNA, set once, immutable;
+- **suspend / reactivate** an employee (a suspended one cannot run).
 
 ```bash
-# Route admin : scope "admin" requis, jamais donné aux employeurs
+# Admin route: "admin" scope required, never granted to employers
 emp publish --name Aria --role "Data Analyst" --spec data-analyst@1.0.0
 # employee: emp_9545…
 ```
 
-Publier, c'est signer : « cet employé est un data-analyst v1.0.0, avec
-exactement ces outils et ces permissions ». Cette promesse voyage avec
-l'employé, d'un employeur à l'autre.
+Publishing is signing: "this employee is a data-analyst v1.0.0, with
+exactly these tools and these permissions." That promise travels with the
+employee, from one employer to the next.
 
-## Ce que fait l'Employeur
+## What the Employer does
 
-L'Employeur est le client du travail. Il peut :
+The Employer is the work buyer. They can:
 
-- **recruter** un employé publié (`hire` → contrat `hire_...`, idempotent) ;
-- **missionner** en langage naturel (`submit` → job suivi jusqu'au rapport) ;
-- **suivre et annuler** (`status`, `events` en temps réel, `cancel`
-  coopératif) ;
-- **configurer l'environnement de travail** : le sandbox (données
-  accessibles), les variables transmises au shell (PATH uniquement par
-  défaut — les clés API de l'hôte ne fuient jamais), la mémoire de *son*
-  scope.
+- **recruit** a published employee (`hire` → `hire_...` contract,
+  idempotent);
+- **assign** in natural language (`submit` → job tracked to its report);
+- **follow and cancel** (`status`, real-time `events`, cooperative
+  `cancel`);
+- **configure the work environment**: the sandbox (reachable data), the
+  variables passed to the shell (PATH only by default — the host's API
+  keys never leak), *their* scope's memory.
 
 ```bash
 emp hire emp_9545…
 emp submit emp_9545… "Audit churn"
-emp events job_e8bb…   # queued -> running -> succeeded + rapport
+emp events job_e8bb…   # queued -> running -> succeeded + report
 ```
 
-## Ce que l'Employeur ne peut PAS faire (garanti par le code)
+## What the Employer CANNOT do (enforced by code)
 
-Ce n'est pas une politique écrite dans un CGU, ce sont des erreurs
-levées par le runtime :
+This isn't policy written in Terms of Service — these are errors raised
+by the runtime:
 
-| Tentative | Barrière technique |
+| Attempt | Technical barrier |
 |---|---|
-| Changer le profil d'un employé | aucun setter : `specialization` immuable, migration explicite seule issue |
-| Ajouter un outil au run | outils de l'appelant **ignorés** si l'employé est lié ; résolution depuis la spec exacte |
-| Retirer un outil promis | même mécanisme : le run utilise exactement l'ADN, ni plus ni moins |
-| Augmenter le budget de pas | `maxSteps > spec.maxSteps` → erreur avant le 1er appel LLM |
-| Modifier un profil publié | specs + lockfile hors d'atteinte des routes employeur ; hash mismatch = refus |
-| Lire la mémoire d'un autre tenant | partition `(employee, employer)` + filtrage à l'injection LLM |
-| Missionner sans contrat | `submit` sans engagement actif → 403 |
+| Change an employee's profile | no setter: immutable `specialization`, explicit migration only |
+| Add a tool to the run | caller tools **ignored** when the employee is bound; resolved from the exact spec |
+| Remove a promised tool | same mechanism: the run uses exactly the DNA, no more, no less |
+| Raise the step budget | `maxSteps > spec.maxSteps` → error before the 1st LLM call |
+| Edit a published profile | specs + lockfile unreachable from employer routes; hash mismatch = refusal |
+| Read another tenant's memory | `(employee, employer)` partition + filtering at LLM injection |
+| Assign without a contract | `submit` with no active employment → 403 |
 
-## Pourquoi cette séparation ?
+## Why this separation?
 
-1. **Confiance transférable.** Si l'employeur pouvait redéfinir l'ADN, le
-   label « data-analyst v1.0.0 » ne voudrait plus rien dire — et
-   l'historique de l'employé ne serait plus une référence crédible pour
-   le *prochain* employeur. L'immutabilité fonde la réputation.
-2. **Moindre privilège par construction.** Un `researcher` sans shell le
-   reste chez tous les employeurs : la sécurité suit l'employé, elle ne
-   dépend pas de la discipline de chaque client.
-3. **Responsabilités claires.** Métier cassé (mauvais prompt, mauvaise
-   permission) → faute du Créateur, corrigeable en publiant `1.0.1`.
-   Mission floue, données absentes → côté Employeur. Le rapport final dit
-   toujours dans quel cadre le travail a été fait.
+1. **Transferable trust.** If the employer could redefine DNA, the
+   "data-analyst v1.0.0" label would mean nothing — and the employee's
+   history would no longer be a credible reference for the *next*
+   employer. Immutability founds reputation.
+2. **Least privilege by construction.** A shell-less `researcher` stays
+   shell-less at every employer: security follows the employee, it doesn't
+   depend on each client's discipline.
+3. **Clear responsibilities.** Broken trade (bad prompt, bad permission)
+   → Creator's fault, fixable by publishing `1.0.1`. Vague mission,
+   missing data → Employer's side. The final report always states the
+   frame the work was done in.
 
-En une phrase : **le Créateur vend des métiers garantis, l'Employeur achète
-du travail encadré — et le système empêche chacun de sortir de son rôle.**
+In one sentence: **the Creator sells guaranteed trades, the Employer buys
+framed work — and the system keeps each of them in their role.**

@@ -1,13 +1,13 @@
-# PROFILES — le catalogue des compétences
+# PROFILES — the skills catalog
 
-Un profil est un **métier versionné** : il définit ce qu'un employé sait
-faire, avec quels outils, sous quelles permissions, et combien de pas de
-raisonnement au maximum. Le profil est l'ADN ; l'employé en est une
-instance vivante.
+A profile is a **versioned trade**: it defines what an employee can do,
+with which tools, under which permissions, and with how many reasoning
+steps at most. The profile is the DNA; the employee is a living instance
+of it.
 
-## Anatomie d'un profil versionné
+## Anatomy of a versioned profile
 
-`data-analyst@1.0.0` (fichier `core/employee/profiles/data-analyst.json`) :
+`data-analyst@1.0.0` (`core/employee/profiles/data-analyst.json`):
 
 ```json
 {
@@ -21,78 +21,77 @@ instance vivante.
 }
 ```
 
-Chaque champ a un rôle d'exécution, pas décoratif :
+Every field has an execution role, not a decorative one:
 
-| Champ | Rôle |
+| Field | Role |
 |---|---|
-| `name` + `version` | identité exacte, épinglée dans le lockfile et dans l'ADN de l'employé |
-| `role`, `systemPrompt` | contexte métier injecté au LLM (encadré, ne prime jamais sur les règles runtime) |
-| `allowedTools` | outils résolvables pour ce profil — tout autre outil est rejeté |
-| `permissions` | droits exigés de chaque outil (`fs:read`, `fs:write`, `shell:exec`) |
-| `maxSteps` | budget de pas LLM ; le run peut demander *moins*, jamais plus |
+| `name` + `version` | exact identity, pinned in the lockfile and in the employee DNA |
+| `role`, `systemPrompt` | business context injected into the LLM (framed, never overriding runtime rules) |
+| `allowedTools` | resolvable tools for this profile — any other tool is rejected |
+| `permissions` | rights required from each tool (`fs:read`, `fs:write`, `shell:exec`) |
+| `maxSteps` | LLM step budget; a run may ask for *fewer*, never more |
 
-**Versionnage strict** : l'employé est lié à `nom@version exacte`, jamais à
-« latest ». Publier `data-analyst@1.1.0` ne change rien aux employés liés à
-`1.0.0` — reproductibilité garantie. Changer l'ADN passe par une migration
-explicite (nouvel objet, même `id`), jamais par une mutation silencieuse.
+**Strict versioning**: the employee is bound to `name@exact-version`,
+never to "latest". Publishing `data-analyst@1.1.0` changes nothing for
+employees bound to `1.0.0` — guaranteed reproducibility. Changing DNA
+goes through an explicit migration (new object, same `id`), never a
+silent mutation.
 
-## Le catalogue actuel (3 profils)
+## The current catalog (3 profiles)
 
-### data-analyst@1.0.0 — l'analyste complet
+### data-analyst@1.0.0 — the complete analyst
 
-- Outils : `read_file`, `write_file`, `run_shell`
-- Permissions : `fs:read`, `fs:write`, `shell:exec`
-- Budget : 12 pas
-- Usage : explorer des données, calculer, produire des chiffres ancrés
-  dans des observations outils (jamais inventés — c'est écrit dans son
-  prompt système).
+- Tools: `read_file`, `write_file`, `run_shell`
+- Permissions: `fs:read`, `fs:write`, `shell:exec`
+- Budget: 12 steps
+- Use: explore datasets, compute, produce figures grounded in tool
+  observations (never invented — written into its system prompt).
 
-### researcher@1.0.0 — le chercheur sans shell
+### researcher@1.0.0 — the researcher with no shell
 
-- Outils : `read_file`, `write_file` (**pas de `run_shell`**)
-- Permissions : `fs:read`, `fs:write`
-- Budget : 10 pas
-- Usage : lire, synthétiser, citer ses sources par chemin de fichier.
-  C'est le profil de démonstration du principe du moindre privilège : même
-  si la mission le demande, il ne peut pas exécuter de commandes.
+- Tools: `read_file`, `write_file` (**no `run_shell`**)
+- Permissions: `fs:read`, `fs:write`
+- Budget: 10 steps
+- Use: read, synthesize, cite sources by file path. This is the
+  least-privilege showcase profile: even if the mission asks, it cannot
+  execute commands.
 
-### software-engineer@1.0.0 — l'ingénieur pragmatique
+### software-engineer@1.0.0 — the pragmatic engineer
 
-- Outils : `read_file`, `write_file`, `run_shell`
-- Permissions : `fs:read`, `fs:write`, `shell:exec`
-- Budget : 16 pas (le plus large — implémenter + vérifier prend des pas)
-- Usage : implémenter ce que la mission demande, lancer des vérifications
-  via les outils, ne déclarer terminé qu'après vérification autonome.
+- Tools: `read_file`, `write_file`, `run_shell`
+- Permissions: `fs:read`, `fs:write`, `shell:exec`
+- Budget: 16 steps (the widest — implementing + verifying takes steps)
+- Use: implement what the mission asks, run checks through the tools,
+  only report done after self-verification.
 
-## Fail Fast : comment le runtime applique les permissions
+## Fail Fast: how the runtime enforces permissions
 
-Au démarrage de chaque run — **avant le premier appel LLM** — le runtime
-résout les outils via `resolveToolsForProfile` :
+At the start of every run — **before the first LLM call** — the runtime
+resolves tools via `resolveToolsForProfile`:
 
 ```
-employé lié ? ── non ──► comportement généraliste (outils fournis)
+bound employee? ── no ──► generalist behavior (provided tools)
     │
-    oui : résoudre "nom@version exacte" dans le registre
+    yes: resolve "exact name@version" from the registry
     │
-    ├─ spec inconnue ──────────────► ERREUR (pas de run)
-    ├─ outil du profil inconnu ────► ERREUR (pas de run)
-    ├─ outil sans la permission ───► ERREUR (pas de run)
-    ├─ maxSteps demandé > budget ──► ERREUR (pas de run)
+    ├─ unknown spec ───────────────► ERROR (no run)
+    ├─ unknown profile tool ───────► ERROR (no run)
+    ├─ tool missing the permission ─► ERROR (no run)
+    ├─ requested maxSteps > budget ─► ERROR (no run)
     │
-    └─ tout est carré ──► run avec EXACTEMENT ces outils
-         (les outils fournis par l'appelant sont ignorés :
-          un employeur ne peut ni omettre ni substituer l'ADN)
+    └─ all clear ──► run with EXACTLY these tools
+         (caller-provided tools are ignored:
+          an employer can neither omit nor substitute the DNA)
 ```
 
-Exemple concret : un employé lié à `researcher@1.0.0` reçoit la mission
-« lance les tests avec `npm test` ». Le runtime résout `[read_file,
-write_file]`, `run_shell` n'est pas résolu, le LLM ne le voit même pas
-dans son catalogue — et s'il tente quand même `ACTION: run_shell`, la
-boucle répond `unknown tool` en observation. L'interdiction est
-structurelle, pas une consigne que le modèle pourrait ignorer.
+Concrete example: an employee bound to `researcher@1.0.0` receives the
+mission "run the tests with `npm test`". The runtime resolves
+`[read_file, write_file]`, `run_shell` is never resolved, the LLM doesn't
+even see it in its catalog — and if it still attempts `ACTION: run_shell`,
+the loop answers `unknown tool` as an observation. The ban is structural,
+not an instruction the model could ignore.
 
-C'est le sens de **Fail Fast** (option validée contre l'alternative
-« dégrader silencieusement ») : tout écart entre l'ADN promis et
-l'environnement réel lève franchement, avant de dépenser un seul token —
-plutôt que de laisser un employé travailler avec des moyens qu'on ne lui
-a pas promis.
+That's the meaning of **Fail Fast** (the validated option, against the
+"silently degrade" alternative): any gap between the promised DNA and the
+real environment raises frankly, before spending a single token — rather
+than letting an employee work with means it was never promised.

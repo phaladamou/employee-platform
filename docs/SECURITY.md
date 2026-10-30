@@ -1,51 +1,51 @@
-# SECURITY — le modèle de sécurité
+# SECURITY — the security model
 
-Ce document décrit les trois piliers : les clés d'accès, l'intégrité des
-profils (lockfile) et l'isolation stricte entre employeurs.
+This document describes the three pillars: access keys, profile integrity
+(lockfile), and strict isolation between employers.
 
-## 1. Deux familles de clés : `emk_` vs `emo_`
+## 1. Two key families: `emk_` vs `emo_`
 
-Le préfixe n'est pas cosmétique : il empêche de confondre une clé secrète
-avec un identifiant public (`emp_...`) et sépare deux autorités.
+The prefix is not cosmetic: it keeps a secret key from ever being confused
+with a public identifier (`emp_...`) and separates two authorities.
 
-|  | `emk_` (employé) | `emo_` (employeur) |
+|  | `emk_` (employee) | `emo_` (employer) |
 |---|---|---|
-| Porte sur | un Employee (`emp_...`) | un tenant (`employerId`) |
-| Sert à | authentifier l'employé lui-même | appeler l'API au nom d'un employeur |
-| Utilisé par | le runtime / les délégations futures | CLI, SDK HTTP, intégrations |
-| Exemple | `emk_a91F…` | `emo_YVWX…` |
+| Bound to | an Employee (`emp_...`) | a tenant (`employerId`) |
+| Used to | authenticate the employee itself | call the API as an employer |
+| Used by | the runtime / future delegations | CLI, HTTP SDK, integrations |
+| Example | `emk_a91F…` | `emo_YVWX…` |
 
-Propriétés communes (les deux familles) :
+Shared properties (both families):
 
-- **32 octets aléatoires** (`crypto.randomBytes`), encodés base64url.
-- **Hash seul stocké** (SHA-256) : le token en clair n'est montré qu'une
-  fois, à l'émission. Voler la base ne donne aucun accès.
-- **Fichiers `chmod 600`** : lisibles uniquement par le propriétaire.
-- **Expiration (TTL)** et **révocation** : une clé meurt sans toucher à
-  l'identité qu'elle représente. Révoquer, c'est couper l'accès, pas
-  supprimer l'employé ni l'employeur.
-- **Scopes** : `missions:submit`, `missions:read`, `memory:read`,
-  `employments:read`, `employments:write`, `admin`. Chaque route exige son
-  scope ; un token lecture seule obtient 401 sur les écritures — avec le
-  **même message** qu'un token inexistant (pas d'oracle : on ne révèle ni
-  l'existence d'une clé, ni le scope manquant).
+- **32 random bytes** (`crypto.randomBytes`), base64url-encoded.
+- **Hash only at rest** (SHA-256): the cleartext token is shown once, at
+  issuance. Stealing the database grants no access.
+- **`chmod 600` files**: readable only by the owner.
+- **Expiry (TTL)** and **revocation**: a key dies without touching the
+  identity it represents. Revoking cuts access, it doesn't delete the
+  employee or the employer.
+- **Scopes**: `missions:submit`, `missions:read`, `memory:read`,
+  `employments:read`, `employments:write`, `admin`. Each route requires
+  its scope; a read-only token gets 401 on writes — with the **same
+  message** as a nonexistent token (no oracle: neither key existence nor
+  the missing scope is revealed).
 
 ```bash
 $ emp keys issue --employer acme --label prod
 id: emcred_e9f1…
-token: emo_YVWX…        # affiché UNE fois, puis hashé au repos
+token: emo_YVWX…        # shown ONCE, then hashed at rest
 scopes: missions:submit,missions:read,…
-$ emp keys revoke emcred_e9f1…   # effet immédiat
+$ emp keys revoke emcred_e9f1…   # immediate effect
 ```
 
-## 2. Le lockfile : des profils infalsifiables
+## 2. The lockfile: tamper-proof profiles
 
-Un profil (`data-analyst@1.0.0`) définit ce qu'un employé **peut** faire :
-outils autorisés, permissions, prompt système, nombre de pas max. Si un
-attaquant modifiait `researcher.json` pour ajouter `run_shell`, un employé
-« sans shell » exécuterait des commandes. Le lockfile ferme cette porte.
+A profile (`data-analyst@1.0.0`) defines what an employee **may** do:
+allowed tools, permissions, system prompt, max reasoning steps. If an
+attacker edited `researcher.json` to add `run_shell`, a "shell-less"
+employee would execute commands. The lockfile closes that door.
 
-**Mécanisme** (`profiles.lock.json`, à côté des profils) :
+**Mechanism** (`profiles.lock.json`, next to the profiles):
 
 ```json
 {
@@ -57,68 +57,65 @@ attaquant modifiait `researcher.json` pour ajouter `run_shell`, un employé
 }
 ```
 
-Au chargement, le registre recalcule l'empreinte SHA-256 du **contenu
-canonique** de chaque spec et la compare au lockfile :
+At load time, the registry recomputes the SHA-256 fingerprint of each
+spec's **canonical content** and compares it against the lockfile:
 
-- spec absente du lockfile → **refus franc** ;
-- contenu différent d'un seul octet → **refus franc** ;
-- lockfile lui-même absent ou invalide → **refus franc**.
+- spec missing from the lockfile → **hard refusal**;
+- content differing by a single byte → **hard refusal**;
+- lockfile itself missing or invalid → **hard refusal**.
 
-Le Créateur régénère le lockfile via `createProfileLockfile` quand il
-publie une nouvelle version — jamais l'Employeur, qui n'a aucune route
-pour toucher aux specs.
+The Creator regenerates the lockfile via `createProfileLockfile` when
+publishing a new version — never the Employer, who has no route touching
+specs.
 
-**Limites assumées** (documentées, pas cachées) :
+**Assumed limits** (documented, not hidden):
 
-- Le lockfile protège contre les **accidents et modifications** (édition
-  fautive, corruption disque), pas contre un attaquant qui aurait déjà le
-  droit d'écrire le lockfile lui-même : dans ce cas, il réépinglerait ses
-  propres hashes. La parade prévue (signatures Ed25519 du Créateur) est
-  réservée à la distribution distante.
-- `verify: false` existe pour le développement local uniquement — jamais
-  en production.
+- The lockfile guards against **accidents and modification** (bad edits,
+  disk corruption), not against an attacker who can already write the
+  lockfile itself: they would re-pin their own hashes. The planned
+  countermeasure (Creator Ed25519 signatures) is reserved for remote
+  distribution.
+- `verify: false` exists for local development only — never in production.
 
-## 3. Isolation stricte : `employerId` partout, fui nulle part
+## 3. Strict isolation: `employerId` everywhere, leaking nowhere
 
-Règle d'or : **le tenant est dérivé du token vérifié, jamais du body ni
-de l'URL.** Aucun appelant ne peut dire « agis pour Acme » : c'est sa clé
-qui le prouve, et le serveur qui en déduit `employerId`.
+Golden rule: **the tenant is derived from the verified token, never from
+the body or the URL.** No caller can claim "act for Acme": its key proves
+it, and the server derives `employerId` from that proof.
 
-Concrètement, sur chaque lecture sensible :
+Concretely, on every sensitive read:
 
 ```ts
-// Pseudo-code du pattern appliqué aux jobs, missions, engagements…
-const job = await jobs.loadScoped(employerIdDuToken, jobId);
-if (!job) return 404;   // inconnu OU étranger : même réponse
+// Pseudo-code of the pattern applied to jobs, missions, employments…
+const job = await jobs.loadScoped(tokenEmployerId, jobId);
+if (!job) return 404;   // unknown OR foreign: same answer
 ```
 
-- **404 indistinguable** : demander le job d'un autre employeur répond
-  exactement comme un job inexistant. Pas de fuite d'existence, pas
-  d'énumération.
-- **Listes toujours scopées** : `listByEmployer` ne voit qu'un tenant.
-  Seul le worker infra (jamais exposé aux clients) balaie tous tenants
-  via `claimNext`.
-- **Mémoire partitionnée** : fichiers `employee_<id>/employer_<e>.json`,
-  et surtout **filtrage à l'injection** — le test cross-employer prouve
-  que l'historique Acme n'apparaît jamais dans le prompt système d'une
-  mission Globex. (Archives pré-scopes `employerId: null` : lisibles
-  partout, cas legacy documenté.)
-- **Soumission gardée** : `submit` exige un engagement actif *entre cet
-  employé et ce tenant*, sinon 403.
+- **Indistinguishable 404**: requesting another employer's job answers
+  exactly like a nonexistent job. No existence leak, no enumeration.
+- **Always-scoped listings**: `listByEmployer` sees a single tenant. Only
+  the infra worker (never exposed to clients) scans across tenants via
+  `claimNext`.
+- **Partitioned memory**: `employee_<id>/employer_<e>.json` files, and
+  above all **filtering at injection time** — the cross-employer test
+  proves Acme history never appears in a Globex mission's system prompt.
+  (Pre-scope archives with `employerId: null`: readable everywhere,
+  documented legacy case.)
+- **Guarded submission**: `submit` requires an active employment *between
+  that employee and that tenant*, else 403.
 
-Ce qui est vérifié par les tests (pas seulement affirmé) :
+What the tests verify (not just claim):
 
-- un second client (autre employeur, mêmes stores) obtient `null`/`404`
-  sur status, mission, cancel, events, listes ;
-- le flux SSE d'un job étranger est refusé avant le premier octet ;
-- un token révoqué ou expiré meurt immédiatement, avec un 401 identique
-  au token inexistant.
+- a second client (another employer, same stores) gets `null`/`404` on
+  status, mission, cancel, events, listings;
+- a foreign job's event stream is refused before the first byte;
+- a revoked or expired token dies immediately, with a 401 identical to a
+  nonexistent token.
 
-## Ce qui reste volontairement hors scope
+## Deliberately out of scope
 
-- Chiffrement au repos au-delà des permissions fichiers (à confier au
-  volume chiffré de l'hôte).
-- Rate limiting API (structure prête côté throttling OTP du web, pas
-  encore sur `/v1`).
-- Audit log des accès (les stores versionnent `createdAt`/transitions,
-  pas les lectures).
+- Encryption at rest beyond file permissions (left to the host's encrypted
+  volume).
+- API rate limiting (structure ready on the web OTP throttling side, not
+  yet on `/v1`).
+- Access audit log (stores version `createdAt`/transitions, not reads).

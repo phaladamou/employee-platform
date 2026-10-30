@@ -1,48 +1,48 @@
-# ARCHITECTURE — le cœur technique
+# ARCHITECTURE — the technical core
 
-Ce document explique comment le système est découpé, ce qui distingue un
-employé d'un contrat de travail, et comment une mission traverse le
-système de bout en bout.
+This document explains how the system is layered, what distinguishes an
+employee from a work contract, and how a mission flows through the system
+end to end.
 
-## Les 3 couches
+## The 3 layers
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │ 3. CLI  core/employee/cli/ + cli.ts                          │
-│    Parse argv, construit le contexte, parle au serveur.       │
-│    Seul endroit qui lit process.env (clés, URLs, chemins).   │
+│    Parses argv, builds context, talks to the server.          │
+│    The only place that reads process.env (keys, URLs, paths).│
 └──────────────────────────┬───────────────────────────────────┘
                            │ HTTP REST /v1 + SSE
 ┌──────────────────────────▼───────────────────────────────────┐
-│ 2. Serveur  core/employee/server/  (+ sdk/)                   │
-│    Handler pur (routes + auth) • adaptateur node:http        │
-│    Boucle worker (claim -> exécution -> clôture)             │
+│ 2. Server  core/employee/server/  (+ sdk/)                   │
+│    Pure handler (routes + auth) • node:http adapter          │
+│    Worker loop (claim -> execute -> settle)                  │
 └──────────────────────────┬───────────────────────────────────┘
-                           │ appels directs, types partagés
+                           │ direct calls, shared types
 ┌──────────────────────────▼───────────────────────────────────┐
-│ 1. Noyau  core/employee/                                     │
-│    Pur : TypeScript seul, aucun import React/Next/Electron,  │
-│    aucune lecture d'env, config toujours injectée.           │
-│    Testé en isolation (vitest), exécutable sans le reste.    │
+│ 1. Core  core/employee/                                      │
+│    Pure: TypeScript only, no React/Next/Electron imports,    │
+│    no env reads, always injected config.                     │
+│    Tested in isolation (vitest), runnable without the rest.  │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-**Pourquoi cette séparation ?** Le noyau contient toutes les décisions
-métier (qui peut quoi, transitions légales, isolation). L'API et la CLI
-ne font que transporter : même logique, trois portes d'entrée (in-process,
-HTTP, terminal). On peut remplacer le transport sans toucher au métier —
-et tester le métier sans réseau.
+**Why this split?** The core holds every business decision (who can do
+what, legal transitions, isolation). The API and CLI only transport: same
+logic, three doors (in-process, HTTP, terminal). You can swap the
+transport without touching the business rules — and test the rules with
+no network.
 
-Concrètement, `InProcessEmployeeClient` et `HttpEmployeeClient`
-implémentent la **même interface** `EmployeeClient` : le code qui recrute
-et missionne ne sait pas (et ne doit pas savoir) s'il parle à des objets
-locaux ou à un serveur distant.
+Concretely, `InProcessEmployeeClient` and `HttpEmployeeClient` implement
+the **same `EmployeeClient` interface**: recruiting and assigning code
+neither knows nor should know whether it talks to local objects or a
+remote server.
 
-## Employee vs Employment : ne pas confondre
+## Employee vs Employment: don't confuse them
 
-C'est la distinction la plus importante du modèle.
+This is the most important distinction in the model.
 
-**Employee — l'identité persistante** (`emp_...`)
+**Employee — the persistent identity** (`emp_...`)
 
 ```ts
 {
@@ -51,17 +51,17 @@ C'est la distinction la plus importante du modèle.
   role: "Data Analyst",
   skills: ["SQL", "forecasting"],
   status: "idle",
-  specialization: { name: "data-analyst", version: "1.0.0" }  // ADN
+  specialization: { name: "data-analyst", version: "1.0.0" }  // DNA
 }
 ```
 
-L'employé existe indépendamment de tout employeur. Son identité est
-permanente, son ADN (spécialisation + version exacte) est immuable :
-aucune API ne permet de le modifier après publication. C'est ce qui rend
-sa réputation transférable : demain, un autre employeur pourra recruter
-*le même* `emp_9545…` avec son historique vérifiable.
+The employee exists independently of any employer. Its identity is
+permanent, its DNA (specialization + exact version) is immutable: no API
+can change it after publishing. That's what makes its reputation
+transferable: tomorrow, another employer can recruit *the same*
+`emp_9545…` with its verifiable history.
 
-**Employment — le contrat** (`hire_...`)
+**Employment — the contract** (`hire_...`)
 
 ```ts
 {
@@ -73,76 +73,74 @@ sa réputation transférable : demain, un autre employeur pourra recruter
 }
 ```
 
-L'engagement est une **relation séparée** : il lie un employé à un
-employeur, pour une période. Propriétés :
+The employment is a **separate relation**: it binds an employee to an
+employer, for a period. Properties:
 
-- `hire` est **idempotent** : recruter deux fois le même employé retourne
-  le même contrat, sans doublon.
-- `terminate` résilie le contrat **sans détruire** ni l'employé ni son
-  historique (facturation, audit, références futures).
-- Soumettre une mission exige un engagement **actif** : sans contrat, pas
-  de travail (le serveur répond 403).
+- `hire` is **idempotent**: recruiting the same employee twice returns the
+  same contract, no duplicates.
+- `terminate` ends the contract **without destroying** the employee or its
+  history (billing, audit, future references).
+- Submitting a mission requires an **active** employment: no contract, no
+  work (the server answers 403).
 
-Analogie : l'Employee est la personne (passeport permanent), l'Employment
-est le contrat de travail (CDD/CDI, résiliable). On ne supprime jamais la
-personne quand le contrat se termine.
+Analogy: the Employee is the person (permanent passport), the Employment
+is the work contract (resignable). You never delete the person when the
+contract ends.
 
-## Cycle de vie d'une mission
+## Mission lifecycle
 
-Une mission utilisateur devient un **job** traçable. États :
+A user mission becomes a traceable **job**. States:
 
 ```
                     ┌──────────┐
-   submit           │  queued  │  en attente, annulable
-      └────────────►│          │  immédiatement (cancel direct)
+   submit           │  queued  │  waiting, immediately
+      └────────────►│          │  cancellable (direct cancel)
                     └────┬─────┘
-                         │ claim atomique (un seul worker gagne)
+                         │ atomic claim (a single worker wins)
                     ┌────▼─────┐
-                    │ running  │  verrouillé par lockOwner
+                    │ running  │  locked by lockOwner
                     └────┬─────┘
            ┌─────────────┼──────────────┐
-           │             │              │ cancel (employeur)
+           │             │              │ cancel (employer)
       ┌────▼─────┐ ┌─────▼────┐ ┌───────▼──────────────┐
       │succeeded │ │  failed  │ │cancellation_requested│
-      │+ rapport │ │ + erreur │ └──────────┬───────────┘
-      └──────────┘ └──────────┘            │ le worker s'interrompt
-                                           │ au prochain pas, puis confirme
+      │+ report  │ │ + error  │ └──────────┬───────────┘
+      └──────────┘ └──────────┘            │ worker stops at the
+                                           │ next step, then confirms
                                       ┌────▼─────┐
                                       │cancelled │
                                       └──────────┘
 ```
 
-Points de conception :
+Design points:
 
-1. **File at-least-once.** Le `claim` passe par un fichier verrou créé en
-   mode exclusif : face à N workers (même sur des processus séparés), un
-   seul obtient le job. Revers assumé et documenté : un worker qui meurt en
-   `running` laisse le job verrouillé (pas de TTL ni heartbeat — reprise
-   manuelle).
-2. **Annulation coopérative, jamais brutale.** On ne tue pas un run en
-   cours : l'employeur demande (`cancellation_requested`), le worker
-   observe le signal avant chaque pas LLM, s'interrompt proprement, puis
-   confirme (`cancelled`). Un job annulé se distingue toujours d'un job
-   en échec — y compris dans la mémoire de l'employé.
-3. **Mission et job sont liés mais distincts.** La mission porte le prompt
-   et le rapport métier ; le job porte l'ordonnancement (file, verrou,
-   annulation). Le worker fait le pont : `runClaimedJob` charge la
-   mission + le profil, exécute le runtime, persiste le résultat des deux
-   côtés.
-4. **Mémoire scopée.** Chaque mission terminée est archivée sous la clé
-   `(employeeId, employerId)` et rappelée au LLM **uniquement dans ce
-   scope** : l'expérience accumulée chez Acme n'est jamais injectée dans
-   une mission pour Globex (voir [SECURITY.md](SECURITY.md)).
+1. **At-least-once queue.** Claiming goes through a lock file created in
+   exclusive mode: across N workers (even on separate processes), a single
+   one gets the job. Documented trade-off: a worker dying in `running`
+   leaves the job locked (no TTL or heartbeat — manual recovery).
+2. **Cooperative cancellation, never brutal.** A running job is never
+   killed: the employer requests (`cancellation_requested`), the worker
+   observes the signal before each LLM step, stops cleanly, then confirms
+   (`cancelled`). A cancelled job is always distinguishable from a failed
+   one — including in the employee's memory.
+3. **Mission and job are linked but distinct.** The mission carries the
+   prompt and the business report; the job carries scheduling (queue,
+   lock, cancellation). The worker bridges them: `runClaimedJob` loads
+   mission + profile, runs the runtime, persists the result on both sides.
+4. **Scoped memory.** Each finished mission is archived under the key
+   `(employeeId, employerId)` and recalled to the LLM **only within that
+   scope**: experience gained at Acme is never injected into a Globex
+   mission (see [SECURITY.md](SECURITY.md)).
 
-Exemple réel (E2E validé avec Muse) :
+Real example (E2E validated with Muse):
 
 ```
-$ emp submit emp_e7f8… "Crée hello.txt avec 'bonjour' dedans et relis-le."
+$ emp submit emp_e7f8… "Create hello.txt with 'bonjour' in it and read it back."
 job: job_e8bb… (queued)
 $ emp events job_e8bb…
 job: job_e8bb… (queued)
 job: job_e8bb… (running)
 job: job_e8bb… (succeeded)
-report: Fichier hello.txt créé avec 'bonjour' (7 bytes écrits,
-        vérifié par relecture: 'bonjour').
+report: hello.txt created with 'bonjour' (7 bytes written,
+        verified by re-read: 'bonjour').
 ```
