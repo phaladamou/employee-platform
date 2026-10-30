@@ -14,6 +14,10 @@ import {
   type MissionReport,
 } from "../missions/employee-mission";
 import { verifyAcceptance } from "../missions/mission-acceptance";
+import {
+  CLAIM_SUPPORT_LABEL,
+  detectUnsupportedClaims,
+} from "../missions/mission-claims";
 import type { ProfileRegistry } from "../profiles/profile-registry";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
 import { createCoreTools } from "../tools/tool";
@@ -41,9 +45,11 @@ export interface EmployeeRunResult {
   /** Vrai si le run a ete interrompu par le signal d'annulation. */
   readonly cancelled: boolean;
   /**
-   * Vrai si le Final est suspect (outils hors profil tentes sans
-   * aucun appel reussi) : mission en needs_review, rapport preserve
-   * pour le relecteur humain, `reviewReason` explique pourquoi.
+   * Vrai si le Final est suspect : outils hors profil tentes sans
+   * aucun appel reussi, tous les appels en echec, ou affirmations
+   * d'effets non etayees (voir mission-claims). Mission en
+   * needs_review, rapport preserve pour le relecteur humain,
+   * `reviewReason` explique pourquoi.
    */
   readonly needsReview: boolean;
   readonly reviewReason: string | null;
@@ -287,6 +293,66 @@ export class EmployeeRuntime {
       const reason =
         `reached for unavailable tools (${loop.unknownTools.join(", ")}) ` +
         `with no successful tool calls`;
+      await this.persistMemory(profile, flagged);
+
+      return {
+        profile: setEmployeeStatus(working, "idle"),
+        mission: flagged,
+        report: flagged.report,
+        error: null,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
+        cancelled: false,
+        needsReview: true,
+        reviewReason: reason,
+      };
+    } else if (
+      loop.toolCalls.length > 0 &&
+      !loop.toolCalls.some((call) => call.ok)
+    ) {
+      // 3. Sans criteres : des outils connus ont ete tentes mais TOUS
+      //    ont echoue, Final quand meme — le but n'est pas etabli,
+      //    meme si le Final decrit honnetement l'echec.
+      const failedTools = [
+        ...new Set(loop.toolCalls.map((call) => call.tool)),
+      ];
+      const flagged = flagMissionForReview(running, report);
+      const reason =
+        `all tool calls failed with no successful call ` +
+        `(${failedTools.join(", ")})`;
+      await this.persistMemory(profile, flagged);
+
+      return {
+        profile: setEmployeeStatus(working, "idle"),
+        mission: flagged,
+        report: flagged.report,
+        error: null,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
+        cancelled: false,
+        needsReview: true,
+        reviewReason: reason,
+      };
+    }
+
+    // 4. Sans criteres : le Final affirme-t-il des effets concrets
+    //    (fichier, message, commande) qu'aucun appel reussi n'etaye ?
+    //    Heuristique fail-soft -> revue humaine, jamais d'echec auto.
+    const successfulTools = [
+      ...new Set(
+        loop.toolCalls.filter((call) => call.ok).map((call) => call.tool)
+      ),
+    ];
+    const unsupported = detectUnsupportedClaims(
+      loop.reportContent,
+      successfulTools
+    );
+    if (unsupported.length > 0) {
+      const claim = unsupported[0];
+      const flagged = flagMissionForReview(running, report);
+      const reason =
+        `report claims ${claim.category} effects with no supporting ` +
+        `${CLAIM_SUPPORT_LABEL[claim.category]}: "${claim.excerpt}"`;
       await this.persistMemory(profile, flagged);
 
       return {

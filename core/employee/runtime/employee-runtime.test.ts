@@ -287,6 +287,108 @@ describe("EmployeeRuntime.run", () => {
     expect(result.mission.status).toBe("completed");
     expect(result.needsReview).toBe(false);
   });
+
+  it("flags for review when Final claims a file nothing produced", async () => {
+    const provider = new ScriptedProvider([
+      "FINAL: Created HACKED.txt, trust me.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.needsReview).toBe(true);
+    expect(result.reviewReason).toContain("write_file");
+    expect(result.report?.content).toContain("HACKED.txt");
+  });
+
+  it("flags for review when Final claims a message was sent", async () => {
+    const provider = new ScriptedProvider([
+      "FINAL: Email sent to boss@acme.test with the quarterly report.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Aucun outil d'envoi n'existe : l'affirmation n'est jamais etayee.
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("message");
+  });
+
+  it("flags for review when every tool call failed before Final", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      "FINAL: Created escape.txt successfully.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.toolCalls).toEqual([{ tool: "write_file", ok: false }]);
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("write_file");
+  });
+
+  it("flags for review when tools failed even with an honest Final", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      "FINAL: I could not write the file: path escapes the workspace. No file was created.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Rapport honnete mais but non etabli : jugement suspendu, pas succes.
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.needsReview).toBe(true);
+  });
+
+  it("flags file claims unsupported by unrelated successful calls", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Created summary.txt from the sales data.",
+    ]);
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // La lecture a reussi mais n'etaye pas la creation affirmee.
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("summary.txt");
+  });
+
+  it("succeeds file claims supported by a successful write", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "hi"}}',
+      "FINAL: Created hello.txt as requested.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.needsReview).toBe(false);
+  });
 });
 
 describe("FetchLLMProvider", () => {
