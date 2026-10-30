@@ -10,13 +10,14 @@ import {
   type EmployeeMission,
   type MissionReport,
 } from "../missions/employee-mission";
-import type { EmployeeProfileSpec } from "../profiles/profile-spec";
+import type { ProfileRegistry } from "../profiles/profile-registry";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
 import { createCoreTools } from "../tools/tool";
 import type { EmployeeMemory } from "../memory/employee-memory";
 import type { EmployeeMemoryStore } from "../memory/memory-store";
 import type { EmployeeLLMProvider } from "./llm-provider";
 import { resolveToolsForProfile } from "./profile-tools";
+import { formatSpecializationBlock } from "./react-protocol";
 import {
   runReasoningLoop,
   type ReactToolCall,
@@ -38,11 +39,12 @@ export interface EmployeeRuntimeOptions {
   readonly toolContext?: ToolContext;
   readonly maxSteps?: number;
   /**
-   * Specialisation versionnee : outils effectifs resolus (fail fast),
-   * prompt systeme et maxSteps par defaut. Un maxSteps explicite gagne
-   * sur celui du profil.
+   * Registre des specialisations, REQUIS quand l'employe est lie : le
+   * run resout la version exacte du binding (jamais "latest") et ignore
+   * `tools` (un employeur ne peut ni omettre ni substituer l'ADN).
+   * Employe non lie (generaliste) : comportement libre inchange.
    */
-  readonly profile?: EmployeeProfileSpec;
+  readonly profiles?: ProfileRegistry;
   /**
    * Memoire + backend : quand les deux sont fournis, l'historique est
    * recharge au demarrage et chaque mission terminee est sauvegardee.
@@ -128,12 +130,45 @@ export class EmployeeRuntime {
         .map((record) => record.summary ?? record.prompt);
     }
 
-    // Enforcement profil AVANT le premier appel LLM : spec mal
-    // autorisee -> erreur franche, mission jamais demarree.
-    const spec = this.options.profile;
-    const tools = spec
-      ? resolveToolsForProfile(spec, this.options.tools ?? createCoreTools())
-      : this.options.tools;
+    // Enforcement du binding AVANT le premier appel LLM : employe
+    // lie -> la spec exacte est resolue via le registre, les outils
+    // fournis sont ignores, et tout ecart leve franchement.
+    const binding = working.specialization;
+    let tools = this.options.tools;
+    let maxSteps = this.options.maxSteps;
+    let systemPrompt: string | undefined;
+
+    if (binding !== null) {
+      const registry = this.options.profiles;
+
+      if (!registry) {
+        throw new Error(
+          `Employee ${profile.id} is bound to "${binding.name}@${binding.version}" but no ProfileRegistry was provided`
+        );
+      }
+
+      const spec = registry.get(binding.name, binding.version);
+
+      if (!spec) {
+        throw new Error(
+          `Unknown profile "${binding.name}@${binding.version}" for employee ${profile.id}`
+        );
+      }
+
+      tools = resolveToolsForProfile(
+        spec,
+        this.options.tools ?? createCoreTools()
+      );
+      systemPrompt = formatSpecializationBlock(spec);
+
+      if (maxSteps === undefined) {
+        maxSteps = spec.maxSteps;
+      } else if (maxSteps > spec.maxSteps) {
+        throw new Error(
+          `maxSteps ${maxSteps} exceeds profile "${spec.name}" limit ${spec.maxSteps}`
+        );
+      }
+    }
 
     const loop = await runReasoningLoop({
       provider: this.provider,
@@ -141,9 +176,9 @@ export class EmployeeRuntime {
       missionPrompt: running.prompt,
       tools,
       toolContext: this.options.toolContext,
-      maxSteps: this.options.maxSteps ?? spec?.maxSteps,
+      maxSteps,
       pastExperience,
-      systemPrompt: spec?.systemPrompt,
+      systemPrompt,
     });
 
     if (!loop.completed || loop.reportContent === null) {
