@@ -108,6 +108,31 @@ export {
   type JobRunSignal,
 } from "./jobs/job-signal";
 export type { JobStore } from "./jobs/job-store";
+export type { MissionStore } from "./missions/mission-store";
+export { FileMissionStore } from "./missions/file-mission-store";
+export type { ProfileStore } from "./profile/profile-store";
+export { FileProfileStore } from "./profile/file-profile-store";
+export type { EmployeeClient } from "./sdk/employee-client";
+export type { EmployeeCreator } from "./sdk/employee-creator";
+export {
+  HttpEmployeeClient,
+  HttpEmployeeError,
+  type HttpEmployeeClientOptions,
+} from "./sdk/http-client";
+export { InProcessEmployeeClient } from "./sdk/in-process-client";
+export { InProcessEmployeeCreator } from "./sdk/in-process-creator";
+export { runJobOnce, type JobWorkerDeps } from "./sdk/job-worker";
+export {
+  hirePath,
+  jobCancelPath,
+  jobEventsPath,
+  jobPath,
+  jobsPath,
+  missionPath,
+  parseServerSentEvents,
+  type ApiErrorBody,
+  type JobEvent,
+} from "./sdk/rest-contract";
 export {
   DEFAULT_MEMORY_DIR,
   FileMemoryStore,
