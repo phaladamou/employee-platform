@@ -23,6 +23,10 @@ export const user = pgTable("User", {
   image: text("image"),
   bio: text("bio"),
   isAnonymous: boolean("isAnonymous").notNull().default(false),
+  onboarded: boolean("onboarded").notNull().default(false),
+  title: text("title"),
+  intent: varchar("intent", { length: 24 }),
+  company: text("company"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });

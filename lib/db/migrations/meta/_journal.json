@@ -36,6 +36,13 @@
       "when": 1793241178346,
       "tag": "0004_employee_org",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1793290000000,
+      "tag": "0005_user_onboarding",
+      "breakpoints": true
     }
   ]
 }
