@@ -63,6 +63,51 @@ describe("EmployeeMemory.record", () => {
   });
 });
 
+describe("EmployeeMemory.restore", () => {
+  it("replaces history with reloaded records", () => {
+    const memory = new EmployeeMemory();
+    memory.record(
+      finishedMission("emp_1", "Old", "2026-01-01T00:00:00.000Z")
+    );
+
+    memory.restore([
+      {
+        missionId: "mis_new",
+        employeeId: "emp_1",
+        prompt: "New",
+        status: "completed",
+        summary: "Done",
+        completedAt: "2026-02-01T00:00:00.000Z",
+      },
+    ]);
+
+    expect(memory.history().map((r) => r.prompt)).toEqual(["New"]);
+  });
+
+  it("rejects invalid records and copies inputs", () => {
+    const memory = new EmployeeMemory();
+
+    expect(() =>
+      memory.restore([{ missionId: "x" } as unknown as never])
+    ).toThrow("invalid mission record");
+
+    const input = [
+      {
+        missionId: "mis_1",
+        employeeId: "emp_1",
+        prompt: "Audit",
+        status: "completed" as const,
+        summary: "Done",
+        completedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    memory.restore(input);
+    input[0].prompt = "Mutated";
+
+    expect(memory.history().map((r) => r.prompt)).toEqual(["Audit"]);
+  });
+});
+
 describe("EmployeeMemory.history", () => {
   it("returns records in chronological order, optionally per employee", () => {
     const memory = new EmployeeMemory();

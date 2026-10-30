@@ -10,6 +10,10 @@ import {
 import { EmployeeMemory } from "./memory/employee-memory";
 import { EmployeeRuntime } from "./runtime/employee-runtime";
 import { FetchLLMProvider } from "./runtime/fetch-llm-provider";
+import { createCoreTools } from "./tools/tool";
+import { createReadFileTool } from "./tools/read-file";
+import { createWriteFileTool } from "./tools/write-file";
+import { createRunShellTool } from "./tools/run-shell";
 
 export type { EmployeeIdentity } from "./identity/employee-id";
 export {
@@ -40,7 +44,12 @@ export {
 } from "./missions/employee-mission";
 
 export type { MissionRecord } from "./memory/employee-memory";
-export { EmployeeMemory } from "./memory/employee-memory";
+export { EmployeeMemory, isMissionRecord } from "./memory/employee-memory";
+export type { EmployeeMemoryStore } from "./memory/memory-store";
+export {
+  DEFAULT_MEMORY_DIR,
+  FileMemoryStore,
+} from "./memory/file-memory-store";
 
 export type {
   EmployeeLLMMessage,
@@ -50,5 +59,55 @@ export type {
 } from "./runtime/llm-provider";
 export type { FetchLLMConfig } from "./runtime/fetch-llm-provider";
 export { FetchLLMProvider } from "./runtime/fetch-llm-provider";
-export type { EmployeeRunResult } from "./runtime/employee-runtime";
+export type {
+  EmployeeRunResult,
+  EmployeeRuntimeOptions,
+} from "./runtime/employee-runtime";
 export { EmployeeRuntime } from "./runtime/employee-runtime";
+export type {
+  ParsedAction,
+  ParsedFinal,
+  ParsedInvalid,
+  ParsedStep,
+} from "./runtime/react-protocol";
+export {
+  ACTION_MARKER,
+  FINAL_MARKER,
+  OBSERVATION_MAX_CHARS,
+  PAST_EXPERIENCE_MAX_CHARS,
+  PAST_EXPERIENCE_MAX_ITEMS,
+  buildSystemPrompt,
+  formatObservation,
+  parseStepOutput,
+} from "./runtime/react-protocol";
+export type {
+  ReactLoopOptions,
+  ReactLoopResult,
+  ReactToolCall,
+} from "./runtime/react-loop";
+export {
+  DEFAULT_MAX_STEPS,
+  DEFAULT_SANDBOX_DIR,
+  runReasoningLoop,
+} from "./runtime/react-loop";
+
+export type {
+  EmployeeTool,
+  ToolArgs,
+  ToolContext,
+  ToolResult,
+} from "./tools/tool";
+export {
+  createCoreTools,
+  resolveWithinRoot,
+  toolFail,
+  toolOk,
+} from "./tools/tool";
+export { READ_FILE_MAX_BYTES, createReadFileTool } from "./tools/read-file";
+export { WRITE_FILE_MAX_CHARS, createWriteFileTool } from "./tools/write-file";
+export {
+  RUN_SHELL_DEFAULT_TIMEOUT_MS,
+  RUN_SHELL_MAX_BUFFER,
+  RUN_SHELL_MAX_TIMEOUT_MS,
+  createRunShellTool,
+} from "./tools/run-shell";

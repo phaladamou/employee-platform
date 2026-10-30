@@ -9,6 +9,23 @@ export interface MissionRecord {
   readonly completedAt: string;
 }
 
+export function isMissionRecord(value: unknown): value is MissionRecord {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  return (
+    typeof record.missionId === "string" &&
+    typeof record.employeeId === "string" &&
+    typeof record.prompt === "string" &&
+    (record.status === "completed" || record.status === "failed") &&
+    (typeof record.summary === "string" || record.summary === null) &&
+    typeof record.completedAt === "string"
+  );
+}
+
 /**
  * Memoire professionnelle d'un Employee : l'historique de ses missions
  * terminees (reussies ou echouees). Stockage en memoire vive, volontairement
@@ -45,6 +62,20 @@ export class EmployeeMemory {
     this.records.push(record);
 
     return record;
+  }
+
+  /**
+   * Remplace l'historique (rechargement depuis un backend de persistance).
+   */
+  restore(records: readonly MissionRecord[]): void {
+    for (const record of records) {
+      if (!isMissionRecord(record)) {
+        throw new Error("invalid mission record");
+      }
+    }
+
+    this.records.length = 0;
+    this.records.push(...records.map((record) => ({ ...record })));
   }
 
   /**
