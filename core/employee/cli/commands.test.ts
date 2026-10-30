@@ -157,4 +157,13 @@ describe("runCommand", () => {
     expect((await runCommand(["recover"], ctx)).exitCode).toBe(0);
     expect(lines.join("\n")).toContain("(no stale jobs)");
   });
+
+  it("rejects negative recovery thresholds", async () => {
+    const { ctx, lines } = await makeCtx();
+
+    expect(
+      (await runCommand(["recover", "--stale-after-ms", "-5"], ctx)).exitCode
+    ).toBe(1);
+    expect(lines.join("\n")).toContain("positive number");
+  });
 });

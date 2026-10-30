@@ -70,6 +70,37 @@ describe("FileJobStore", () => {
     ).rejects.toThrow("locked by another worker");
   });
 
+  it("elects a single winner in an N-way claim race", async () => {
+    const store = await makeStore();
+    await store.enqueue(job("job_1"));
+
+    const attempts = await Promise.all(
+      Array.from({ length: 10 }, (_, index) =>
+        new FileJobStore({ directory: dir }).claim("job_1", `worker-${index}`)
+      )
+    );
+
+    const winners = attempts.filter(
+      (claimed): claimed is NonNullable<typeof claimed> => claimed !== null
+    );
+    expect(winners).toHaveLength(1);
+  });
+
+  it("deals distinct jobs under concurrent claimNext", async () => {
+    const store = await makeStore();
+    await store.enqueue(job("job_1"));
+    await store.enqueue(job("job_2"));
+
+    const [first, second] = await Promise.all([
+      store.claimNext("worker-1"),
+      new FileJobStore({ directory: dir }).claimNext("worker-2"),
+    ]);
+
+    expect(first?.id).toBeTruthy();
+    expect(second?.id).toBeTruthy();
+    expect(first?.id).not.toBe(second?.id);
+  });
+
   it("claim returns null for missing, cancelled or finished jobs", async () => {
     const store = await makeStore();
 

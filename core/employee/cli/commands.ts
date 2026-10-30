@@ -518,8 +518,11 @@ async function cmdRecover(
 ): Promise<CliResult> {
   const staleRaw = flag(args.flags, "stale-after-ms");
   const staleAfterMs = staleRaw !== undefined ? Number(staleRaw) : undefined;
-  if (staleRaw !== undefined && !Number.isFinite(staleAfterMs)) {
-    ctx.output("Error: --stale-after-ms must be a number");
+  if (
+    staleAfterMs !== undefined &&
+    (!Number.isFinite(staleAfterMs) || staleAfterMs < 0)
+  ) {
+    ctx.output("Error: --stale-after-ms must be a positive number");
     return { exitCode: 1 };
   }
 

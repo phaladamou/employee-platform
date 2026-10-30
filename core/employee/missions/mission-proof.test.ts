@@ -143,6 +143,58 @@ describe("verifyMissionProof", () => {
     ).toBe(false);
   });
 
+  it("rejects missionId, version and injected-field tampering", () => {
+    const keys = generateOperatorKeyPair();
+    const proof = generateMissionProof(
+      completedMission(),
+      keys.privateKeyPem
+    );
+
+    expect(verifyMissionProof({ ...proof, missionId: "mis_other" })).toBe(
+      false
+    );
+    expect(verifyMissionProof({ ...proof, version: 2 })).toBe(false);
+    expect(
+      verifyMissionProof({ ...proof, role: "admin" } as unknown as typeof proof)
+    ).toBe(false);
+  });
+
+  it("models rotation: old proofs fail against the new pinned key", () => {
+    const oldKeys = generateOperatorKeyPair();
+    const oldProof = generateMissionProof(
+      completedMission(),
+      oldKeys.privateKeyPem
+    );
+
+    // Rotation : nouvel emetteur publie, les verifieurs re-pinnent.
+    const newKeys = generateOperatorKeyPair();
+    const newProof = generateMissionProof(
+      completedMission(),
+      newKeys.privateKeyPem
+    );
+
+    expect(verifyMissionProof(oldProof, newKeys.publicKeyPem)).toBe(false);
+    expect(verifyMissionProof(newProof, newKeys.publicKeyPem)).toBe(true);
+    // ... mais les anciennes preuves restent valides en non-epingle :
+    // sans CRL, la rotation est totale (tout l'historique tombe) ou rien.
+    expect(verifyMissionProof(oldProof)).toBe(true);
+  });
+
+  it("documents unpinned trust: well-formed foreign proofs pass", () => {
+    // Semantique epinglee : sans pinning, on prouve l'authenticite
+    // cryptographique (quelqu'un detient CETTE cle privee), pas que
+    // l'emetteur est l'operateur legitime. Les verifieurs DOIVENT
+    // comparer proof.issuer a la cle publiee (ou pinner).
+    const attacker = generateOperatorKeyPair();
+    const forged = generateMissionProof(
+      completedMission(),
+      attacker.privateKeyPem
+    );
+
+    expect(verifyMissionProof(forged)).toBe(true);
+    expect(forged.issuer).toBe(attacker.publicKeyPem);
+  });
+
   it("never throws on garbage", () => {
     expect(verifyMissionProof(null)).toBe(false);
     expect(verifyMissionProof("nope")).toBe(false);

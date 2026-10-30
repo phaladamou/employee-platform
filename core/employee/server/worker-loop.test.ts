@@ -141,6 +141,35 @@ describe("startWorkerLoop", () => {
     expect((await deps.jobs.load("job_orphan"))?.report).toBe("Recovered.");
   });
 
+  it("sweeps peer orphans on idle ticks, without restart", async () => {
+    const deps = await makeDeps(["FINAL: Caught."]);
+
+    const loop = startWorkerLoop(deps, {
+      workerId: "worker-1",
+      intervalMs: 10,
+      staleAfterMs: 1000,
+    });
+    try {
+      // Orphelin plante APRES le sweep de demarrage : seul le sweep
+      // idle peut le reprendre (sans quoi le test expire).
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      await seedJob(deps, "job_peer_orphan");
+      await deps.jobs.claim(
+        "job_peer_orphan",
+        "dead-peer",
+        new Date("2020-01-01T00:00:00.000Z")
+      );
+
+      await waitFor(async () => {
+        return (
+          (await deps.jobs.load("job_peer_orphan"))?.status === "succeeded"
+        );
+      });
+    } finally {
+      await loop.stop();
+    }
+  });
+
   it("idles on an empty queue and stops cleanly", async () => {
     const deps = await makeDeps(["FINAL: Late."]);
 

@@ -240,6 +240,30 @@ describe("runJobOnce", () => {
     );
   });
 
+  it("re-runs recovered jobs from scratch (at-least-once)", async () => {
+    // Semantique epinglee : apres crash + recovery, la mission rejoue
+    // ENTIEREMENT (pas de reprise). Toute idempotence future devra
+    // changer ce test deliberement.
+    const { deps } = await makeDeps(
+      new ScriptedProvider(['ACTION: {"tool": "x", "args": {}}'])
+    );
+    const jobId = await seedPending(deps);
+    await deps.jobs.claim(jobId, "dead-worker", new Date("2020-01-01T00:00:00.000Z"));
+
+    // Crash simule : aucun run, recovery, puis reprise par un vivant.
+    const recovered = await deps.jobs.recoverStaleJobs({ staleAfterMs: 1000 });
+    expect(recovered.map((entry) => entry.id)).toEqual([jobId]);
+
+    // Outil inconnu -> observation, script epuise -> mission failed :
+    // le run a bien EU LIEU (rejeu complet, pas un no-op).
+    const finished = await runJobOnce(deps, jobId, "worker-2");
+
+    expect(finished?.status).toBe("failed");
+    expect((await deps.missions.load(finished?.missionId ?? ""))?.status).toBe(
+      "failed"
+    );
+  });
+
   it("leaves the lease untouched when heartbeats are disabled", async () => {
     const { deps } = await makeDeps(new ScriptedProvider(["FINAL: Done."]));
     const jobId = await seedPending(deps);

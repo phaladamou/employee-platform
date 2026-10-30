@@ -6,7 +6,7 @@ export interface WorkerLoopOptions {
   readonly intervalMs?: number;
   /**
    * Silence worker au-dela duquel un job running est presume orphelin
-   * (defaut du store). `null` = pas de sweep au demarrage.
+   * (defaut du store). `null` = aucun sweep (ni demarrage, ni idle).
    */
   readonly staleAfterMs?: number | null;
 }
@@ -26,22 +26,29 @@ export function startWorkerLoop(
 ): { stop(): Promise<void> } {
   const workerId = options.workerId ?? `worker_${process.pid}`;
   const intervalMs = options.intervalMs ?? 250;
+  const sweepOptions =
+    options.staleAfterMs === null
+      ? null
+      : options.staleAfterMs === undefined
+        ? {}
+        : { staleAfterMs: options.staleAfterMs };
   let stopped = false;
+
+  async function sweep(): Promise<void> {
+    if (!sweepOptions) {
+      return;
+    }
+    try {
+      await deps.jobs.recoverStaleJobs(sweepOptions);
+    } catch {
+      // Store indisponible : reessaie au prochain tour.
+    }
+  }
 
   const running: Promise<void> = (async () => {
     // Sweep au demarrage : les jobs laisses running par un crash
     // precedent sont re-files (ou soldes) avant tout nouveau claim.
-    if (options.staleAfterMs !== null) {
-      try {
-        await deps.jobs.recoverStaleJobs(
-          options.staleAfterMs === undefined
-            ? {}
-            : { staleAfterMs: options.staleAfterMs }
-        );
-      } catch {
-        // Store indisponible : la boucle reessaiera au fil des tours.
-      }
-    }
+    await sweep();
 
     while (!stopped) {
       try {
@@ -52,8 +59,12 @@ export function startWorkerLoop(
           continue;
         }
         if (claimed && stopped) {
-          // Claimé pendant l'arret : le job reste running sous notre
-          // verrou (at-least-once, reprise manuelle documentee).
+          // Claime pendant l'arret : reste running sous notre verrou,
+          // repris par le sweep du prochain demarrage (ou `recover`).
+        } else if (!stopped) {
+          // Tour idle : balaye aussi les orphelins laisses par un
+          // pair crashe APRES notre demarrage (jamais revus sinon).
+          await sweep();
         }
       } catch {
         // Store indisponible ou job corrompu : reessaie au prochain tour.

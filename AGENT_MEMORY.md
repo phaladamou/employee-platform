@@ -350,6 +350,14 @@ Leçons dures :
   `generateMissionProof` (certificat Ed25519 operateur, sans contenu
   confidentiel), `verifyMissionProof` (+ pinning emetteur optionnel),
   `verifyReportDisclosure` (divulgation selective). 272 tests.
+- Audit adversarial garanties 2+3 : failles reelles corrigees — sweep
+  recovery sur tours idle (orphelins d'un pair crashé APRES demarrage,
+  sinon bloques jusqu'au restart), garde anti-seuil negatif CLI.
+  Assume/documente : rejeu integral at-least-once (double side effects
+  possibles, journal d'idempotence propose non implemente), pas de
+  revocation preuves (rotation totale ou rien, keyId/CRL proposes).
+  Theoriques : double-hold verrou (fenetre µs), wx sur NFS.
+  280 tests (courses N-way, rotation, pinning, rejeu epingle).
 
 ## 9. Conventions et environnement (rappel)
 
