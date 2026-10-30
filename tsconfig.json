@@ -43,6 +43,7 @@
     "desktop",
     "lib/auth/route-policy.test.ts",
     "lib/employees/catalog.test.ts",
+    "lib/otp-email-template.test.ts",
     "lib/sidebar/nav-state.test.ts",
     "core/employee/**/*.test.ts",
     "vitest.config.ts"
