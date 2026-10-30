@@ -271,6 +271,7 @@ export function AppSidebar() {
                 className={cn(
                   "h-9 cursor-pointer rounded-lg px-3",
                   "text-[13px] font-normal",
+                  "group-data-[collapsible=icon]:mx-auto",
                   "text-sidebar-foreground/55",
                   "transition-colors duration-150",
                   "hover:bg-sidebar-accent/70 hover:text-sidebar-foreground",
@@ -309,6 +310,7 @@ export function AppSidebar() {
                   "group/nav h-9 cursor-pointer rounded-lg px-3",
                   "text-[13px] font-normal",
                   "transition-colors duration-150",
+                  "group-data-[collapsible=icon]:mx-auto",
                   "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                 )}
                 tooltip={item.label}
@@ -385,6 +387,7 @@ export function AppSidebar() {
             "group/nav h-9 cursor-pointer rounded-lg px-3",
             "text-[13px] font-normal",
             "transition-colors duration-150",
+            "group-data-[collapsible=icon]:mx-auto",
             item.isActive
               ? "bg-sidebar-accent text-sidebar-foreground shadow-sm"
               : "text-sidebar-foreground/55 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
@@ -428,8 +431,8 @@ export function AppSidebar() {
                 asChild
                 className="
                   h-14 w-auto min-w-0 justify-start !px-2
-                  group-data-[collapsible=icon]:size-14
-                  group-data-[collapsible=icon]:!px-0
+                  group-data-[collapsible=icon]:size-12!
+                  group-data-[collapsible=icon]:!p-0
                   group-data-[collapsible=icon]:justify-center
                   group-data-[collapsible=icon]:group-hover/logo:opacity-0
                 "
@@ -452,9 +455,12 @@ export function AppSidebar() {
                 <TooltipTrigger asChild>
                   <SidebarMenuButton
                     className="
-                      pointer-events-none absolute inset-0 size-14
+                      pointer-events-none absolute inset-0 size-12
                       opacity-0 transition-opacity duration-200 ease-out
                       group-data-[collapsible=icon]:pointer-events-auto
+                      group-data-[collapsible=icon]:size-full!
+                      group-data-[collapsible=icon]:!p-0
+                      group-data-[collapsible=icon]:justify-center
                       group-data-[collapsible=icon]:group-hover/logo:opacity-100
                     "
                     onClick={() => toggleSidebar()}
