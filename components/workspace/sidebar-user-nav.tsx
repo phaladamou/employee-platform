@@ -171,12 +171,15 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            className="h-10 cursor-pointer justify-between rounded-lg bg-transparent text-sidebar-foreground/50 transition-colors duration-150 hover:text-sidebar-foreground"
+            className="h-10 cursor-pointer rounded-lg bg-transparent text-sidebar-foreground/50 transition-colors duration-150 hover:text-sidebar-foreground group-data-[collapsible=icon]:mx-auto"
             onClick={() => router.push("/login")}
+            tooltip={t("login")}
           >
-            <div className="flex flex-row items-center gap-2">
-              <User className="size-4" />
-              <span className="text-[13px]">{t("login")}</span>
+            <div className="flex flex-1 flex-row items-center gap-2 group-data-[collapsible=icon]:justify-center">
+              <User className="size-4 shrink-0" />
+              <span className="text-[13px] group-data-[collapsible=icon]:hidden">
+                {t("login")}
+              </span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
