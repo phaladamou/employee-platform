@@ -294,7 +294,13 @@ Leçons dures :
   clés `emk_...` révocables (hash SHA-256 stocké, jamais le clair),
   `issueCredential`/`verifyCredential` purs, port
   `EmployeeCredentialStore`, backend `FileCredentialStore`
-  (`credentials.json`, quarantaine, échec fermé). 94 tests vitest.
+  (`credentials.json`, quarantaine, échec fermé). Durci : tokens 32
+  octets aléatoires, fichier chmod 600.
+- Phase 2 profils : `core/employee/profiles/` — spec versionnee
+  (name/version/role/prompt/outils/permissions/maxSteps), registre JSON
+  (data-analyst, researcher sans shell, software-engineer), enforcement
+  fail-fast par le runtime (`resolveToolsForProfile`, outil sans
+  permission = erreur avant le 1er appel LLM). 113 tests vitest.
 
 ## 9. Conventions et environnement (rappel)
 
