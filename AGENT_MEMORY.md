@@ -282,6 +282,14 @@ Leçons dures :
 - Sécurité auditee : symlinks bloqués, env enfant filtré (`run_shell`
   cwd-confined, pas une jail — commentaire honnête conservé). Concurrence
   last-wins et TOCTOU documentés, non bloquants.
+- LLM via `EMPLOYEE_PROVIDER` : `deepseek` (défaut, `DEEPSEEK_API_KEY`) ou
+  `muse` (Meta, `MUSE_API_KEY` dev.meta.ai, base `https://api.meta.ai/v1`,
+  modèle `muse-spark-1.3` — API compatible OpenAI donc même provider
+  `FetchLLMProvider`). **Muse validé par appel réel le 2026-10-30**
+  (mission hello.txt : completed, 9 steps, write+read OK). Pas d'Anthropic.
+- Lancer le CLI sans `tsx` (EPERM sandbox) : copie vers `.tmp/` avec
+  extensions `.ts` ajoutées aux imports relatifs, puis
+  `node --experimental-transform-types` (nettoyer `.tmp` après).
 
 ## 9. Conventions et environnement (rappel)
 
