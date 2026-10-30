@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -87,6 +87,18 @@ describe("FileCredentialStore", () => {
     const files = await readdir(root);
     expect(files.some((f) => f.endsWith(".bak"))).toBe(true);
   });
+
+  // chmod POSIX uniquement (no-op sous Windows).
+  it.runIf(process.platform !== "win32")(
+    "restricts credentials file to owner (0600)",
+    async () => {
+      const { store, dir: root } = await makeStore();
+      await store.save(issue().credential);
+
+      const { mode } = await stat(join(root, "credentials.json"));
+      expect(mode & 0o777).toBe(0o600);
+    }
+  );
 
   it("creates directories on save", async () => {
     const { dir: root } = await makeStore();

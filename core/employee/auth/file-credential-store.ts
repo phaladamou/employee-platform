@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
+import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import type { EmployeeCredentialStore } from "./credential-store";
@@ -86,8 +86,11 @@ export class FileCredentialStore implements EmployeeCredentialStore {
       ) + "\n";
     const tmp = `${this.path}.${process.pid}.tmp`;
 
-    await writeFile(tmp, payload, "utf8");
+    // Fichier restreint des la creation (les hashes restent sensibles),
+    // renforce apres renommage (umask etrange, fichier pre-existant...).
+    await writeFile(tmp, payload, { encoding: "utf8", mode: 0o600 });
     await rename(tmp, this.path);
+    await chmod(this.path, 0o600);
   }
 
   private async quarantine(): Promise<void> {

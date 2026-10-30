@@ -50,6 +50,7 @@ export type {
 } from "./auth/employee-credential";
 export {
   CREDENTIAL_ID_PREFIX,
+  CREDENTIAL_TOKEN_BYTES,
   CREDENTIAL_TOKEN_PREFIX,
   generateCredentialToken,
   hashCredentialToken,

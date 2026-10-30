@@ -94,6 +94,18 @@ describe("issueCredential", () => {
     expect(first.token).not.toBe(second.token);
   });
 
+  it("tokens carry 32 bytes of cryptographic entropy", () => {
+    const { token } = issueCredential({
+      employeeId: "emp_ada",
+      label: "a",
+      scopes: ["memory:read"],
+      now: NOW,
+    });
+    const body = token.slice(CREDENTIAL_TOKEN_PREFIX.length);
+    // 32 octets => 43 caracteres base64url, sans padding.
+    expect(body).toMatch(/^[A-Za-z0-9_-]{43}$/);
+  });
+
   it("computes expiresAt from ttlMs", () => {
     const { credential } = issueForTests({ ttlMs: 3_600_000 });
     expect(credential.expiresAt).toBe("2026-10-30T13:00:00.000Z");

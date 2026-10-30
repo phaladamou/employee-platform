@@ -38,8 +38,13 @@ export interface EmployeeCredential {
   readonly revokedAt: string | null;
 }
 
+export const CREDENTIAL_TOKEN_BYTES = 32;
+
 export function generateCredentialToken(): string {
-  return `${CREDENTIAL_TOKEN_PREFIX}${randomBytes(24).toString("base64url")}`;
+  return (
+    `${CREDENTIAL_TOKEN_PREFIX}` +
+    `${randomBytes(CREDENTIAL_TOKEN_BYTES).toString("base64url")}`
+  );
 }
 
 export function hashCredentialToken(token: string): string {
