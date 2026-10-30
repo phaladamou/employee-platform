@@ -1,8 +1,11 @@
 import type { EmployeeMission } from "../missions/employee-mission";
+import { LOCAL_EMPLOYER_ID } from "./memory-store";
 
 export interface MissionRecord {
   readonly missionId: string;
   readonly employeeId: string;
+  /** null = archive legacy (avant cloisonnement), lisible partout. */
+  readonly employerId: string | null;
   readonly prompt: string;
   readonly status: "completed" | "failed";
   readonly summary: string | null;
@@ -19,6 +22,7 @@ export function isMissionRecord(value: unknown): value is MissionRecord {
   return (
     typeof record.missionId === "string" &&
     typeof record.employeeId === "string" &&
+    (typeof record.employerId === "string" || record.employerId === null) &&
     typeof record.prompt === "string" &&
     (record.status === "completed" || record.status === "failed") &&
     (typeof record.summary === "string" || record.summary === null) &&
@@ -54,6 +58,7 @@ export class EmployeeMemory {
     const record: MissionRecord = {
       missionId: mission.id,
       employeeId: mission.employeeId,
+      employerId: mission.employerId ?? LOCAL_EMPLOYER_ID,
       prompt: mission.prompt,
       status: mission.status,
       summary: mission.report?.summary ?? null,
@@ -79,13 +84,22 @@ export class EmployeeMemory {
   }
 
   /**
-   * Historique chronologique (copie defensive), optionally filtre par Employee.
+   * Historique chronologique (copie defensive), filtrable par employe
+   * et/ou employeur. Filtre employeur : les archives legacy (null)
+   * passent partout, sinon egalite stricte (anti-fuite inter-tenant).
    */
-  history(employeeId?: string): MissionRecord[] {
-    const filtered =
-      employeeId === undefined
-        ? this.records
-        : this.records.filter((record) => record.employeeId === employeeId);
+  history(employeeId?: string, employerId?: string): MissionRecord[] {
+    let filtered = this.records;
+
+    if (employeeId !== undefined) {
+      filtered = filtered.filter((record) => record.employeeId === employeeId);
+    }
+    if (employerId !== undefined) {
+      filtered = filtered.filter(
+        (record) =>
+          record.employerId === null || record.employerId === employerId
+      );
+    }
 
     return [...filtered].sort((a, b) =>
       a.completedAt.localeCompare(b.completedAt)

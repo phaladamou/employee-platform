@@ -74,6 +74,7 @@ describe("EmployeeMemory.restore", () => {
       {
         missionId: "mis_new",
         employeeId: "emp_1",
+        employerId: "acme",
         prompt: "New",
         status: "completed",
         summary: "Done",
@@ -95,6 +96,7 @@ describe("EmployeeMemory.restore", () => {
       {
         missionId: "mis_1",
         employeeId: "emp_1",
+        employerId: "acme",
         prompt: "Audit",
         status: "completed" as const,
         summary: "Done",
@@ -132,6 +134,73 @@ describe("EmployeeMemory.history", () => {
     ]);
     expect(memory.history("emp_2").map((r) => r.prompt)).toEqual(["Second"]);
     expect(memory.history("emp_unknown")).toEqual([]);
+  });
+
+  it("tags records with the mission employer, local by default", () => {
+    const memory = new EmployeeMemory();
+    const scoped = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Scoped", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "Done", content: "Report" }
+    );
+    const local = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(createEmployeeMission({ prompt: "Local" }), "emp_1")
+      ),
+      { summary: "Done", content: "Report" }
+    );
+
+    expect(memory.record(scoped).employerId).toBe("acme");
+    expect(memory.record(local).employerId).toBe("local");
+  });
+
+  it("filters history per employer, legacy archives pass through", () => {
+    const memory = new EmployeeMemory();
+    memory.restore([
+      {
+        missionId: "mis_acme",
+        employeeId: "emp_1",
+        employerId: "acme",
+        prompt: "Acme work",
+        status: "completed",
+        summary: null,
+        completedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        missionId: "mis_globex",
+        employeeId: "emp_1",
+        employerId: "globex",
+        prompt: "Globex work",
+        status: "completed",
+        summary: null,
+        completedAt: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        missionId: "mis_legacy",
+        employeeId: "emp_1",
+        employerId: null,
+        prompt: "Legacy work",
+        status: "completed",
+        summary: null,
+        completedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+
+    expect(
+      memory.history("emp_1", "acme").map((record) => record.prompt)
+    ).toEqual(["Acme work", "Legacy work"]);
+    expect(
+      memory.history("emp_1", "globex").map((record) => record.prompt)
+    ).toEqual(["Globex work", "Legacy work"]);
+    expect(memory.history("emp_1").map((record) => record.prompt)).toEqual([
+      "Acme work",
+      "Globex work",
+      "Legacy work",
+    ]);
   });
 
   it("returns a defensive copy", () => {

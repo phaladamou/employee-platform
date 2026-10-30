@@ -14,7 +14,11 @@ import type { ProfileRegistry } from "../profiles/profile-registry";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
 import { createCoreTools } from "../tools/tool";
 import type { EmployeeMemory } from "../memory/employee-memory";
-import type { EmployeeMemoryStore } from "../memory/memory-store";
+import {
+  LOCAL_EMPLOYER_ID,
+  type EmployeeMemoryScope,
+  type EmployeeMemoryStore,
+} from "../memory/memory-store";
 import type { EmployeeLLMProvider } from "./llm-provider";
 import { resolveToolsForProfile } from "./profile-tools";
 import { formatSpecializationBlock } from "./react-protocol";
@@ -53,6 +57,20 @@ export interface EmployeeRuntimeOptions {
   readonly memoryStore?: EmployeeMemoryStore;
 }
 
+/**
+ * Partition memoire d'un run : l'employeur vient de la mission (pose
+ * par le serveur depuis le token), `local` sinon (mode mono-tenant).
+ */
+function scopeFor(
+  profile: EmployeeProfile,
+  mission: EmployeeMission
+): EmployeeMemoryScope {
+  return {
+    employeeId: profile.id,
+    employerId: mission.employerId ?? LOCAL_EMPLOYER_ID,
+  };
+}
+
 function summarize(content: string): string {
   const firstLine =
     content
@@ -89,8 +107,10 @@ export class EmployeeRuntime {
       return;
     }
 
+    const scope = scopeFor(profile, mission);
+
     memory.record(mission);
-    await memoryStore.save(profile.id, memory.history(profile.id));
+    await memoryStore.save(scope, memory.history(profile.id, scope.employerId));
   }
 
   async run(
@@ -124,9 +144,10 @@ export class EmployeeRuntime {
     let pastExperience: readonly string[] = [];
 
     if (memory && memoryStore) {
-      memory.restore(await memoryStore.load(profile.id));
+      const scope = scopeFor(profile, running);
+      memory.restore(await memoryStore.load(scope));
       pastExperience = memory
-        .history(profile.id)
+        .history(profile.id, scope.employerId)
         .map((record) => record.summary ?? record.prompt);
     }
 

@@ -82,4 +82,23 @@ describe("mission lifecycle", () => {
     ).toThrow();
     expect(() => failEmployeeMission(pending, "boom")).toThrow();
   });
+
+  it("carries the employer through the lifecycle, null by default", () => {
+    const scoped = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Scoped", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "s", content: "c" }
+    );
+    const local = createEmployeeMission({ prompt: "Local" });
+
+    expect(scoped.employerId).toBe("acme");
+    expect(local.employerId).toBeNull();
+    expect(() =>
+      createEmployeeMission({ prompt: "Bad", employerId: "  " })
+    ).toThrow("Employer id cannot be empty");
+  });
 });

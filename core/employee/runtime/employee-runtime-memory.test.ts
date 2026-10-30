@@ -7,7 +7,10 @@ import { createEmployeeProfile } from "../profile/employee-profile";
 import { createEmployeeMission } from "../missions/employee-mission";
 import { EmployeeMemory, type MissionRecord } from "../memory/employee-memory";
 import { FileMemoryStore } from "../memory/file-memory-store";
-import type { EmployeeMemoryStore } from "../memory/memory-store";
+import type {
+  EmployeeMemoryScope,
+  EmployeeMemoryStore,
+} from "../memory/memory-store";
 import type { ToolContext } from "../tools/tool";
 import { EmployeeRuntime } from "./employee-runtime";
 import type {
@@ -50,30 +53,41 @@ class FailingProvider implements EmployeeLLMProvider {
   }
 }
 
-class InMemoryStore implements EmployeeMemoryStore {
-  private readonly byEmployee = new Map<string, MissionRecord[]>();
+const ACME: EmployeeMemoryScope = { employeeId: "emp_1", employerId: "acme" };
 
-  async load(employeeId: string): Promise<readonly MissionRecord[]> {
-    return [...(this.byEmployee.get(employeeId) ?? [])];
+class InMemoryStore implements EmployeeMemoryStore {
+  private readonly byScope = new Map<string, MissionRecord[]>();
+
+  private key(scope: EmployeeMemoryScope): string {
+    return `${scope.employeeId}:${scope.employerId}`;
+  }
+
+  async load(scope: EmployeeMemoryScope): Promise<readonly MissionRecord[]> {
+    return [...(this.byScope.get(this.key(scope)) ?? [])];
   }
 
   async save(
-    employeeId: string,
+    scope: EmployeeMemoryScope,
     records: readonly MissionRecord[]
   ): Promise<void> {
-    this.byEmployee.set(employeeId, [...records]);
+    this.byScope.set(this.key(scope), [...records]);
   }
 }
 
-function seededRecord(prompt: string): MissionRecord {
+function seededRecord(prompt: string, employerId: string | null = "acme"): MissionRecord {
   return {
     missionId: `mis_${prompt}`,
     employeeId: "emp_1",
+    employerId,
     prompt,
     status: "completed",
     summary: `Summary ${prompt}`,
     completedAt: "2026-01-01T00:00:00.000Z",
   };
+}
+
+function scopedMission(prompt: string, employerId = "acme") {
+  return createEmployeeMission({ prompt, employerId });
 }
 
 describe("EmployeeRuntime with persistent memory", () => {
@@ -93,7 +107,7 @@ describe("EmployeeRuntime with persistent memory", () => {
 
   it("reloads past history at startup", async () => {
     const store = new InMemoryStore();
-    await store.save("emp_1", [seededRecord("previous")]);
+    await store.save(ACME, [seededRecord("previous")]);
     const memory = new EmployeeMemory();
     const runtime = new EmployeeRuntime(new ScriptedProvider(["FINAL: New."]), {
       tools: [],
@@ -102,9 +116,9 @@ describe("EmployeeRuntime with persistent memory", () => {
       memoryStore: store,
     });
 
-    await runtime.run(makeProfile(), createEmployeeMission({ prompt: "Now" }));
+    await runtime.run(makeProfile(), scopedMission("Now"));
 
-    expect(memory.history("emp_1").map((r) => r.prompt)).toEqual([
+    expect(memory.history("emp_1", "acme").map((r) => r.prompt)).toEqual([
       "previous",
       "Now",
     ]);
@@ -122,7 +136,7 @@ describe("EmployeeRuntime with persistent memory", () => {
     });
     const okResult = await ok.run(
       makeProfile(),
-      createEmployeeMission({ prompt: "Win" })
+      scopedMission("Win")
     );
 
     const ko = new EmployeeRuntime(new FailingProvider(), {
@@ -131,9 +145,9 @@ describe("EmployeeRuntime with persistent memory", () => {
       memory: new EmployeeMemory(),
       memoryStore: store,
     });
-    await ko.run(makeProfile(), createEmployeeMission({ prompt: "Lose" }));
+    await ko.run(makeProfile(), scopedMission("Lose"));
 
-    const saved = await store.load("emp_1");
+    const saved = await store.load(ACME);
     expect(saved.map((r) => r.prompt)).toEqual(["Win", "Lose"]);
     expect(saved.map((r) => r.status)).toEqual(["completed", "failed"]);
     expect(saved[0]?.missionId).toBe(okResult.mission.id);
@@ -152,10 +166,10 @@ describe("EmployeeRuntime with persistent memory", () => {
       memory: new EmployeeMemory(),
       memoryStore: new FileMemoryStore({ directory: memoryDir }),
     });
-    await first.run(makeProfile(), createEmployeeMission({ prompt: "One" }));
+    await first.run(makeProfile(), scopedMission("One"));
 
-    const files = await readdir(memoryDir);
-    expect(files).toContain("employee_emp_1.json");
+    const files = await readdir(join(memoryDir, "employee_emp_1"));
+    expect(files).toContain("employer_acme.json");
 
     const secondMemory = new EmployeeMemory();
     const second = new EmployeeRuntime(
@@ -167,9 +181,9 @@ describe("EmployeeRuntime with persistent memory", () => {
         memoryStore: new FileMemoryStore({ directory: memoryDir }),
       }
     );
-    await second.run(makeProfile(), createEmployeeMission({ prompt: "Two" }));
+    await second.run(makeProfile(), scopedMission("Two"));
 
-    expect(secondMemory.history("emp_1").map((r) => r.prompt)).toEqual([
+    expect(secondMemory.history("emp_1", "acme").map((r) => r.prompt)).toEqual([
       "One",
       "Two",
     ]);
@@ -177,7 +191,7 @@ describe("EmployeeRuntime with persistent memory", () => {
 
   it("reminds the LLM of past missions", async () => {
     const store = new InMemoryStore();
-    await store.save("emp_1", [seededRecord("previous")]);
+    await store.save(ACME, [seededRecord("previous")]);
 
     const seen: EmployeeLLMRequest[] = [];
     const spying: EmployeeLLMProvider = {
@@ -194,11 +208,41 @@ describe("EmployeeRuntime with persistent memory", () => {
       memoryStore: store,
     });
 
-    await runtime.run(makeProfile(), createEmployeeMission({ prompt: "Now" }));
+    await runtime.run(makeProfile(), scopedMission("Now"));
 
     const system = seen[0]?.messages[0]?.content ?? "";
     expect(system).toContain("Your previous missions:");
     expect(system).toContain("Summary previous");
+  });
+
+  it("never injects another employer history into the LLM", async () => {
+    const store = new InMemoryStore();
+    await store.save(ACME, [seededRecord("acme-secret")]);
+    await store.save(
+      { employeeId: "emp_1", employerId: "globex" },
+      [seededRecord("globex-secret", "globex")]
+    );
+
+    const seen: EmployeeLLMRequest[] = [];
+    const spying: EmployeeLLMProvider = {
+      id: "spying",
+      generate: async (request) => {
+        seen.push(request);
+        return { content: "FINAL: New.", model: "spying" };
+      },
+    };
+    const runtime = new EmployeeRuntime(spying, {
+      tools: [],
+      toolContext: await sandbox(),
+      memory: new EmployeeMemory(),
+      memoryStore: store,
+    });
+
+    await runtime.run(makeProfile(), scopedMission("Now", "globex"));
+
+    const system = seen[0]?.messages[0]?.content ?? "";
+    expect(system).toContain("Summary globex-secret");
+    expect(system).not.toContain("Summary acme-secret");
   });
 
   it("records nothing when only half of the memory pair is set", async () => {

@@ -83,7 +83,11 @@ export { FileCredentialStore } from "./auth/file-credential-store";
 
 export type { MissionRecord } from "./memory/employee-memory";
 export { EmployeeMemory, isMissionRecord } from "./memory/employee-memory";
-export type { EmployeeMemoryStore } from "./memory/memory-store";
+export type {
+  EmployeeMemoryScope,
+  EmployeeMemoryStore,
+} from "./memory/memory-store";
+export { LOCAL_EMPLOYER_ID } from "./memory/memory-store";
 export {
   DEFAULT_MEMORY_DIR,
   FileMemoryStore,

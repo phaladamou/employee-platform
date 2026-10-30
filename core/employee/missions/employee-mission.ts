@@ -15,6 +15,8 @@ export interface MissionReport {
 export interface EmployeeMission {
   readonly id: string;
   readonly employeeId: string | null;
+  /** Employeur donneur d'ordre (null = local non scope). */
+  readonly employerId: string | null;
   readonly prompt: string;
   readonly status: EmployeeMissionStatus;
   readonly report: MissionReport | null;
@@ -32,6 +34,7 @@ export function createEmployeeMission(input: {
   id?: string;
   prompt: string;
   now?: Date;
+  employerId?: string | null;
 }): EmployeeMission {
   const prompt = input.prompt.trim();
 
@@ -39,9 +42,16 @@ export function createEmployeeMission(input: {
     throw new Error("Mission prompt cannot be empty");
   }
 
+  const employerId = input.employerId?.trim() || null;
+
+  if (input.employerId !== undefined && employerId === null) {
+    throw new Error("Employer id cannot be empty");
+  }
+
   return {
     id: input.id ?? `msn_${randomUUID()}`,
     employeeId: null,
+    employerId,
     prompt,
     status: "pending",
     report: null,
