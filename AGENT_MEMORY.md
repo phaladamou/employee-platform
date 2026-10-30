@@ -204,3 +204,93 @@ Leçons dures :
   laisser au user.
 - Fichiers web non commités du user (14 M + `lib/db/client.ts`) : NE JAMAIS
   les inclure dans un commit desktop (pathspec explicites uniquement).
+
+## 5. Web : design Mercor light + Talent Network (2026-10-30)
+
+- Pages `Employees` + `Talent Network` en thème CLAIR (scope `.theme-light`,
+  sidebar blanche/grise), chat seul reste sombre. Grille 3 cartes/ligne,
+  max-w-7xl, paddings et espacements généreux, scrollbar masquée
+  (`.scrollbar-none`, scroll conservé).
+- Boutons `Recruit` discrets (variante `brand` indigo), jamais de gros noir.
+- Recruit = page dédiée `/employees/recruit` + entrée sidebar dans le footer
+  (au-dessus du compte, centrée en mode icône). Bannir « marketplace »
+  (dire Talent Network / Réseau). Pas d'étoiles ni gadgets freelance.
+- Split-view inline : colonne liste (~62 %) + panneau détails (38 %) qui
+  commence tout en haut, jamais un tiroir qui écrase le contenu.
+- `AI Employees` inactif sur `/employees/recruit` (helper
+  `lib/sidebar/nav-state.ts` + test). Sidebar fermée : `SIDEBAR_WIDTH_ICON`
+  4rem, logo + items + footer centrés.
+- Fichiers : `app/(chat)/employees/`, `components/workspace/employees/`,
+  `components/workspace/recruit/`, `lib/employees/catalog.ts` (+test),
+  `app/globals.css` (`.theme-light`, `.scrollbar-none`).
+
+## 6. Web : auth OTP + onboarding passwordless (2026-10-30)
+
+- Login/signup 100 % passwordless : OTP 7 chiffres par email (Resend,
+  `RESEND_API_KEY`), 5 min, usage unique, throttle NextAuth. Zéro invité :
+  non connecté → `/login`. `/register` redirige vers `/login`.
+- 1er OTP valide = création compte → `/onboarding` (nom, titre, intention
+  solo/startup/enterprise, société, CGU) → `onboarded=true` → `/workspace`
+  (migration `0005_user_onboarding` : `onboarded/title/intent/company`).
+- Gardes : middleware (`lib/auth/route-policy.ts` + test, `/onboarding`
+  protégé), page onboarding serveur (sans session →
+  `/login?callbackUrl=/onboarding`, onboardé → `/workspace`), layout `(chat)`
+  (non-onboardé → `/onboarding`), `POST /api/onboarding` → 401 sans session.
+- **Piège :** la route onboarding DOIT rester à `app/api/...` (racine). Sous
+  `app/(chat)/api`, le layout `(chat)` redirige le POST lui-même →
+  « Connection lost ». Test : `app/api/onboarding/route.test.ts`.
+- Email OTP premium 100 % anglais, code noir, vrai logo inline (CID),
+  sans ligne disclaimer (`lib/otp-email-template.ts` + test, PNG dans
+  `public/images/employee-logo.png`).
+- Logout sans friction : `signOut({ callbackUrl: "/login" })` +
+  `window.location.replace`, aucun toast, aucun blocage.
+- Logs diagnostics `[AUTHORIZE-OTP]` / `[AUTH-JWT]` / `[AUTH-SESSION]` dans
+  `app/(auth)/auth.ts` (email reçu → verdict → user retourné).
+- Incident « même compte quel que soit l'email » : audit complet du pipeline
+  OTP propre (chaque étape filtre par email) ; cause probable = session /
+  cookie stale dans le navigateur de test. Trancher via les logs + test en
+  navigation privée avant toute autre hypothèse.
+
+## 7. Web : session sidebar « sticky » (2026-10-30)
+
+- Coupure serveur/réseau ≠ logout : l'icône compte et l'historique gardent
+  le dernier état connu (`lib/auth/sticky-session.ts` pur + test,
+  `components/workspace/use-sticky-session.ts`, `keepPreviousData` SWR).
+- Seul un **200 + session vide** prouve le logout (le proxy codespace
+  renvoie 503/HTML quand `pnpm dev` est coupé — ne jamais traiter non-200
+  comme logout ; cf. `classifySessionProbe`). Référence en mémoire module
+  + `localStorage["employee:last-known-user"]`.
+- Purge via `clearStickyUser()` AVANT `signOut`. Changement de compte et
+  logout cross-onglet suivent toujours le live (sonde de confirmation).
+- Footer fermé aligné connecté OU non (bouton login icon-mode centré +
+  tooltip, même pattern que Recruit).
+
+## 8. EmployeeCore — `core/employee/` uniquement (2026-10-30)
+
+- Noyau pur TypeScript, testable sans l'app : `identity/` (ID crypto),
+  `profile/` (types), `missions/` (modèle + assignation), `memory/`
+  (file store + quarantaine + injection d'expérience), `runtime/` (boucle
+  ReAct `ACTION:`/`FINAL:`, moteur LLM), `tools/` sandboxés (read/write/
+  run-shell), `cli.ts`, `index.ts`, `purity.test.ts`.
+- **Contraintes dures :** travailler UNIQUEMENT dans `core/employee/`,
+  ne jamais toucher au reste de `core/` ; aucun import React/Next/Electron ;
+  env uniquement via CLI injectée ; suite vitest verte (79 tests).
+- Sécurité auditee : symlinks bloqués, env enfant filtré (`run_shell`
+  cwd-confined, pas une jail — commentaire honnête conservé). Concurrence
+  last-wins et TOCTOU documentés, non bloquants.
+
+## 9. Conventions et environnement (rappel)
+
+- Micro-commits par petits blocs (`feat(web):` / `fix(web):` / `test(web):`),
+  push et tags uniquement sur approbation explicite. Ne jamais `localhost:3000`
+  en dur ; jamais de tests E2E locaux lourds (Codespace sans réseau/DB).
+- `tsc --noEmit` zéro erreur exigé (mesurer le vrai exit code, pas celui du
+  pipe). Suites `node:test` : catalog, nav-state, otp-email-template,
+  route-policy, sticky-session, placement onboarding. Chaque `*.test.ts`
+  ajouté à `exclude` dans `tsconfig.json`.
+- `pnpm dev` = web Next (`next dev --turbo`). Desktop = miroirs manuels
+  web → `desktop/windows` UNIQUEMENT sur demande ; releases via bump +
+  tag `desktop-vX` + CI (v3.4.0 verte : exe + latest.yml).
+- `.data/` = scratch employee-core, non commité. `SignOutForm` inutilisé
+  (logout réel dans `sidebar-user-nav`). User teste sur l'URL codespace
+  `*.app.github.dev`. Ne pas éditer pendant ses tests.
