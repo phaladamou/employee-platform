@@ -19,6 +19,7 @@ import {
   type EmployeeMemoryScope,
   type EmployeeMemoryStore,
 } from "../memory/memory-store";
+import type { JobRunSignal } from "../jobs/job-signal";
 import type { EmployeeLLMProvider } from "./llm-provider";
 import { resolveToolsForProfile } from "./profile-tools";
 import { formatSpecializationBlock } from "./react-protocol";
@@ -32,6 +33,8 @@ export interface EmployeeRunResult {
   readonly mission: EmployeeMission;
   readonly report: MissionReport | null;
   readonly error: string | null;
+  /** Vrai si le run a ete interrompu par le signal d'annulation. */
+  readonly cancelled: boolean;
   /** Appels LLM effectues pendant la mission. */
   readonly steps: number;
   /** Outils executes, dans l'ordre. */
@@ -55,6 +58,13 @@ export interface EmployeeRuntimeOptions {
    */
   readonly memory?: EmployeeMemory;
   readonly memoryStore?: EmployeeMemoryStore;
+  /**
+   * Signal d'annulation : consulte avant chaque pas LLM. Quand il
+   * bascule, la mission termine failed "cancelled" (tracee en memoire)
+   * et le resultat porte cancelled: true pour que le worker confirme
+   * via `markCancelled` plutot que `markFailed`.
+   */
+  readonly signal?: JobRunSignal;
 }
 
 /**
@@ -200,6 +210,7 @@ export class EmployeeRuntime {
       maxSteps,
       pastExperience,
       systemPrompt,
+      signal: this.options.signal,
     });
 
     if (!loop.completed || loop.reportContent === null) {
@@ -216,6 +227,7 @@ export class EmployeeRuntime {
         error: failed.error,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        cancelled: loop.cancelled,
       };
     }
 
@@ -232,6 +244,7 @@ export class EmployeeRuntime {
       error: null,
       steps: loop.steps,
       toolCalls: loop.toolCalls,
+      cancelled: false,
     };
   }
 }

@@ -1,6 +1,7 @@
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
+import type { JobRunSignal } from "../jobs/job-signal";
 import type { EmployeeProfile } from "../profile/employee-profile";
 import {
   createCoreTools,
@@ -33,6 +34,12 @@ export interface ReactLoopOptions {
   readonly pastExperience?: readonly string[];
   /** Prompt de specialisation (profil), sinon identite du profil. */
   readonly systemPrompt?: string;
+  /**
+   * Signal d'annulation : consulte avant chaque appel LLM. Quand il
+   * bascule, la boucle s'interrompt proprement (cancelled: true) sans
+   * nouvel appel ni nouvel outil.
+   */
+  readonly signal?: JobRunSignal;
 }
 
 export interface ReactLoopResult {
@@ -41,6 +48,8 @@ export interface ReactLoopResult {
   readonly steps: number;
   readonly toolCalls: readonly ReactToolCall[];
   readonly error: string | null;
+  /** Vrai si le run a ete interrompu par le signal d'annulation. */
+  readonly cancelled: boolean;
 }
 
 /**
@@ -76,6 +85,17 @@ export async function runReasoningLoop(
   let steps = 0;
 
   for (let step = 0; step < maxSteps; step += 1) {
+    if (options.signal && (await options.signal.isCancelled())) {
+      return {
+        completed: false,
+        reportContent: null,
+        steps,
+        toolCalls,
+        error: "cancelled",
+        cancelled: true,
+      };
+    }
+
     let content: string;
 
     try {
@@ -88,6 +108,7 @@ export async function runReasoningLoop(
         steps,
         toolCalls,
         error: error instanceof Error ? error.message : String(error),
+        cancelled: false,
       };
     }
 
@@ -103,6 +124,7 @@ export async function runReasoningLoop(
         steps,
         toolCalls,
         error: null,
+        cancelled: false,
       };
     }
 
@@ -157,5 +179,6 @@ export async function runReasoningLoop(
     steps,
     toolCalls,
     error: `mission not finished after ${maxSteps} steps`,
+    cancelled: false,
   };
 }

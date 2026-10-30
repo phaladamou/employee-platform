@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { InMemoryJobSignal } from "../jobs/job-signal";
 import { createEmployeeProfile } from "../profile/employee-profile";
 import { createEmployeeMission } from "../missions/employee-mission";
 import { createReadFileTool } from "../tools/read-file";
@@ -159,6 +160,38 @@ describe("EmployeeRuntime.run", () => {
       employeeId: "emp_other",
     };
     await expect(runtime.run(profile, foreign)).rejects.toThrow();
+  });
+
+  it("reports cancellation distinctly from failure", async () => {
+    const provider = new ScriptedProvider(["FINAL: Never reached."]);
+    const signal = new InMemoryJobSignal();
+    signal.cancel();
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+      signal,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.cancelled).toBe(true);
+    expect(result.error).toBe("cancelled");
+    expect(result.mission.status).toBe("failed");
+    expect(result.profile.status).toBe("idle");
+    expect(provider.seen).toHaveLength(0);
+  });
+
+  it("reports cancelled false on normal runs", async () => {
+    const provider = new ScriptedProvider(["FINAL: Done."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.cancelled).toBe(false);
+    expect(result.error).toBeNull();
   });
 });
 

@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { InMemoryJobSignal } from "../jobs/job-signal";
 import { createEmployeeProfile } from "../profile/employee-profile";
 import { createReadFileTool } from "../tools/read-file";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
@@ -248,5 +249,53 @@ describe("runReasoningLoop", () => {
 
     const contents = provider.seen[1]?.messages.map((m) => m.content) ?? [];
     expect(contents.some((text) => text.includes("[truncated]"))).toBe(true);
+  });
+
+  it("stops before any LLM call when already cancelled", async () => {
+    const provider = new ScriptedProvider(["FINAL: Never reached."]);
+    const signal = new InMemoryJobSignal();
+    signal.cancel();
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do work.",
+      signal,
+    });
+
+    expect(result.completed).toBe(false);
+    expect(result.cancelled).toBe(true);
+    expect(result.error).toBe("cancelled");
+    expect(result.steps).toBe(0);
+    expect(provider.seen).toHaveLength(0);
+  });
+
+  it("interrupts mid-run without new calls or tools", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "noise", "args": {}}',
+      "FINAL: Never reached.",
+    ]);
+    // Bascule apres le premier pas : un appel LLM + un outil passent.
+    let checks = 0;
+    const flipping = {
+      isCancelled: () => {
+        checks += 1;
+        return checks > 1;
+      },
+    };
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do work.",
+      tools: [noisyTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      signal: flipping,
+    });
+
+    expect(result.cancelled).toBe(true);
+    expect(result.error).toBe("cancelled");
+    expect(result.toolCalls).toHaveLength(1);
+    expect(provider.seen).toHaveLength(1);
   });
 });

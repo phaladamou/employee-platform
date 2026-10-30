@@ -89,6 +89,26 @@ export type {
 } from "./memory/memory-store";
 export { LOCAL_EMPLOYER_ID } from "./memory/memory-store";
 export {
+  cancelEmployeeJob,
+  claimEmployeeJob,
+  createEmployeeJob,
+  failEmployeeJob,
+  isTerminalJobStatus,
+  requestEmployeeJobCancellation,
+  succeedEmployeeJob,
+  type EmployeeJob,
+  type JobStatus,
+} from "./jobs/employee-job";
+export { FileJobStore } from "./jobs/file-job-store";
+export {
+  createPollingJobSignal,
+  createStaticJobSignal,
+  InMemoryJobSignal,
+  isJobCancellationRequested,
+  type JobRunSignal,
+} from "./jobs/job-signal";
+export type { JobStore } from "./jobs/job-store";
+export {
   DEFAULT_MEMORY_DIR,
   FileMemoryStore,
 } from "./memory/file-memory-store";
