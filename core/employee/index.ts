@@ -82,6 +82,23 @@ export type {
 } from "./runtime/employee-runtime";
 export { EmployeeRuntime } from "./runtime/employee-runtime";
 export type {
+  EmployeeProfileSpec,
+  ToolPermission,
+} from "./profiles/profile-spec";
+export {
+  isEmployeeProfileSpec,
+  MAX_PROFILE_STEPS,
+} from "./profiles/profile-spec";
+export type { ProfileRegistry } from "./profiles/profile-registry";
+export {
+  createProfileRegistry,
+  loadProfileRegistry,
+} from "./profiles/profile-registry";
+export {
+  TOOL_PERMISSIONS,
+  resolveToolsForProfile,
+} from "./runtime/profile-tools";
+export type {
   ParsedAction,
   ParsedFinal,
   ParsedInvalid,

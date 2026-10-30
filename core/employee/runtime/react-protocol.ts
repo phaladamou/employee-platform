@@ -34,7 +34,8 @@ export const PAST_EXPERIENCE_MAX_CHARS = 300;
 export function buildSystemPrompt(
   profile: EmployeeProfile,
   tools: readonly EmployeeTool[],
-  pastExperience: readonly string[] = []
+  pastExperience: readonly string[] = [],
+  systemPrompt?: string
 ): string {
   const catalog = tools.map(
     (tool) => `- ${tool.name}: ${tool.description} Args: ${tool.argsDescription}`
@@ -48,10 +49,18 @@ export function buildSystemPrompt(
         : entry
     );
 
+  // Prompt de specialisation (profil) ou repli identite de base.
+  const identity =
+    systemPrompt !== undefined
+      ? [systemPrompt, ""]
+      : [
+          `You are ${profile.name}, ${profile.role}.`,
+          `Skills: ${profile.skills.join(", ") || "generalist"}.`,
+          "",
+        ];
+
   return [
-    `You are ${profile.name}, ${profile.role}.`,
-    `Skills: ${profile.skills.join(", ") || "generalist"}.`,
-    "",
+    ...identity,
     "You accomplish missions by reasoning in a loop. At each step, reply " +
       "with EXACTLY one of these two forms:",
     `${ACTION_MARKER} {"tool": "<tool name>", "args": { ... }}`,

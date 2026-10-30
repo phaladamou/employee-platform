@@ -10,10 +10,13 @@ import {
   type EmployeeMission,
   type MissionReport,
 } from "../missions/employee-mission";
+import type { EmployeeProfileSpec } from "../profiles/profile-spec";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
+import { createCoreTools } from "../tools/tool";
 import type { EmployeeMemory } from "../memory/employee-memory";
 import type { EmployeeMemoryStore } from "../memory/memory-store";
 import type { EmployeeLLMProvider } from "./llm-provider";
+import { resolveToolsForProfile } from "./profile-tools";
 import {
   runReasoningLoop,
   type ReactToolCall,
@@ -34,6 +37,12 @@ export interface EmployeeRuntimeOptions {
   readonly tools?: readonly EmployeeTool[];
   readonly toolContext?: ToolContext;
   readonly maxSteps?: number;
+  /**
+   * Specialisation versionnee : outils effectifs resolus (fail fast),
+   * prompt systeme et maxSteps par defaut. Un maxSteps explicite gagne
+   * sur celui du profil.
+   */
+  readonly profile?: EmployeeProfileSpec;
   /**
    * Memoire + backend : quand les deux sont fournis, l'historique est
    * recharge au demarrage et chaque mission terminee est sauvegardee.
@@ -119,14 +128,22 @@ export class EmployeeRuntime {
         .map((record) => record.summary ?? record.prompt);
     }
 
+    // Enforcement profil AVANT le premier appel LLM : spec mal
+    // autorisee -> erreur franche, mission jamais demarree.
+    const spec = this.options.profile;
+    const tools = spec
+      ? resolveToolsForProfile(spec, this.options.tools ?? createCoreTools())
+      : this.options.tools;
+
     const loop = await runReasoningLoop({
       provider: this.provider,
       profile: working,
       missionPrompt: running.prompt,
-      tools: this.options.tools,
+      tools,
       toolContext: this.options.toolContext,
-      maxSteps: this.options.maxSteps,
+      maxSteps: this.options.maxSteps ?? spec?.maxSteps,
       pastExperience,
+      systemPrompt: spec?.systemPrompt,
     });
 
     if (!loop.completed || loop.reportContent === null) {

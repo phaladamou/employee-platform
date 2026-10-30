@@ -31,6 +31,8 @@ export interface ReactLoopOptions {
   readonly maxSteps?: number;
   /** Resumes de missions passees, rappeles au LLM. */
   readonly pastExperience?: readonly string[];
+  /** Prompt de specialisation (profil), sinon identite du profil. */
+  readonly systemPrompt?: string;
 }
 
 export interface ReactLoopResult {
@@ -64,7 +66,8 @@ export async function runReasoningLoop(
       content: buildSystemPrompt(
         options.profile,
         tools,
-        options.pastExperience ?? []
+        options.pastExperience ?? [],
+        options.systemPrompt
       ),
     },
     { role: "user", content: options.missionPrompt },
