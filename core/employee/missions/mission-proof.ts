@@ -85,7 +85,11 @@ function certificateBytes(certificate: {
 
 /**
  * Emet un certificat pour une mission TERMINEE (completed + rapport).
- * Tout autre statut leve : on ne certifie que le travail acheve.
+ * Tout autre statut leve : on ne certifie que le travail acheve —
+ * needs_review et failed ne produisent JAMAIS de preuve valide.
+ * Invariant : une mission completed AVEC criteres les a forcement
+ * verifies (le runtime echoue sinon avant completion) ; sans
+ * criteres, completed vaut confiance documentee, pas preuve du but.
  * `employerId` doit etre renseigne (mission scopee) : une preuve
  * anonyme ("quelque part") n'a pas de valeur de CV.
  */
