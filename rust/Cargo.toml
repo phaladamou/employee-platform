@@ -1,0 +1,24 @@
+[package]
+name = "employee-native"
+version = "0.1.0"
+edition = "2021"
+description = "Native security modules: Ed25519 crypto (WASM + native) and process sandbox (native only)"
+license = "MIT"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# rand_core = SigningKey::generate (native only, see crypto::generate).
+ed25519-dalek = { version = "2", features = ["rand_core"] }
+
+# OsRng for native key generation (sandboxed hosts). NOT for WASM:
+# getrandom has no backend on wasm32-unknown-unknown without the
+# wasm-bindgen CLI post-processing, so WASM keygen takes a host
+# seed instead (see crypto::keypair_from_seed + rust/ts wrapper).
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+rand = "0.8"
+
+# Unix resource limits for the sandbox (RLIMIT_CPU/FSIZE).
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
