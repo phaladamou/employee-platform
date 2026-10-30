@@ -300,7 +300,12 @@ Leçons dures :
   (name/version/role/prompt/outils/permissions/maxSteps), registre JSON
   (data-analyst, researcher sans shell, software-engineer), enforcement
   fail-fast par le runtime (`resolveToolsForProfile`, outil sans
-  permission = erreur avant le 1er appel LLM). 113 tests vitest.
+  permission = erreur avant le 1er appel LLM).
+- Invariant ADN : `specialization {name, version exacte}` liee a
+  l'embauche (immuable), `run()` resout via registre (jamais latest,
+  `tools` ignores si lie, maxSteps restreint seulement), migration
+  explicite `migrateEmployeeProfile` (nouvel objet, meme id), prompt
+  spec delimite + ligne de preseance. 126 tests vitest.
 
 ## 9. Conventions et environnement (rappel)
 
