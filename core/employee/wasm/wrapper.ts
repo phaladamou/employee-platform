@@ -1,17 +1,19 @@
 /**
  * TypeScript wrapper for the Rust WASM crypto module
- * (`rust/dist/employee_native.wasm`, built by `rust/build.sh`).
+ * (`core/employee/wasm/dist/employee_native.wasm`, built by
+ * `rust/build.sh`). Used by `missions/mission-proof.ts` for Ed25519
+ * signatures, with a Node `crypto` fallback when the module cannot
+ * load (see the backend selection there).
  *
- * Lives OUTSIDE `core/employee/` on purpose: EmployeeCore stays
- * dependency-free (purity guard), and hosts opt into the native
- * module explicitly. Same Ed25519 semantics as Node `crypto`
- * (proven by cross-verification in `wrapper.test.ts`).
+ * Same Ed25519 semantics as Node `crypto` (proven by
+ * cross-verification in `wrapper.test.ts`).
  *
  * Entropy comes from the host: pass 32 bytes from
  * `crypto.randomBytes(32)` as the seed. The WASM module never
  * touches randomness (no getrandom backend on wasm32-unknown-unknown).
  */
 
+import { readFileSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -48,17 +50,34 @@ function checkLength(name: string, value: Uint8Array, expected: number): void {
 }
 
 export function defaultWasmPath(): string {
-  return join(dirname(fileURLToPath(import.meta.url)), "..", "dist", "employee_native.wasm");
+  return join(dirname(fileURLToPath(import.meta.url)), "dist", "employee_native.wasm");
 }
 
 /** Instantiate the module (imports-free: no env, no WASI). */
 export async function loadRustEd25519(wasmPath: string = defaultWasmPath()): Promise<RustEd25519> {
   const bytes = await readFile(wasmPath);
   const { instance } = await WebAssembly.instantiate(bytes, {});
-  const wasm = instance.exports as WasmCryptoExports;
+  return createApi(instance.exports as WasmCryptoExports);
+}
 
-  if (!(wasm.memory instanceof WebAssembly.Memory)) {
-    throw new Error("WASM module exports no linear memory");
+/** Synchronous twin (mission proofs are sync): same module, same API. */
+export function loadRustEd25519Sync(wasmPath: string = defaultWasmPath()): RustEd25519 {
+  const bytes = readFileSync(wasmPath);
+  const module = new WebAssembly.Module(bytes);
+  const instance = new WebAssembly.Instance(module, {});
+  return createApi(instance.exports as WasmCryptoExports);
+}
+
+function createApi(wasm: WasmCryptoExports): RustEd25519 {
+  if (
+    !(wasm.memory instanceof WebAssembly.Memory) ||
+    typeof wasm.emp_alloc !== "function" ||
+    typeof wasm.emp_free !== "function" ||
+    typeof wasm.ed_keypair_from_seed !== "function" ||
+    typeof wasm.ed_sign !== "function" ||
+    typeof wasm.ed_verify !== "function"
+  ) {
+    throw new Error("WASM module does not export the ed25519 ABI");
   }
 
   function writeInput(data: Uint8Array): number {

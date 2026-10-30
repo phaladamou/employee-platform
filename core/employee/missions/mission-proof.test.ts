@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   assignMission,
@@ -10,12 +13,14 @@ import {
   startEmployeeMission,
 } from "./employee-mission";
 import {
+  _lastCryptoBackendForTests,
   generateMissionProof,
   generateOperatorKeyPair,
   hashReportContent,
   verifyMissionProof,
   verifyReportDisclosure,
 } from "./mission-proof";
+import { defaultWasmPath } from "../wasm/wrapper";
 
 function completedMission() {
   return completeEmployeeMission(
@@ -240,5 +245,69 @@ describe("verifyReportDisclosure", () => {
 
     expect(verifyReportDisclosure(proof, "Full report content.")).toBe(true);
     expect(verifyReportDisclosure(proof, "Doctored content.")).toBe(false);
+  });
+});
+
+describe("crypto backend (WASM-first, Node fallback)", () => {
+  let dir = "";
+
+  afterEach(async () => {
+    if (dir) {
+      await rm(dir, { recursive: true, force: true });
+      dir = "";
+    }
+  });
+
+  it("uses WASM by default", () => {
+    const keys = generateOperatorKeyPair();
+    const proof = generateMissionProof(
+      completedMission(),
+      keys.privateKeyPem
+    );
+    expect(_lastCryptoBackendForTests()).toBe("wasm");
+    expect(verifyMissionProof(proof, keys.publicKeyPem)).toBe(true);
+    expect(_lastCryptoBackendForTests()).toBe("wasm");
+  });
+
+  it("produces byte-identical proofs on both backends", () => {
+    const keys = generateOperatorKeyPair();
+    const mission = completedMission();
+    const viaWasm = generateMissionProof(mission, keys.privateKeyPem, {
+      wasmPath: defaultWasmPath(),
+    });
+    const viaNode = generateMissionProof(mission, keys.privateKeyPem, {
+      wasmPath: false,
+    });
+
+    expect(_lastCryptoBackendForTests()).toBe("node");
+    expect(viaWasm.signature).toBe(viaNode.signature);
+    expect(viaWasm.issuer).toBe(viaNode.issuer);
+    // Cross-verify in both directions.
+    expect(verifyMissionProof(viaWasm, keys.publicKeyPem, { wasmPath: false })).toBe(true);
+    expect(verifyMissionProof(viaNode, keys.publicKeyPem)).toBe(true);
+  });
+
+  it("falls back to Node when the module is missing", () => {
+    const keys = generateOperatorKeyPair();
+    const proof = generateMissionProof(completedMission(), keys.privateKeyPem, {
+      wasmPath: join(tmpdir(), "emp-no-such-module.wasm"),
+    });
+
+    expect(_lastCryptoBackendForTests()).toBe("node");
+    expect(verifyMissionProof(proof, keys.publicKeyPem, { wasmPath: false })).toBe(true);
+  });
+
+  it("falls back to Node when the module is corrupt", async () => {
+    dir = await mkdtemp(join(tmpdir(), "emp-corrupt-wasm-"));
+    const corrupt = join(dir, "bad.wasm");
+    await writeFile(corrupt, Buffer.from("not a wasm module"));
+
+    const keys = generateOperatorKeyPair();
+    const proof = generateMissionProof(completedMission(), keys.privateKeyPem, {
+      wasmPath: corrupt,
+    });
+
+    expect(_lastCryptoBackendForTests()).toBe("node");
+    expect(verifyMissionProof(proof, keys.publicKeyPem)).toBe(true);
   });
 });
