@@ -519,27 +519,15 @@ export async function startServe(
 
   let stopWorker: (() => Promise<void>) | null = null;
   if (options.withWorker !== false) {
-    if (!ctx.provider) {
+    try {
+      const worker = await startWorker(ctx, {
+        workerIntervalMs: options.workerIntervalMs,
+      });
+      stopWorker = worker.stop;
+    } catch (error) {
       await server.close();
-      throw new Error(
-        ctx.providerError ?? "no LLM provider configured (EMPLOYEE_PROVIDER)"
-      );
+      throw error;
     }
-    const provider: EmployeeLLMProvider = ctx.provider;
-    const workerDeps: JobWorkerDeps = {
-      jobs: stores.jobs,
-      missions: stores.missions,
-      profiles: stores.profiles,
-      provider,
-      toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv } },
-      profilesRegistry: registry,
-      memory: new EmployeeMemory(),
-      memoryStore: stores.memory,
-    };
-    stopWorker = startWorkerLoop(workerDeps, {
-      workerId: `worker_${process.pid}`,
-      intervalMs: options.workerIntervalMs,
-    }).stop;
   }
 
   return {
@@ -551,6 +539,46 @@ export async function startServe(
       await server.close();
     },
   };
+}
+
+export interface StartWorkerOptions {
+  readonly workerId?: string;
+  readonly workerIntervalMs?: number;
+  readonly staleAfterMs?: number | null;
+}
+
+/**
+ * Demarre un worker seul (sans API) sur le data dir. Utilise par
+ * `worker` et les tests ; N workers peuvent tourner en parallele
+ * (claims atomiques).
+ */
+export async function startWorker(
+  ctx: CliContext,
+  options: StartWorkerOptions = {}
+): Promise<{ stop(): Promise<void> }> {
+  if (!ctx.provider) {
+    throw new Error(
+      ctx.providerError ?? "no LLM provider configured (EMPLOYEE_PROVIDER)"
+    );
+  }
+  const stores = openLocalStores(ctx.dataDir);
+  const registry = await loadProfileRegistry(ctx.profilesDir);
+  const provider: EmployeeLLMProvider = ctx.provider;
+  const workerDeps: JobWorkerDeps = {
+    jobs: stores.jobs,
+    missions: stores.missions,
+    profiles: stores.profiles,
+    provider,
+    toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv } },
+    profilesRegistry: registry,
+    memory: new EmployeeMemory(),
+    memoryStore: stores.memory,
+  };
+  return startWorkerLoop(workerDeps, {
+    workerId: options.workerId ?? `worker_${process.pid}`,
+    intervalMs: options.workerIntervalMs,
+    staleAfterMs: options.staleAfterMs,
+  });
 }
 
 async function cmdRecover(
@@ -610,12 +638,38 @@ async function cmdServe(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
   }
 }
 
+async function cmdWorker(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
+  const workerId = flag(args.flags, "id") ?? undefined;
+  const intervalRaw = flag(args.flags, "interval-ms");
+  const intervalMs = intervalRaw !== undefined ? Number(intervalRaw) : undefined;
+  if (intervalRaw !== undefined && !Number.isInteger(intervalMs)) {
+    ctx.output("Error: --interval-ms must be an integer");
+    return { exitCode: 1 };
+  }
+
+  try {
+    const worker = await startWorker(ctx, { workerId, workerIntervalMs: intervalMs });
+    ctx.output(`worker started on ${ctx.dataDir} (Ctrl-C to stop)`);
+
+    await new Promise<void>((resolve) => {
+      const shutdown = () => resolve();
+      process.once("SIGINT", shutdown);
+      process.once("SIGTERM", shutdown);
+    });
+    await worker.stop();
+    return { exitCode: 0 };
+  } catch (error) {
+    return printError(ctx, error);
+  }
+}
+
 function usage(ctx: CliContext): CliResult {
   ctx.output(
     [
       "Usage: cli.ts <command> [args]",
       "",
       "  serve [--port N] [--host H]   start API + worker",
+      "  worker [--id W] [--interval-ms N]   start a worker alone",
       "  recover [--stale-after-ms N]   requeue orphaned jobs",
       "  publish --name N --role R [--skills a,b] [--spec n@v]   (admin)",
       "  hire <employeeId>",
@@ -654,6 +708,8 @@ export async function runCommand(
   switch (command) {
     case "serve":
       return cmdServe(args, ctx);
+    case "worker":
+      return cmdWorker(args, ctx);
     case "recover":
       return cmdRecover(args, ctx);
     case "publish":

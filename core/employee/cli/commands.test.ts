@@ -166,4 +166,19 @@ describe("runCommand", () => {
     ).toBe(1);
     expect(lines.join("\n")).toContain("positive number");
   });
+
+  it("validates worker flags without a provider", async () => {
+    const { ctx, lines } = await makeCtx({
+      providerError: "no LLM provider configured (EMPLOYEE_PROVIDER)",
+    });
+
+    expect(
+      (await runCommand(["worker", "--interval-ms", "nope"], ctx)).exitCode
+    ).toBe(1);
+    expect(lines.join("\n")).toContain("--interval-ms must be an integer");
+
+    lines.length = 0;
+    expect((await runCommand(["worker"], ctx)).exitCode).toBe(1);
+    expect(lines.join("\n")).toContain("no LLM provider configured");
+  });
 });
