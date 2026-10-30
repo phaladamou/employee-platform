@@ -524,7 +524,7 @@ export function AppSidebar() {
 
       {/* Footer */}
       <SidebarFooter className="relative z-10 border-t border-black/5 px-2 pb-3 pt-2">
-        <SidebarMenu className="mb-1 gap-1">
+        <SidebarMenu className="gap-1">
           <SidebarMenuItem>
             <SidebarMenuButton
               className={cn(
