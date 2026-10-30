@@ -181,9 +181,13 @@ each choice costs. Numbered ADRs; newest last.
   the core stays TypeScript; Rust covers two modules, nothing more.
 - **Consequences.** Interop is proven, not assumed: the wrapper test
   cross-verifies signatures against Node `crypto` in both directions
-  (byte-identical). The built `.wasm` is committed (`rust/dist/`) so
-  tests run without a Rust toolchain; `rust/build.sh` rebuilds it.
-  `sandbox` is library-only for now (no CLI binary).
+  (byte-identical). The built `.wasm` is committed
+  (`core/employee/wasm/dist/`) so tests run without a Rust toolchain;
+  `rust/build.sh` rebuilds it. Mission proofs sign/verify through the
+  WASM module first, with a Node fallback on any load failure (same
+  bytes either way — Ed25519 is deterministic). The sandbox ships an
+  `emp-sandbox` binary bridged from `run_shell` (`EMPLOYEE_SANDBOX_BIN`;
+  ENOENT-only fallback, everything else fails closed).
 
 ## ADR-011 — Docker image for isolated execution
 
@@ -224,3 +228,21 @@ each choice costs. Numbered ADRs; newest last.
 - **Consequences.** Anyone can verify an installer against the Sigstore
   transparency log with the repo identity. The workflow needs no new
   secrets; revocation is the platform's (Fulcio/Rekor), not ours.
+
+## ADR-013 — Honest refusals suspend judgment (refusal admissions)
+
+- **Context.** A live run showed the mirror of ADR-009: a researcher
+  asked for a shell command declined honestly in Final ("Mission not
+  executed… No file was created") without attempting anything — and the
+  job was marked `succeeded`, its status contradicting its own report.
+- **Decision.** A second fail-soft signal in `missions/mission-claims.ts`:
+  explicit non-completion admissions (strict FR+EN patterns bound to
+  completion verbs — "could not write" counts, "could not find" does
+  not) route the mission to `needs_review`, never auto-`failed`.
+- **Rejected.** (a) Trusting honest text as success — the report would
+  say "not done" while the status says "done". (b) Auto-`failed` —
+  the human reviewer may legitimately accept a correct decline (retry
+  with other means) or confirm failure; the verdict is theirs.
+- **Consequences.** `needs_review` has four documented triggers
+  (ERROR_HANDLING.md). Same known limit as ADR-009: unusual phrasing
+  bypasses the patterns (false negatives, never false failures).

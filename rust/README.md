@@ -10,31 +10,39 @@ and audited crypto matter most (ADR-010).
 rust/
 ├── Cargo.toml          # crate employee-native (cdylib + rlib)
 ├── Cargo.lock          # pinned deps (reproducible builds)
-├── build.sh            # -> dist/employee_native.wasm (committed)
-├── dist/               # built WASM (tests run without a toolchain)
+├── build.sh            # -> core/employee/wasm/dist/*.wasm (committed)
 ├── src/
 │   ├── lib.rs          # modules + cfg gates
 │   ├── crypto.rs       # Ed25519 keygen/sign/verify (WASM + native)
 │   ├── sandbox.rs      # strict subprocess sandbox (NATIVE ONLY)
-│   └── wasm_api.rs     # minimal C ABI (alloc/free + ed_*)
-└── ts/
-    ├── wrapper.ts      # Node loader + typed Ed25519 API
-    └── wrapper.test.ts # interop: Rust <-> Node byte-identical
+│   ├── wasm_api.rs     # minimal C ABI (alloc/free + ed_*)
+│   └── bin/
+│       └── emp-sandbox.rs  # strict shell runner, JSON report
+../core/employee/wasm/
+├── wrapper.ts          # Node loader + typed Ed25519 API (sync + async)
+├── wrapper.test.ts     # interop: Rust <-> Node byte-identical
+└── dist/               # built WASM (tests run without a toolchain)
 ```
 
 ## Why the split
 
 - `crypto` is pure bytes-in/bytes-out: it compiles to
   `wasm32-unknown-unknown` with no OS dependencies (entropy comes from
-  the host seed).
+  the host seed). Mission proofs sign/verify through it first, with a
+  Node fallback (same bytes — Ed25519 is deterministic).
 - `sandbox` spawns real processes: impossible in WASM by construction,
-  so it is `#[cfg(not(target_arch = "wasm32"))]`. Use it from native
-  hosts or from inside the Docker image's future hardening.
+  so it is `#[cfg(not(target_arch = "wasm32"))]`. The `emp-sandbox`
+  binary exposes it over a JSON protocol; `run_shell` bridges to it
+  when `EMPLOYEE_SANDBOX_BIN` is set (ENOENT-only fallback, everything
+  else fails closed).
 
 ## Commands
 
 ```bash
-cargo test                                   # 11 tests, native
-cargo build --release --target wasm32-unknown-unknown
-./build.sh                                   # rebuild + refresh dist/
+cargo test --locked                        # 15 tests (lib + binary)
+cargo build --locked --release --target wasm32-unknown-unknown
+./build.sh                                 # rebuild + refresh dist/
+cargo build --locked --release --bin emp-sandbox   # strict backend
+./target/release/emp-sandbox --timeout-ms 5000 --max-output-bytes 200000 \
+  --work-dir /tmp -- /bin/echo hello
 ```

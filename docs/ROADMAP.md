@@ -17,7 +17,7 @@ to the doc or ADR that defines "done".
 | Completion proofs | Finished work carries a forgery-resistant receipt | Ed25519 proofs (ADR-002), T4 tamper test |
 | Verified success | `succeeded` means the goal was checked, not claimed | Acceptance checks, `needs_review` (ADR-007), T3a/b/c |
 
-Net: **43 test files, 330 tests + 11 Rust tests green, `tsc` clean**, live-verified against
+Net: **43 test files, 344 tests + 15 Rust tests green, `tsc` clean**, live-verified against
 Meta Muse. The engine runs standalone (API + N workers, zero external
 services besides the LLM provider).
 

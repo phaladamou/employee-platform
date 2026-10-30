@@ -181,3 +181,26 @@ Notes:
 - `emp recover` / `keys revoke` work unchanged — run them in a
   throwaway container on the same volumes, e.g.
   `docker run --rm -v emp-data:/data … employee-core recover`.
+
+## 8. Strict shell backend — `EMPLOYEE_SANDBOX_BIN`
+
+By default `run_shell` uses Node `exec` (timeouts + output caps, no
+rlimits). Point it at a built `emp-sandbox` for the strict backend
+(process-group kills, Unix RLIMIT_CPU/FSIZE, fail-closed errors):
+
+```bash
+cd rust && cargo build --locked --release --bin emp-sandbox
+export EMPLOYEE_SANDBOX_BIN=/workspaces/employee-platform/rust/target/release/emp-sandbox
+emp serve --port 8000   # run_shell now executes through emp-sandbox
+```
+
+Rules:
+
+- Unset or missing binary → silent fallback to Node `exec` (same
+  messages, same contract — check the path is right if you expected
+  the strict backend).
+- Any other sandbox anomaly (bad report, hung bridge, exit 2) fails
+  the tool call — never a silent downgrade.
+- Ed25519 proofs need no configuration: the WASM module ships inside
+  `core/employee/wasm/dist/` and loads automatically, with a Node
+  fallback if the file is missing or corrupt.

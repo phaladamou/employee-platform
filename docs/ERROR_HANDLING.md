@@ -50,7 +50,7 @@ claimed → queued            (stale lease recovered, runs again)
 |---|---|---|
 | `succeeded` | FINAL received **and** the goal is established: acceptance criteria verified, or no criteria with a clean run (no suspicion signal — this is trust, not proof) | Nobody — read the report |
 | `failed` | Goal established as **not met**: loop error (LLM failure, steps exhausted) or a declared criterion unmet (e.g. file missing) | Fix the cause, resubmit |
-| `needs_review` | FINAL received but success **not established**: (a) reached for unavailable tools with nothing done, (b) every tool call failed, (c) the report claims concrete effects (file, message, command) no successful call supports | A human reads the report and accepts, rejects, or resubmits with criteria |
+| `needs_review` | FINAL received but success **not established**: (a) reached for unavailable tools with nothing done, (b) every tool call failed, (c) the report claims concrete effects (file, message, command) no successful call supports, (d) the report admits the goal was not accomplished ("Mission not executed", "could not write…") | A human reads the report and accepts, rejects, or resubmits with criteria |
 | `cancelled` | `POST /v1/jobs/:id/cancel` confirmed by the worker | Nobody |
 
 Example — distinguishing the three non-success outcomes:

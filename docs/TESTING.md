@@ -16,10 +16,12 @@ adversarial cases, and honest coverage notes.
 | Adversarial | `cli/adversarial.test.ts` + `missions/*.test.ts` | Forged proofs, cross-tenant access, lying employees (see §4) |
 | E2E (scripted) | `cli/e2e.test.ts` | Hire → submit → worker → status through the real CLI + server |
 | E2E (live LLM) | Manual T1–T4 runs (Muse) | The full loop works against a real provider |
-| Native (Rust) | `cargo test` in `rust/` | Ed25519 roundtrip/tamper, sandbox timeout/overflow/env |
-| WASM interop | `rust/ts/wrapper.test.ts` | Rust↔Node signatures byte-identical both directions |
+| Native (Rust) | `cargo test` in `rust/` | Ed25519 roundtrip/tamper, sandbox timeout/overflow/grandchild/env, CLI parsing |
+| WASM interop | `core/employee/wasm/wrapper.test.ts` | Rust↔Node signatures byte-identical both directions |
+| Crypto backend | `missions/mission-proof.test.ts` | WASM-first proofs, Node fallback (missing/corrupt module) |
+| Shell bridge | `tools/run-shell.test.ts` | Fake-binary protocol tests, ENOENT-only fallback, fail-closed errors |
 
-Current state: **43 files, 330 tests, all green** (Vitest) **+ 11 Rust tests** (`cargo test`).
+Current state: **43 files, 344 tests, all green** (Vitest) **+ 15 Rust tests** (`cargo test --locked`).
 
 ## 2. Commands
 
@@ -36,9 +38,11 @@ cd core/employee && ../../node_modules/.bin/vitest run missions/mission-proof.te
 # Type gate — must be clean before any commit
 ./node_modules/.bin/tsc --noEmit --incremental false
 
-# Rust security modules (crypto + sandbox)
-cd rust && cargo test            # 11 tests: roundtrips, tamper, timeout/overflow kills
-./rust/build.sh                  # rebuild rust/dist/employee_native.wasm (committed)
+# Rust security modules (crypto + sandbox + emp-sandbox CLI)
+cd rust && cargo test --locked   # 15 tests: roundtrips, tamper, timeout/overflow/
+                                 # grandchild kills, CLI parsing, JSON shape
+./rust/build.sh                  # rebuild core/employee/wasm/dist/*.wasm (committed)
+cargo build --locked --release --bin emp-sandbox  # strict shell backend
 ```
 
 There is no separate `test:adversarial` script: adversarial tests are regular
@@ -98,6 +102,10 @@ Each case below is a committed regression test, not a one-off script:
   tool call returning `ok:false` before FINAL yields `needs_review` even
   when the Final honestly reports the failure — the goal is not
   established either way.
+- **Honest refusal** (`missions/mission-claims.test.ts`,
+  `runtime/employee-runtime.test.ts`, E2E T5c): a Final admitting the
+  goal was missed ("Mission not executed", "could not write…") suspends
+  judgment instead of being blessed `succeeded` (found on a live run).
 - **Stale-worker theft** (`jobs/file-job-store.test.ts`): a job claimed by a
   dead worker (expired heartbeat lease) is recovered to `queued` exactly
   once; a live worker's claim cannot be stolen early.
