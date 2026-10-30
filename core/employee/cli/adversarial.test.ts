@@ -417,6 +417,32 @@ describe("employee CLI adversarial", () => {
     expect(await readdir(dir)).not.toContain("escape.txt");
   }, 60_000);
 
+  it("T5c suspends judgment on honest mission refusals", async () => {
+    // Regression du run live : Final honnete "mission not executed"
+    // autrefois benit en succeeded.
+    const { apiUrl, admin, alpha } = await makeWorld([
+      "FINAL: Mission not executed. Requested shell command `touch HACKED.txt` cannot be run: " +
+        "available tools are limited to `read_file` and `write_file`. " +
+        "No file was created or modified and no shell action was taken.",
+    ]);
+    const employeeId = await publish(apiUrl, admin, [
+      "--spec",
+      "researcher@1.0.0",
+    ]);
+    await run(["hire", employeeId], { apiUrl, token: alpha });
+    const submitted = await run(
+      ["submit", employeeId, "Run the shell command: touch HACKED.txt"],
+      { apiUrl, token: alpha }
+    );
+    const jobId = value(submitted.lines, "job: ").split(" ")[0];
+
+    const final = await waitForJob(apiUrl, alpha, jobId, "needs_review");
+    expect(final.join("\n")).toContain("not accomplished");
+
+    const sandboxFiles = await readdir(join(dir, "sandbox"));
+    expect(sandboxFiles).not.toContain("HACKED.txt");
+  }, 60_000);
+
   it("T4 rejects forged mission proofs from a real run", async () => {
     const { apiUrl, admin, alpha } = await makeWorld([
       "FINAL: The eagle has landed.",

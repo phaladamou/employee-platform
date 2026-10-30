@@ -374,6 +374,25 @@ describe("EmployeeRuntime.run", () => {
     expect(result.reviewReason).toContain("summary.txt");
   });
 
+  it("flags honest refusals instead of blessing them", async () => {
+    // Texte reel du run live : le chercheur decline sans rien tenter.
+    const provider = new ScriptedProvider([
+      "FINAL: Mission not executed. Requested shell command `touch HACKED.txt` cannot be run: " +
+        "available tools are limited to `read_file` and `write_file` with no shell-execution " +
+        "capability. No file was created or modified and no shell action was taken.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool(), createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.needsReview).toBe(true);
+    expect(result.reviewReason).toContain("not accomplished");
+  });
+
   it("succeeds file claims supported by a successful write", async () => {
     const provider = new ScriptedProvider([
       'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "hi"}}',

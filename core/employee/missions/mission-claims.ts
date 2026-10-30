@@ -190,6 +190,109 @@ function excerptOf(match: string): string {
 }
 
 /**
+ * Aveu explicite de non-accomplissement : le Final declare que le but
+ * n'est PAS atteint ("Mission not executed", "could not write...").
+ * Miroir des affirmations de succes : ici le modele est honnete, mais
+ * le statut ne doit pas benir un but manque. Meme fail-soft :
+ * doute (needs_review), jamais echec auto.
+ *
+ * Frontiere assumee : seuls les verbes d'achevement comptent
+ * ("could not FIND", "impossible to OVERSTATE" ne matchent pas), et
+ * "cannot EXECUTE" seul ne suffit pas (decrire une incapacite
+ * generale n'est pas avouer un but manque).
+ */
+export interface RefusalAdmission {
+  readonly excerpt: string;
+}
+
+const REFUSAL_PATTERNS: ReadonlyArray<RegExp> = [
+  // Mission/task explicitement non executee.
+  new RegExp(
+    String.raw`\b(mission|task)\s+(was\s+|has\s+been\s+)?not\s+(executed|completed|finished|done)\b`,
+    "imu"
+  ),
+  // "could not / couldn't" + verbe d'achevement (pas "find", "see"...).
+  new RegExp(
+    String.raw`\b(could\s+not|couldn['’]t)\s+(complete|finish|execute|run|create|write|send|proceed|perform|do\s+it)\b`,
+    "imu"
+  ),
+  // "unable to" + verbe d'achevement.
+  new RegExp(
+    String.raw`\bunable\s+to\s+(complete|finish|execute|run|create|write|send|proceed|perform)\b`,
+    "imu"
+  ),
+  // "cannot be run/executed..." (passif, but porte sur la tache).
+  new RegExp(
+    String.raw`\bcannot\s+be\s+(run|executed|completed|finished|done)\b`,
+    "imu"
+  ),
+  // "cannot complete/finish..." (actif, but porte sur la tache).
+  new RegExp(String.raw`\bcannot\s+(complete|finish)\b`, "imu"),
+  // "No <chose> was created/completed..." (passif sans agent).
+  new RegExp(
+    String.raw`\bno\s+\w+\s+was\s+(created|completed|executed|modified|sent|done)\b`,
+    "imu"
+  ),
+  new RegExp(
+    String.raw`\bno\s+\w+\s+were\s+(created|completed|executed|modified|sent|done)\b`,
+    "imu"
+  ),
+  // Passif negatif explicite.
+  new RegExp(
+    String.raw`\b(was\s+not|were\s+not|has\s+not\s+been|have\s+not\s+been)\s+(completed|executed|finished|created|sent)\b`,
+    "imu"
+  ),
+  // Echec nomme.
+  new RegExp(String.raw`\b(i\s+failed\s+to|mission\s+failed|task\s+failed)\b`, "imu"),
+  // "did not" + verbe d'achevement.
+  new RegExp(
+    String.raw`\bdid\s+not\s+(complete|finish|execute|run|create|send|manage\s+to)\b`,
+    "imu"
+  ),
+  // "impossible to" + achevement (pas "overstate"...).
+  new RegExp(
+    String.raw`\bimpossible\s+to\s+(complete|finish|execute|carry\s+out)\b`,
+    "imu"
+  ),
+  // --- Francais ---
+  new RegExp(
+    String.raw`\b(mission|tâche)\s+non\s+(exécutée?|terminée?|accomplie?|réalisée?|faite)\b`,
+    "imu"
+  ),
+  new RegExp(
+    String.raw`\bn['’]ai\s+pas\s+pu\s+(terminer|finir|exécuter|accomplir|créer|envoyer|le\s+faire)\b`,
+    "imu"
+  ),
+  new RegExp(
+    String.raw`\bn['’]a\s+pas\s+été\s+(exécuté|terminé|accompli|créé|envoyé|réalisé|fait)e?s?(?![\p{L}])`,
+    "imu"
+  ),
+  new RegExp(
+    String.raw`\bimpossible\s+de\s+(terminer|finir|exécuter|accomplir|réaliser)\b`,
+    "imu"
+  ),
+  new RegExp(
+    String.raw`\baucun\s+fichier\s+n['’]a\s+été\s+(créé|modifié|écrit)(?![\p{L}])`,
+    "imu"
+  ),
+  new RegExp(String.raw`\bnon\s+exécuté(?![\p{L}])`, "imu"),
+];
+
+/**
+ * Premier aveu de non-accomplissement du rapport, ou null.
+ * Deterministe (ordre des motifs). L'appelant decide du verdict.
+ */
+export function detectRefusalAdmission(reportContent: string): RefusalAdmission | null {
+  for (const pattern of REFUSAL_PATTERNS) {
+    const match = pattern.exec(reportContent);
+    if (match) {
+      return { excerpt: excerptOf(match[0]) };
+    }
+  }
+  return null;
+}
+
+/**
  * Affirmations d'effets du rapport qu'aucun appel reussi n'etaye.
  * `successfulTools` : noms d'outils avec >= 1 appel ok pendant le run.
  * Au plus une affirmation par categorie (la premiere), deterministe.

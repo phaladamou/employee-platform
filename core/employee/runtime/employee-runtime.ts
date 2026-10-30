@@ -16,6 +16,7 @@ import {
 import { verifyAcceptance } from "../missions/mission-acceptance";
 import {
   CLAIM_SUPPORT_LABEL,
+  detectRefusalAdmission,
   detectUnsupportedClaims,
 } from "../missions/mission-claims";
 import type { ProfileRegistry } from "../profiles/profile-registry";
@@ -46,10 +47,10 @@ export interface EmployeeRunResult {
   readonly cancelled: boolean;
   /**
    * Vrai si le Final est suspect : outils hors profil tentes sans
-   * aucun appel reussi, tous les appels en echec, ou affirmations
-   * d'effets non etayees (voir mission-claims). Mission en
-   * needs_review, rapport preserve pour le relecteur humain,
-   * `reviewReason` explique pourquoi.
+   * aucun appel reussi, tous les appels en echec, affirmations
+   * d'effets non etayees, ou aveu de non-accomplissement (voir
+   * mission-claims). Mission en needs_review, rapport preserve pour
+   * le relecteur humain, `reviewReason` explique pourquoi.
    */
   readonly needsReview: boolean;
   readonly reviewReason: string | null;
@@ -353,6 +354,29 @@ export class EmployeeRuntime {
       const reason =
         `report claims ${claim.category} effects with no supporting ` +
         `${CLAIM_SUPPORT_LABEL[claim.category]}: "${claim.excerpt}"`;
+      await this.persistMemory(profile, flagged);
+
+      return {
+        profile: setEmployeeStatus(working, "idle"),
+        mission: flagged,
+        report: flagged.report,
+        error: null,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
+        cancelled: false,
+        needsReview: true,
+        reviewReason: reason,
+      };
+    }
+
+    // 5. Sans criteres : le Final avoue-t-il que le but n'est pas
+    //    atteint ("Mission not executed", "could not write...") ? Un
+    //    refus honnete reste un but manque : revue, pas succes.
+    const refusal = detectRefusalAdmission(loop.reportContent);
+    if (refusal !== null) {
+      const flagged = flagMissionForReview(running, report);
+      const reason =
+        `report admits the goal was not accomplished: "${refusal.excerpt}"`;
       await this.persistMemory(profile, flagged);
 
       return {

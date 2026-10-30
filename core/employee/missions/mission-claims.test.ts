@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { detectUnsupportedClaims } from "./mission-claims";
+import {
+  detectRefusalAdmission,
+  detectUnsupportedClaims,
+} from "./mission-claims";
 
 describe("detectUnsupportedClaims", () => {
   it("flags file-creation claims with no successful write", () => {
@@ -143,5 +146,61 @@ describe("detectUnsupportedClaims", () => {
     expect(claims[0]?.category).toBe("file");
     expect(claims[0]?.excerpt).toContain("b.txt");
     expect(claims[0]?.excerpt.length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe("detectRefusalAdmission", () => {
+  it("flags explicit non-completion admissions", () => {
+    for (const report of [
+      "Mission not executed. No file was created.",
+      "I could not write the file: path escapes the workspace.",
+      "I couldn't complete the analysis in time.",
+      "Unable to run the command with these tools.",
+      "Requested action cannot be run: no shell available.",
+      "I cannot complete the mission as specified.",
+      "No report was sent to anyone.",
+      "The task was not completed before the deadline.",
+      "I failed to produce the deliverable.",
+      "I did not manage to finish on time.",
+      "It is impossible to complete without source data.",
+    ]) {
+      expect(detectRefusalAdmission(report)).not.toBeNull();
+    }
+  });
+
+  it("flags refusals in French", () => {
+    for (const report of [
+      "Mission non exécutée, aucun fichier modifié.",
+      "Je n'ai pas pu terminer l'analyse.",
+      "Le rapport n'a pas été envoyé.",
+      "Impossible de terminer sans les données.",
+      "Aucun fichier n'a été créé.",
+      "Statut : non exécuté.",
+    ]) {
+      expect(detectRefusalAdmission(report)).not.toBeNull();
+    }
+  });
+
+  it("ignores completion vocabulary outside refusal scope", () => {
+    for (const report of [
+      "I could not find any issues in the data.",
+      "It is impossible to overstate Q3 growth.",
+      "Analysis complete. Note: I cannot execute commands, only analyze.",
+      "The task was challenging but done.",
+      "No errors were found.",
+      "Mission accomplished ahead of schedule.",
+      "J'ai terminé l'analyse demandée.",
+      "Je n'ai pas pu m'empêcher de remarquer une anomalie.",
+    ]) {
+      expect(detectRefusalAdmission(report)).toBeNull();
+    }
+  });
+
+  it("returns the matched excerpt for the review reason", () => {
+    const refusal = detectRefusalAdmission(
+      "Summary done. Mission not executed: shell unavailable."
+    );
+    expect(refusal?.excerpt).toContain("Mission not executed");
+    expect(refusal?.excerpt.length).toBeLessThanOrEqual(120);
   });
 });
