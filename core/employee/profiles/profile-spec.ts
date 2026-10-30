@@ -3,6 +3,16 @@ export type ToolPermission = "fs:read" | "fs:write" | "shell:exec";
 export const MAX_PROFILE_STEPS = 100;
 
 /**
+ * Specialisation liee a un Employee : nom + version EXACTE, poses a
+ * l'embauche, jamais modifies ensuite (la migration cree un nouveau
+ * profil). Le runtime ne resout jamais "latest" pour un employe lie.
+ */
+export interface EmployeeSpecialization {
+  readonly name: string;
+  readonly version: string;
+}
+
+/**
  * Specialisation versionnee d'un Employee, DECLARATIVE : role, prompt
  * systeme, outils souhaites et permissions revendiquees. Le profil ne
  * s'octroie rien lui-meme : c'est le runtime qui valide chaque
@@ -24,6 +34,23 @@ const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+export function isEmployeeSpecialization(
+  value: unknown
+): value is EmployeeSpecialization {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const ref = value as Record<string, unknown>;
+
+  return (
+    typeof ref.name === "string" &&
+    NAME_PATTERN.test(ref.name) &&
+    typeof ref.version === "string" &&
+    VERSION_PATTERN.test(ref.version)
+  );
 }
 
 export function isEmployeeProfileSpec(

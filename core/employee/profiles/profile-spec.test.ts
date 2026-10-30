@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   isEmployeeProfileSpec,
+  isEmployeeSpecialization,
   MAX_PROFILE_STEPS,
   type EmployeeProfileSpec,
 } from "./profile-spec";
@@ -59,5 +60,20 @@ describe("isEmployeeProfileSpec", () => {
     expect(isEmployeeProfileSpec(null)).toBe(false);
     expect(isEmployeeProfileSpec("data-analyst")).toBe(false);
     expect(isEmployeeProfileSpec([])).toBe(false);
+  });
+});
+
+describe("isEmployeeSpecialization", () => {
+  it("accepts exact name@version bindings only", () => {
+    expect(
+      isEmployeeSpecialization({ name: "data-analyst", version: "1.0.0" })
+    ).toBe(true);
+    expect(
+      isEmployeeSpecialization({ name: "data-analyst", version: "latest" })
+    ).toBe(false);
+    expect(isEmployeeSpecialization({ name: "Data Analyst", version: "1.0.0" })).toBe(
+      false
+    );
+    expect(isEmployeeSpecialization(null)).toBe(false);
   });
 });
