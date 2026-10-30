@@ -165,6 +165,30 @@ describe("FileJobStore", () => {
     expect(await store.listByEmployer("acme", ["failed"])).toEqual([]);
   });
 
+  it("claimNext takes the oldest queued job across tenants", async () => {
+    const store = await makeStore();
+    const old = createEmployeeJob({
+      id: "job_old",
+      missionId: "mis_old",
+      employeeId: "emp_1",
+      employerId: "globex",
+      now: new Date("2026-01-01T00:00:00.000Z"),
+    });
+    const recent = createEmployeeJob({
+      id: "job_recent",
+      missionId: "mis_recent",
+      employeeId: "emp_1",
+      employerId: "acme",
+      now: new Date("2026-02-01T00:00:00.000Z"),
+    });
+    await store.enqueue(recent);
+    await store.enqueue(old);
+
+    expect((await store.claimNext("worker-1"))?.id).toBe("job_old");
+    expect((await store.claimNext("worker-2"))?.id).toBe("job_recent");
+    expect(await store.claimNext("worker-3")).toBeNull();
+  });
+
   it("quarantines corrupt job files", async () => {
     const store = await makeStore();
     await writeFile(join(dir, "job_job_1.json"), "{oops", "utf8");

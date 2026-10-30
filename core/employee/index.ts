@@ -121,7 +121,11 @@ export {
 } from "./sdk/http-client";
 export { InProcessEmployeeClient } from "./sdk/in-process-client";
 export { InProcessEmployeeCreator } from "./sdk/in-process-creator";
-export { runJobOnce, type JobWorkerDeps } from "./sdk/job-worker";
+export {
+  runClaimedJob,
+  runJobOnce,
+  type JobWorkerDeps,
+} from "./sdk/job-worker";
 export {
   hirePath,
   jobCancelPath,
@@ -133,6 +137,14 @@ export {
   type ApiErrorBody,
   type JobEvent,
 } from "./sdk/rest-contract";
+export {
+  createEmployeeHandler,
+  type EmployeeHttpRequest,
+  type EmployeeHttpResponse,
+  type EmployeeServerDeps,
+} from "./server/employee-server";
+export { serveEmployeeApi } from "./server/node-adapter";
+export { startWorkerLoop, type WorkerLoopOptions } from "./server/worker-loop";
 export {
   DEFAULT_MEMORY_DIR,
   FileMemoryStore,

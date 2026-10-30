@@ -25,22 +25,26 @@ export interface JobWorkerDeps {
 }
 
 /**
- * Execute un job de bout en bout : claim atomique, run du runtime
- * avec signal d'annulation scrutant le store, puis cloture (succes /
- * echec / annulation confirmee). Retourne null si le job n'est pas
- * claimable (pris, annule, inconnu) : le worker passe au suivant.
- * Partage par le worker in-process, le serveur REST et la CLI.
+ * Execute un job DEJA claimé par workerId : run du runtime avec
+ * signal d'annulation scrutant le store, puis cloture (succes / echec
+ * / annulation confirmee). Le job doit etre running et verrouille par
+ * workerId, sinon leve.
  */
-export async function runJobOnce(
+export async function runClaimedJob(
   deps: JobWorkerDeps,
-  jobId: string,
+  job: EmployeeJob,
   workerId: string
-): Promise<EmployeeJob | null> {
-  const claimed = await deps.jobs.claim(jobId, workerId);
-  if (!claimed) {
-    return null;
+): Promise<EmployeeJob> {
+  if (job.status !== "running" && job.status !== "cancellation_requested") {
+    throw new Error(
+      `Job ${job.id} is not running (status "${job.status}")`
+    );
+  }
+  if (job.lockOwner !== workerId) {
+    throw new Error(`Job ${job.id} is locked by another worker`);
   }
 
+  const claimed = job;
   const mission = await deps.missions.load(claimed.missionId);
   if (!mission) {
     return deps.jobs.markFailed(
@@ -112,4 +116,21 @@ export async function runJobOnce(
     }
     return deps.jobs.markFailed(claimed.id, workerId, message);
   }
+}
+
+/**
+ * Execute un job de bout en bout : claim atomique puis runClaimedJob.
+ * Retourne null si le job n'est pas claimable (pris, annule, inconnu).
+ * Partage par le worker in-process, le serveur REST et la CLI.
+ */
+export async function runJobOnce(
+  deps: JobWorkerDeps,
+  jobId: string,
+  workerId: string
+): Promise<EmployeeJob | null> {
+  const claimed = await deps.jobs.claim(jobId, workerId);
+  if (!claimed) {
+    return null;
+  }
+  return runClaimedJob(deps, claimed, workerId);
 }

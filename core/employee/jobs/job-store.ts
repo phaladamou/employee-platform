@@ -27,6 +27,14 @@ export interface JobStore {
   /** Prochain job queued du tenant (ordre de creation), sans le locker. */
   nextQueued(employerId: string): Promise<EmployeeJob | null>;
 
+  /**
+   * Claim du plus ancien job queued TOUS tenants (infra worker
+   * uniquement, jamais expose tel quel aux clients). Balaye par ordre
+   * de creation et claim le premier disponible (saute les jobs pris
+   * entre-temps par un worker concurrent). Null si la file est vide.
+   */
+  claimNext(workerId: string, now?: Date): Promise<EmployeeJob | null>;
+
   /** Lecture brute (worker interne). */
   load(jobId: string): Promise<EmployeeJob | null>;
 

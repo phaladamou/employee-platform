@@ -69,9 +69,11 @@ describe("employee module purity", () => {
   });
 
   it("reads process.env only in the CLI entry point", () => {
+    // Le code livre uniquement : les tests configurent leur sandbox
+    // (ex. bypass proxy) sans etre embarques dans le module.
     const violations = files
       .filter((file) => !file.endsWith("cli.ts"))
-      .filter((file) => !file.endsWith("purity.test.ts"))
+      .filter((file) => !file.endsWith(".test.ts"))
       .filter((file) => readFileSync(file, "utf8").includes("process.env"));
 
     expect(violations).toEqual([]);

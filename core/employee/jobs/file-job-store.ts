@@ -263,6 +263,53 @@ export class FileJobStore implements JobStore {
     return queued[0] ?? null;
   }
 
+  async claimNext(
+    workerId: string,
+    now: Date = new Date()
+  ): Promise<EmployeeJob | null> {
+    for (const candidate of await this.listQueuedOldestFirst()) {
+      const claimed = await this.claim(candidate.id, workerId, now);
+      if (claimed) {
+        return claimed;
+      }
+    }
+    return null;
+  }
+
+  private async listQueuedOldestFirst(): Promise<EmployeeJob[]> {
+    let names: string[];
+    try {
+      names = await readdir(this.directory);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return [];
+      }
+      throw error;
+    }
+
+    const queued: EmployeeJob[] = [];
+    for (const name of names) {
+      if (!name.startsWith("job_") || !name.endsWith(".json")) {
+        continue;
+      }
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(
+          await readFile(join(this.directory, name), "utf8")
+        ) as unknown;
+      } catch {
+        continue;
+      }
+      const job = parseJob(parsed);
+      if (job?.status === "queued") {
+        queued.push(job);
+      }
+    }
+
+    queued.sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return queued;
+  }
+
   async load(jobId: string): Promise<EmployeeJob | null> {
     return this.readJob(jobId);
   }
