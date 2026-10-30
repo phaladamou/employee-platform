@@ -4,39 +4,34 @@ dotenv.config({ path: ".env.local" });
 
 import { resolve } from "node:path";
 
-import { generateEmployeeIdentity } from "./identity/employee-id";
-import { createEmployeeProfile } from "./profile/employee-profile";
-import {
-  assignMission,
-  createEmployeeMission,
-} from "./missions/employee-mission";
-import { EmployeeMemory } from "./memory/employee-memory";
-import {
-  DEFAULT_MEMORY_DIR,
-  FileMemoryStore,
-} from "./memory/file-memory-store";
-import { EmployeeRuntime } from "./runtime/employee-runtime";
-import { DEFAULT_SANDBOX_DIR } from "./runtime/react-loop";
+import { runCommand, type CliContext } from "./cli/commands";
 import { FetchLLMProvider } from "./runtime/fetch-llm-provider";
 import type { EmployeeLLMProvider } from "./runtime/llm-provider";
 
 /**
- * Demonstration standalone du noyau Employee (sans l'application).
+ * CLI Employee : infrastructure de travailleurs async.
  * A executer depuis la racine du depot :
  *
- *   npx tsx core/employee/cli.ts "Relis briefing.txt et resume-le"
- *   npx tsx core/employee/cli.ts "Mission suivante" --id emp_<uuid>
+ *   node --experimental-transform-types .tmp/emp/cli.ts serve --port 8000
+ *   node --experimental-transform-types .tmp/emp/cli.ts keys issue --employer acme
+ *   node --experimental-transform-types .tmp/emp/cli.ts hire emp_xxx
+ *   node --experimental-transform-types .tmp/emp/cli.ts submit emp_xxx "Audit churn"
+ *   node --experimental-transform-types .tmp/emp/cli.ts status job_xxx
+ *   node --experimental-transform-types .tmp/emp/cli.ts events job_xxx
+ *   node --experimental-transform-types .tmp/emp/cli.ts 'run "<prompt>"'
  *
- * - Les outils travaillent dans .data/workspace (sandbox).
- * - La memoire est sauvegardee dans .data/memory/employee_<id>.json.
- * - Sans --id, une identite neuve est generee (historique vide).
- *   Reutilisez le meme --id pour que l'employe retrouve son passe.
+ * Seul point d'entree lisant process.env (garde de purete) : tout le
+ * reste du module recoit sa configuration injectee via CliContext.
  *
- * Fournisseur LLM via EMPLOYEE_PROVIDER dans .env.local :
- * - "deepseek" (defaut) : requiert DEEPSEEK_API_KEY (optionnels :
- *   DEEPSEEK_BASE_URL, DEEPSEEK_MODEL).
- * - "muse" (Meta Muse, API compatible OpenAI) : requiert MUSE_API_KEY
- *   (cle dev.meta.ai ; optionnels : MUSE_BASE_URL, MUSE_MODEL).
+ * Env :
+ * - EMPLOYEE_API_URL (defaut http://127.0.0.1:8000)
+ * - EMPLOYEE_TOKEN (cle emo_ pour hire/submit/status/...)
+ * - EMPLOYEE_DATA (defaut .data/employee)
+ * - EMPLOYEE_PROFILES (defaut core/employee/profiles)
+ * - EMPLOYEE_SANDBOX (defaut .data/workspace)
+ * - EMPLOYEE_PROVIDER : "deepseek" (defaut) | "muse"
+ *   - deepseek : DEEPSEEK_API_KEY (+ DEEPSEEK_BASE_URL, DEEPSEEK_MODEL)
+ *   - muse : MUSE_API_KEY (+ MUSE_BASE_URL, MUSE_MODEL)
  */
 function createLLMProvider(providerName: string): EmployeeLLMProvider {
   if (providerName === "deepseek") {
@@ -68,80 +63,51 @@ function createLLMProvider(providerName: string): EmployeeLLMProvider {
   );
 }
 
-async function main(): Promise<void> {
-  const rawArgs = process.argv.slice(2);
-  const idFlag = rawArgs.indexOf("--id");
-  let employeeId: string | null = null;
-
-  if (idFlag !== -1) {
-    employeeId = rawArgs[idFlag + 1] ?? null;
-    rawArgs.splice(idFlag, 2);
-  }
-
-  const prompt = rawArgs.join(" ").trim();
-
-  if (!prompt) {
-    throw new Error('Usage: tsx core/employee/cli.ts "<mission prompt>"');
-  }
-
-  const providerName = (
-    process.env.EMPLOYEE_PROVIDER ?? "deepseek"
-  ).toLowerCase();
-  const llmProvider = createLLMProvider(providerName);
-
-  const identity = employeeId ?? generateEmployeeIdentity().id;
-  const profile = createEmployeeProfile({
-    id: identity,
-    name: "Aria",
-    role: "Data Analyst",
-    skills: ["SQL", "forecasting"],
-  });
-
-  const mission = assignMission(
-    createEmployeeMission({ prompt }),
-    profile.id
-  );
-
-  const memory = new EmployeeMemory();
-  const memoryStore = new FileMemoryStore({
-    directory: resolve(DEFAULT_MEMORY_DIR),
-  });
+function buildContext(): CliContext {
   // Seule variable transmise au shell : le reste de l'environnement
   // (cles API...) ne doit jamais fuir vers les commandes de l'employe.
   const shellEnv: Record<string, string> = {};
-
   if (process.env.PATH) {
     shellEnv.PATH = process.env.PATH;
   }
   if (process.platform === "win32" && process.env.SystemRoot) {
     shellEnv.SystemRoot = process.env.SystemRoot;
   }
-  const runtime = new EmployeeRuntime(llmProvider, {
-      toolContext: { sandboxRoot: resolve(DEFAULT_SANDBOX_DIR), env: shellEnv },
-      memory,
-      memoryStore,
-    }
-  );
 
-  const result = await runtime.run(profile, mission);
-  const history = memory.history(profile.id);
+  const providerName = (
+    process.env.EMPLOYEE_PROVIDER ?? "deepseek"
+  ).toLowerCase();
 
-  console.log(`Employee: ${profile.name} (${profile.id})`);
-  console.log(`Status: ${result.profile.status}`);
-  console.log(`Mission: ${result.mission.status} (${result.steps} steps)`);
-  console.log(
-    `Tools: ${result.toolCalls.map((c) => `${c.tool}:${c.ok ? "ok" : "err"}`).join(", ") || "none"}`
-  );
-  console.log(`Memory: ${DEFAULT_MEMORY_DIR}/employee_${profile.id}.json`);
-  console.log(`History: ${history.length} mission(s)`);
-
-  if (result.report) {
-    console.log(`Report: ${result.report.summary}`);
+  // Le provider n'est requis que par serve/run : sa construction est
+  // paresseuse via try/catch pour laisser keys/status fonctionner sans.
+  let provider: EmployeeLLMProvider | undefined;
+  let providerError: string | undefined;
+  try {
+    provider = createLLMProvider(providerName);
+  } catch (error) {
+    provider = undefined;
+    providerError = error instanceof Error ? error.message : String(error);
   }
-  if (result.error) {
-    console.log(`Error: ${result.error}`);
-    process.exitCode = 1;
-  }
+
+  return {
+    dataDir: resolve(process.env.EMPLOYEE_DATA ?? ".data/employee"),
+    apiUrl: (process.env.EMPLOYEE_API_URL ?? "http://127.0.0.1:8000").replace(
+      /\/+$/,
+      ""
+    ),
+    token: process.env.EMPLOYEE_TOKEN,
+    profilesDir: resolve(process.env.EMPLOYEE_PROFILES ?? "core/employee/profiles"),
+    sandboxDir: resolve(process.env.EMPLOYEE_SANDBOX ?? ".data/workspace"),
+    provider,
+    providerError,
+    shellEnv,
+    output: (line: string) => console.log(line),
+  };
+}
+
+async function main(): Promise<void> {
+  const result = await runCommand(process.argv.slice(2), buildContext());
+  process.exitCode = result.exitCode;
 }
 
 main().catch((error: unknown) => {

@@ -314,6 +314,28 @@ Leçons dures :
   scopes employments:read/write, relation Employment (`hire_` :
   hire idempotent, terminate sans destruction) + file store.
   156 tests vitest.
+- Phase 3 B2 : memoire scopee `(employeeId, employerId)` — missions et
+  records tagues (legacy `null` lisible partout, documente), store
+  `employee_<id>/employer_<e>.json` + fallback legacy, injection LLM
+  filtree par scope (test cross-employer). 162 tests.
+- Phase 3 B3 : jobs `job_` + `FileJobStore` (claim atomique via `.lock`
+  `wx`, vol des verrous stale 60s, quarantaine), annulation cooperative
+  en deux temps (`cancellation_requested` -> `cancelled`, flag
+  `cancelled` distinct de `failed` dans boucle/runtime). 192 tests.
+- Phase 3 B4 : stores profils/missions + SDK scinde (`EmployeeClient`
+  lie au tenant, `EmployeeCreator` admin, in-process + HTTP/SSE avec
+  re-assemblage des chunks), `runJobOnce`/`runClaimedJob` partages,
+  contrat REST `sdk/rest-contract.ts`. 225 tests.
+- Phase 3 B5 : serveur REST pur + auth `emo_` + scopes (401 uniforme,
+  404 scope indistinguable, SSE avec heartbeat, 413 > 1 Mo),
+  adaptateur node:http, boucle worker (`claimNext` tous tenants,
+  arret gracieux). Tests HTTP reels (bypass proxy loopback via
+  no_proxy), garde purete restreinte au code livre. 238 tests.
+- Phase 3 B6 : CLI `serve/publish/hire/submit/status/cancel/events/
+  keys/run` (commands testables, `cli.ts` = env -> ctx, prompt nu
+  legacy), E2E maintenu `cli/e2e.test.ts` (cles -> publish lie ->
+  hire -> submit -> worker -> events -> revocation), README noyau.
+  Binaire via `.tmp/` + réécriture `.ts` + transform-types.
 
 ## 9. Conventions et environnement (rappel)
 
