@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "profiles": {
+    "data-analyst@1.0.0": "7e61df8e3cc49829d594e889ecf37a9615b8dfd43d991c5995d2f42b5486b23c",
+    "researcher@1.0.0": "507918317cbf6f84865090203e00b9846e31db7b9a96e15da03532cae4e31afe",
+    "software-engineer@1.0.0": "d926d0bd2af3172667971c06005bde739cec3c84e2dc54d4437d344685f0504a"
+  }
+}
