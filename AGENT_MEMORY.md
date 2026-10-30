@@ -358,6 +358,11 @@ Leçons dures :
   revocation preuves (rotation totale ou rien, keyId/CRL proposes).
   Theoriques : double-hold verrou (fenetre µs), wx sur NFS.
   280 tests (courses N-way, rotation, pinning, rejeu epingle).
+- Batterie adversarial CLI `cli/adversarial.test.ts` (T1-T4 E2E) :
+  mutation profil refusee (404 + ADN inchange), isolation alpha/beta
+  (CLI+HTTP+memoire), researcher sans shell (preuve disque), preuves
+  forgees rejetees sur run reel. Piege : flip base64url JAMAIS en
+  dernier caractere (bits de padding ignores). 284 tests.
 
 ## 9. Conventions et environnement (rappel)
 
