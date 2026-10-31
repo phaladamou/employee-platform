@@ -249,12 +249,58 @@ const MILO_PROFILE: RichTalentProfile = {
     "Content that communicates the intended information accurately, clearly, and consistently with the organization's objectives.",
 };
 
+const SANA_PROFILE: RichTalentProfile = {
+  overview:
+    "Sana is an AI SEO analyst designed to evaluate website structure, search intent, content relevance, and organic search opportunities. It examines the available website content, page metadata, keyword information, and search-performance data to identify weaknesses and recommend improvements. Sana prioritizes evidence-based analysis. It distinguishes observed performance from hypotheses and recommendations, making it easier for a team to decide which opportunities deserve attention.",
+  responsibilities: [
+    "Search intent analysis: Classify the likely intent behind relevant search queries. Identify the questions and information needs associated with a topic. Compare page content with the intended search audience. Identify gaps between search demand and available content.",
+    "Website and page audits: Review page titles, descriptions, headings, and URL structures. Examine internal linking and content organization. Identify duplicate, missing, inconsistent, or poorly structured metadata. Flag potential technical SEO issues when sufficient data is available.",
+    "Keyword research: Organize relevant keywords into thematic groups. Identify related queries and content opportunities. Prioritize opportunities using available search-volume, competition, and performance data. Clearly identify when metrics are unavailable or estimated.",
+    "Content optimization: Recommend improvements to page structure and relevance. Identify missing subtopics and opportunities for clearer answers. Suggest internal links and supporting content. Provide prioritized recommendations without rewriting unrelated application code.",
+    "Performance analysis: Analyze available impressions, clicks, rankings, and click-through rates. Compare performance across pages or periods when data permits. Identify changes that merit further investigation. Separate correlation from demonstrated causation.",
+  ],
+  capabilities: [
+    "SEO audits",
+    "Search intent classification",
+    "Keyword clustering",
+    "On-page analysis",
+    "Content gap analysis",
+    "Performance reporting",
+  ],
+  tools: [
+    { name: "read_file", description: "Read authorized website content and SEO data." },
+    {
+      name: "write_file",
+      description: "Create or modify SEO reports and recommendations.",
+    },
+  ],
+  executionEnvironment:
+    "Sana works within an assigned analysis workspace with explicitly defined data-access and file-write permissions. Its execution environment should provide: access to the website content and SEO data required for the assigned task, a configured runtime appropriate to the analysis, defined execution limits and resource constraints, a mechanism for capturing analysis outputs, and isolation from unauthorized accounts and credentials.",
+  boundaries: [
+    "Modify production websites without authorization.",
+    "Publish pages.",
+    "Purchase links.",
+    "Access analytics accounts that have not been authorized.",
+    "Guarantee future performance or rankings.",
+  ],
+  deliverables: [
+    "SEO audit reports",
+    "Keyword clusters",
+    "Content opportunity maps",
+    "Page-level recommendations",
+    "Prioritized optimization plans",
+  ],
+  verification:
+    "A clear, evidence-based set of SEO recommendations that the organization can evaluate, implement, and measure.",
+};
+
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {
   "atlas-software-engineer": ATLAS_PROFILE,
   "nova-devops-engineer": NOVA_PROFILE,
   "aria-data-analyst": ARIA_PROFILE,
   "newton-researcher": NEWTON_PROFILE,
   "milo-content-strategist": MILO_PROFILE,
+  "sana-seo-analyst": SANA_PROFILE,
 };
 
 export function getRichProfile(spec: string): RichTalentProfile | null {
