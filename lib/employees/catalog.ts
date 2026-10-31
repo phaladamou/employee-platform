@@ -39,6 +39,13 @@ export interface Employee {
 }
 
 // Profil recrutable tel qu'expose par GET /api/talents.
+// Les champs riches sont absents tant que le talent n'est pas enrichi
+// (l'UI retombe sur background / technologies / tools).
+export interface ToolDetail {
+  name: string;
+  description: string;
+}
+
 export interface TalentProfile {
   spec: string;
   version: string;
@@ -50,6 +57,14 @@ export interface TalentProfile {
   tools: string[];
   createdBy: string;
   hired?: boolean;
+  overview?: string;
+  responsibilities?: string[];
+  capabilities?: string[];
+  toolDetails?: ToolDetail[];
+  executionEnvironment?: string | string[];
+  boundaries?: string[];
+  deliverables?: string[];
+  verification?: string;
 }
 
 export const DEPARTMENTS: Department[] = [
@@ -111,6 +126,40 @@ export function isMissionStatus(value: unknown): value is MissionStatus {
 export function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");
+}
+
+export function asToolDetails(value: unknown): ToolDetail[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(
+      (item): item is Record<string, unknown> =>
+        typeof item === "object" && item !== null
+    )
+    .filter(
+      (item) =>
+        typeof item.name === "string" &&
+        typeof item.description === "string"
+    )
+    .map((item) => ({
+      name: item.name as string,
+      description: item.description as string,
+    }));
+}
+
+// Texte riche : prose (string) ou liste (string[]), sinon absent.
+export function asRichText(value: unknown): string | string[] | null {
+  if (typeof value === "string" && value.trim()) return value;
+  if (Array.isArray(value)) {
+    const items = asStringList(value);
+    return items.length > 0 ? items : null;
+  }
+  return null;
+}
+
+export function asOptionalStringList(value: unknown): string[] | undefined {
+  if (value === null || value === undefined) return undefined;
+  const items = asStringList(value);
+  return items.length > 0 ? items : undefined;
 }
 
 // Filtre du Talent Network : departement exact + recherche plein texte

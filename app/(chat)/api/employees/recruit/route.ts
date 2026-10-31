@@ -57,6 +57,8 @@ export async function POST(request: Request) {
         allowedTools: asStringList(talent.allowedTools),
         technologies: asStringList(talent.technologies),
         createdBy: talent.createdBy,
+        // La fiche d'embauche ne copie pas le contenu riche.
+        richProfile: null,
       },
     });
     if (!created) {

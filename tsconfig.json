@@ -46,6 +46,7 @@
     "lib/chat-draft.test.ts",
     "lib/employees/catalog.test.ts",
     "lib/employees/talents.test.ts",
+    "lib/employees/rich-profiles.test.ts",
     "lib/otp-email-template.test.ts",
     "lib/sidebar/nav-state.test.ts",
     "core/employee/**/*.test.ts",

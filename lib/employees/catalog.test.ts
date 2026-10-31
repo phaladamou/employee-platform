@@ -7,7 +7,10 @@ import assert from "node:assert/strict";
 
 import {
   DEPARTMENTS,
+  asOptionalStringList,
+  asRichText,
   asStringList,
+  asToolDetails,
   countByStatus,
   filterTalents,
   getEmployeesByDepartment,
@@ -118,6 +121,30 @@ describe("employee catalog", () => {
     assert.deepEqual(asStringList(["a", 1, null]), ["a"]);
     assert.deepEqual(asStringList(null), []);
     assert.deepEqual(asStringList("nope"), []);
+  });
+
+  it("coerces tool details", () => {
+    assert.deepEqual(
+      asToolDetails([{ name: "read_file", description: "Read" }]),
+      [{ name: "read_file", description: "Read" }]
+    );
+    assert.deepEqual(asToolDetails([{ name: "x" }]), []);
+    assert.deepEqual(asToolDetails("nope"), []);
+  });
+
+  it("coerces rich text (prose or list)", () => {
+    assert.equal(asRichText("prose"), "prose");
+    assert.deepEqual(asRichText(["a", "b"]), ["a", "b"]);
+    assert.equal(asRichText("  "), null);
+    assert.equal(asRichText([]), null);
+    assert.equal(asRichText(null), null);
+  });
+
+  it("coerces optional string lists", () => {
+    assert.equal(asOptionalStringList(null), undefined);
+    assert.equal(asOptionalStringList(undefined), undefined);
+    assert.equal(asOptionalStringList([]), undefined);
+    assert.deepEqual(asOptionalStringList(["a", 1]), ["a"]);
   });
 
   it("filters talents by department", () => {
