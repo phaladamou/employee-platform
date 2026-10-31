@@ -55,60 +55,33 @@ export function TalentDetailsPanel({
   const environment = talent.executionEnvironment;
 
   return (
-    <div className="flex min-h-full flex-col gap-8 p-10">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex min-w-0 items-center gap-4">
-          <div
-            aria-hidden="true"
-            className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted text-[16px] font-semibold text-foreground"
-          >
-            {getInitials(talent.name)}
-          </div>
-          <div className="min-w-0">
-            <h2 className="truncate text-[20px] font-semibold tracking-tight text-foreground">
-              {talent.name}
-            </h2>
-            <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-              {talent.role} · {departmentName}
-            </p>
-          </div>
-        </div>
-        <Button
-          className="shrink-0"
-          onClick={onClose}
-          size="icon-sm"
-          type="button"
-          variant="ghost"
-        >
-          <XIcon />
-          <span className="sr-only">Close</span>
-        </Button>
-      </div>
-
-      <div className="rounded-xl border border-border/60 bg-muted/40 p-5">
-        <p className="text-[13px] font-medium text-foreground">
-          {t("details.recruitTitle")}
-        </p>
-        {recruited ? (
-          <div className="mt-3 flex flex-col gap-2">
-            <p className="flex items-center gap-1.5 text-[12.5px] text-emerald-600">
-              <CheckIcon className="size-4" />
-              {t("card.recruited")}
-            </p>
-            <Button
-              onClick={onViewDepartment}
-              size="sm"
-              type="button"
-              variant="outline"
+    <div className="flex min-h-full flex-col gap-8 px-10 pb-10">
+      <div className="sticky top-0 z-10 -mx-10 border-b border-border/60 bg-card px-10 pt-10 pb-5">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
+            <div
+              aria-hidden="true"
+              className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted text-[16px] font-semibold text-foreground"
             >
-              {t("details.viewInDepartment")}
-            </Button>
+              {getInitials(talent.name)}
+            </div>
+            <div className="min-w-0">
+              <h2 className="truncate text-[20px] font-semibold tracking-tight text-foreground">
+                {talent.name}
+              </h2>
+              <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
+                {talent.role} · {departmentName}
+              </p>
+            </div>
           </div>
-        ) : (
-          <>
-            <div className="mt-3">
+          <div className="flex shrink-0 items-center gap-2">
+            {recruited ? (
+              <span className="inline-flex items-center gap-1.5 px-1 text-[12.5px] font-medium text-emerald-600">
+                <CheckIcon className="size-4" />
+                {t("card.recruited")}
+              </span>
+            ) : (
               <Button
-                className="w-full"
                 disabled={busy}
                 onClick={() => onRecruit(talent.spec)}
                 size="sm"
@@ -117,13 +90,37 @@ export function TalentDetailsPanel({
               >
                 {t("card.recruitAction")}
               </Button>
-            </div>
-            {error && (
-              <p className="mt-2 text-[12px] text-destructive">{error}</p>
             )}
-          </>
+            <Button
+              className="shrink-0"
+              onClick={onClose}
+              size="icon-sm"
+              type="button"
+              variant="ghost"
+            >
+              <XIcon />
+              <span className="sr-only">Close</span>
+            </Button>
+          </div>
+        </div>
+        {!recruited && error && (
+          <p className="mt-3 text-right text-[12px] text-destructive">
+            {error}
+          </p>
         )}
       </div>
+
+      {recruited && (
+        <Button
+          className="w-full"
+          onClick={onViewDepartment}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          {t("details.viewInDepartment")}
+        </Button>
+      )}
 
       <div>
         <SectionTitle>
