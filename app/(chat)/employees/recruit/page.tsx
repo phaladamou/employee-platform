@@ -68,7 +68,13 @@ function RecruitPageContent() {
     departmentFilter === "all" || departmentIds.includes(departmentFilter)
       ? departmentFilter
       : "all";
-  const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
+  const paramTalent = searchParams.get("talent");
+  const [selectedSpec, setSelectedSpec] = useState<string | null>(paramTalent);
+  // Meme page, URL differente (retour navigateur, lien partage) :
+  // le panneau suit le parametre.
+  useEffect(() => {
+    setSelectedSpec(paramTalent);
+  }, [paramTalent]);
   const [recruitedSpecs, setRecruitedSpecs] = useState<Set<string>>(new Set());
   const [busySpec, setBusySpec] = useState<string | null>(null);
   const [recruitError, setRecruitError] = useState<string | null>(null);
@@ -79,6 +85,31 @@ function RecruitPageContent() {
 
   const isRecruited = (talent: TalentProfile) =>
     talent.hired === true || recruitedSpecs.has(talent.spec);
+
+  const pushTalentParam = (spec: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (spec) {
+      params.set("talent", spec);
+    } else {
+      params.delete("talent");
+    }
+    const query = params.toString();
+    router.push(
+      query ? `/employees/recruit?${query}` : "/employees/recruit",
+      { scroll: false }
+    );
+  };
+
+  const openTalent = (spec: string) => {
+    setSelectedSpec(spec);
+    pushTalentParam(spec);
+  };
+
+  const closeTalent = () => {
+    setSelectedSpec(null);
+    setRecruitError(null);
+    pushTalentParam(null);
+  };
 
   const handleRecruit = async (spec: string) => {
     setBusySpec(spec);
@@ -222,7 +253,7 @@ function RecruitPageContent() {
                   )}
                   key={talent.spec}
                   onRecruit={handleRecruit}
-                  onSelect={setSelectedSpec}
+                  onSelect={openTalent}
                   recruited={isRecruited(talent)}
                   selected={selectedSpec === talent.spec}
                   talent={talent}
@@ -247,10 +278,7 @@ function RecruitPageContent() {
               selectedTalent.departmentId
             )}
             error={recruitError}
-            onClose={() => {
-              setSelectedSpec(null);
-              setRecruitError(null);
-            }}
+            onClose={closeTalent}
             onRecruit={handleRecruit}
             onViewDepartment={() => router.push("/employees")}
             recruited={isRecruited(selectedTalent)}
