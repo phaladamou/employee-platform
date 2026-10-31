@@ -204,11 +204,57 @@ const NEWTON_PROFILE: RichTalentProfile = {
     "A traceable and balanced answer to the research question, with conclusions proportionate to the available evidence.",
 };
 
+const MILO_PROFILE: RichTalentProfile = {
+  overview:
+    "Milo is an AI content strategist designed to plan, structure, and improve written content across technical products, documentation, knowledge bases, and organizational communications. It examines the intended audience, the purpose of a document, and the information available before developing a content structure or improving an existing draft. Milo prioritizes clarity, consistency, factual accuracy, and appropriate terminology. It aims to make complex information easier to understand without removing the technical details that matter.",
+  responsibilities: [
+    "Content planning: Organize content around defined objectives and audiences. Develop outlines, content briefs, and editorial structures. Identify missing information and unclear messaging. Recommend priorities for content creation and revision.",
+    "Documentation: Structure technical documentation and knowledge-base articles. Improve headings, navigation, terminology, and readability. Identify inconsistencies across related documents. Preserve technical meaning while simplifying explanations. Identify outdated information that requires verification.",
+    "Content development: Draft articles, product explanations, guides, and internal communications. Adapt tone and detail to the intended audience. Transform approved source material into structured content. Maintain consistent terminology across a defined collection of documents.",
+    "Quality assurance: Detect ambiguity, repetition, and structural weaknesses. Check claims against available source material. Distinguish established facts from assumptions. Flag unsupported claims and missing references. Review content against an explicit style guide when provided.",
+  ],
+  capabilities: [
+    "Content strategy",
+    "Technical writing",
+    "Documentation architecture",
+    "Editorial planning",
+    "Content audits",
+    "Readability analysis",
+    "Terminology management",
+  ],
+  tools: [
+    { name: "read_file", description: "Read authorized source documents and drafts." },
+    {
+      name: "write_file",
+      description: "Create or modify content and documentation.",
+    },
+  ],
+  executionEnvironment:
+    "Milo works within an assigned content workspace with explicitly defined document-access and file-write permissions. Its execution environment should provide: access to the source material and drafts required for the assigned task, a configured runtime appropriate to content processing, defined execution limits and resource constraints, a mechanism for capturing content outputs and revisions, and isolation from unauthorized sources and credentials.",
+  boundaries: [
+    "Publish content without explicit authorization.",
+    "Modify production documentation directly.",
+    "Make legal claims.",
+    "Invent facts to fill information gaps.",
+  ],
+  deliverables: [
+    "Editorial briefs",
+    "Structured documentation",
+    "Revised drafts",
+    "Content audits",
+    "Terminology recommendations",
+    "Documented quality issues",
+  ],
+  verification:
+    "Content that communicates the intended information accurately, clearly, and consistently with the organization's objectives.",
+};
+
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {
   "atlas-software-engineer": ATLAS_PROFILE,
   "nova-devops-engineer": NOVA_PROFILE,
   "aria-data-analyst": ARIA_PROFILE,
   "newton-researcher": NEWTON_PROFILE,
+  "milo-content-strategist": MILO_PROFILE,
 };
 
 export function getRichProfile(spec: string): RichTalentProfile | null {
