@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -17,6 +18,11 @@ import {
 export const user = pgTable("User", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   email: varchar("email", { length: 64 }).notNull(),
+  // Compte (tenant) proprietaire. Renseigne au premier login
+  // (ensureAccountProvisioned) ; toute requete metier est filtree dessus.
+  accountId: uuid("accountId")
+    .notNull()
+    .references(() => account.id, { onDelete: "restrict" }),
   password: varchar("password", { length: 64 }),
   name: text("name"),
   emailVerified: boolean("emailVerified").notNull().default(false),
@@ -256,20 +262,69 @@ export const otpCode = pgTable(
 );
 
 export type OtpCode = InferSelectModel<typeof otpCode>;
+// ============ MODULE MULTI-TENANT (comptes + isolation stricte) ============
+
+// Un compte = un tenant. Chaque utilisateur appartient a exactement un
+// compte ; toutes les donnees metier (employes recrutes, missions)
+// portent le accountId et sont toujours filtrees dessus. Le catalogue
+// des talents et les departements sont un referentiel global partage.
+export const account = pgTable("Account", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type Account = InferSelectModel<typeof account>;
+
 // ============ MODULE EMPLOYEES (departements + employes IA) ============
 
 export const department = pgTable("Department", {
-  // Slug stable, cle des libelles i18n (engineering|marketing|research).
+  // Slug stable, cle des libelles i18n
+  // (engineering|research-data|operations).
   id: text("id").primaryKey(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
 export type Department = InferSelectModel<typeof department>;
 
+// Catalogue recrutable : miroir en base des 6 specs du noyau
+// (core/employee/profiles/*.json, lecture seule). Synchronise par
+// syncTalentCatalog() a chaque migration ; jamais edite a la main.
+export const talentProfile = pgTable("TalentProfile", {
+  // Nom de spec noyau (ex: "atlas-software-engineer"), stable.
+  spec: text("spec").primaryKey(),
+  version: varchar("version", { length: 24 }).notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  role: varchar("role", { length: 120 }).notNull(),
+  departmentId: text("departmentId")
+    .notNull()
+    .references(() => department.id, { onDelete: "restrict" }),
+  background: text("background").notNull(),
+  allowedTools: json("allowedTools").notNull().default([]),
+  technologies: json("technologies").notNull().default([]),
+  createdBy: varchar("createdBy", { length: 120 })
+    .notNull()
+    .default("Cofoundator"),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type TalentProfile = InferSelectModel<typeof talentProfile>;
+
 export const employee = pgTable(
   "Employee",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
+    // Tenant proprietaire (isolation stricte).
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    // Nature : "chef" (manager auto-provisionne) | "hired" (recrute).
+    kind: varchar("kind", { length: 16 }).notNull().default("hired"),
+    // Spec noyau d'origine (NULL pour le Chef, hors catalogue).
+    talentSpec: text("talentSpec"),
+    specVersion: varchar("specVersion", { length: 24 }),
+    // Identite cryptographique noyau (remplie a la publication).
+    kernelEmployeeId: uuid("kernelEmployeeId"),
     name: varchar("name", { length: 120 }).notNull(),
     role: varchar("role", { length: 120 }).notNull(),
     // Statut metier : idle | working | completed (valide cote API).
@@ -277,10 +332,53 @@ export const employee = pgTable(
     departmentId: text("departmentId")
       .notNull()
       .references(() => department.id, { onDelete: "restrict" }),
+    background: text("background"),
+    createdBy: varchar("createdBy", { length: 120 }),
+    technologies: json("technologies").notNull().default([]),
+    hiredAt: timestamp("hiredAt").notNull().defaultNow(),
     currentTask: text("currentTask"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
-  (table) => [index("Employee_department_idx").on(table.departmentId)]
+  (table) => [
+    index("Employee_department_idx").on(table.departmentId),
+    index("Employee_account_idx").on(table.accountId),
+    // Un talent = une instance par compte (NULL = Chef, non concerné).
+    unique("Employee_account_talent_uniq").on(
+      table.accountId,
+      table.talentSpec
+    ),
+  ]
 );
 
 export type Employee = InferSelectModel<typeof employee>;
+
+// ============ MODULE MISSIONS (suivi cote web) ============
+
+// Fiche de suivi d'une mission confiee a un employe du compte.
+// L'execution elle-meme passe par le noyau (core/employee) ; ici on
+// garde la trace (statut, rapport, job noyau) pour l'interface.
+export const mission = pgTable(
+  "Mission",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    employeeId: uuid("employeeId")
+      .notNull()
+      .references(() => employee.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    prompt: text("prompt").notNull(),
+    // Statut : queued | running | succeeded | failed | needs_review.
+    status: varchar("status", { length: 24 }).notNull().default("queued"),
+    report: text("report"),
+    kernelJobId: text("kernelJobId"),
+    expectFile: text("expectFile"),
+    expectTest: boolean("expectTest").notNull().default(false),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => [index("Mission_account_idx").on(table.accountId)]
+);
+
+export type Mission = InferSelectModel<typeof mission>;
