@@ -104,9 +104,10 @@ const V1_ALL: u64 = FS_EXECUTE
 const SYSTEM_RO: u64 = FS_EXECUTE | FS_READ_FILE | FS_READ_DIR;
 
 /// System directories mapped read-only. Deliberately minimal:
-/// - no `/dev` (stdin is an already-open `/dev/null` fd; `sh -c`
-///   never opens device paths; a read-only `/dev` would still allow
-///   reading raw devices);
+/// - no `/dev` as a directory (a read-only `/dev` would still allow
+///   reading raw devices); single exception: `/dev/null` is allowed
+///   as one file rule (reads EOF, writes discarded) because shells
+///   and test runners open it constantly;
 /// - no `/proc` or `/sys` (would leak other processes' cmdlines and
 ///   environment through `/proc/<pid>/*`);
 /// - no `/tmp` (`emp-sandbox` points `TMPDIR` at the workspace, so
@@ -281,6 +282,20 @@ pub unsafe fn apply_fs_policy_in_child(policy: &FsPolicy) -> io::Result<()> {
             if add_rule(ruleset, fd, SYSTEM_RO) != 0 {
                 return Err(io::Error::last_os_error());
             }
+        }
+        // Single-file exception: /dev/null (reads EOF, writes
+        // discarded, no device access). Shells redirect here
+        // constantly (`>/dev/null`) and test runners open it
+        // (pytest fd capture) — denying it breaks legitimate
+        // tools, while the rest of /dev stays denied.
+        let null_fd = libc::open(c"/dev/null".as_ptr(), libc::O_PATH | libc::O_CLOEXEC);
+        if null_fd < 0 {
+            let errno = io::Error::last_os_error();
+            if errno.raw_os_error() != Some(libc::ENOENT) {
+                return Err(errno);
+            }
+        } else if add_rule(ruleset, null_fd, FS_READ_FILE | FS_WRITE_FILE) != 0 {
+            return Err(io::Error::last_os_error());
         }
         // The workspace was validated by the parent: any failure here
         // is a hard error (fail-closed).

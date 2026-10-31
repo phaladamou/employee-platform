@@ -223,3 +223,26 @@ fn tmpdir_points_inside_workspace() {
     let actual = Path::new(report.stdout.trim());
     assert_eq!(actual, expected.as_path());
 }
+
+#[test]
+fn dev_null_is_usable_but_the_rest_of_dev_stays_denied() {
+    if !require_landlock() {
+        return;
+    }
+    // Shells redirect here constantly and test runners (pytest fd
+    // capture) open it at startup: denying it breaks legitimate
+    // tools. The exception covers this one file only.
+    let world = World::create("devnull");
+    let report = sh(
+        &world.ws,
+        "echo hi > /dev/null && cat /dev/null && echo devnull-ok",
+    );
+    assert_eq!(report.exit_code, Some(0));
+    assert!(
+        report.stdout.contains("devnull-ok"),
+        "stdout: {}",
+        report.stdout
+    );
+    let report = sh(&world.ws, "cat /dev/zero");
+    assert_ne!(report.exit_code, Some(0));
+}
