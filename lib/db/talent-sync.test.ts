@@ -121,12 +121,22 @@ describe("talent catalog sync", () => {
     expect(newtonValues.responsibilities).toHaveLength(5);
     expect(newtonValues.tools).toHaveLength(2);
 
-    // Talents non enrichis : aucune cle riche (jamais d'ecrasement NULL).
+    // Milo : fiche riche synchronisee.
     const milo = calls.find(
       (c) => c.op === "update" && c.values.spec === "milo-content-strategist"
     );
     expect(milo).toBeDefined();
-    expect("overview" in (milo?.values ?? {})).toBe(false);
-    expect("overview" in (milo?.set ?? {})).toBe(false);
+    const miloValues = (milo?.values ?? {}) as Record<string, any>;
+    expect(String(miloValues.overview)).toContain("content strategist");
+    expect(miloValues.responsibilities).toHaveLength(4);
+    expect(miloValues.tools).toHaveLength(2);
+
+    // Talents non enrichis : aucune cle riche (jamais d'ecrasement NULL).
+    const sana = calls.find(
+      (c) => c.op === "update" && c.values.spec === "sana-seo-analyst"
+    );
+    expect(sana).toBeDefined();
+    expect("overview" in (sana?.values ?? {})).toBe(false);
+    expect("overview" in (sana?.set ?? {})).toBe(false);
   });
 });

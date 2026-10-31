@@ -20,9 +20,21 @@ const PROFILES_DIR = join(
 
 describe("rich talent profiles", () => {
   it("returns null for talents without a rich profile", () => {
-    assert.equal(getRichProfile("milo-content-strategist"), null);
     assert.equal(getRichProfile("sana-seo-analyst"), null);
     assert.equal(getRichProfile("unknown-spec"), null);
+  });
+
+  it("exposes the Milo profile with exactly the kernel tools", () => {
+    const milo = getRichProfile("milo-content-strategist");
+    assert.ok(milo);
+    assert.deepEqual(
+      milo.tools.map((tool) => tool.name).sort(),
+      ["read_file", "write_file"]
+    );
+    assert.equal(milo.responsibilities.length, 4);
+    assert.equal(milo.capabilities.length, 7);
+    assert.equal(milo.boundaries.length, 4);
+    assert.equal(milo.deliverables.length, 6);
   });
 
   it("exposes the Newton profile with exactly the kernel tools", () => {
