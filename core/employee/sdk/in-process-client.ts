@@ -14,6 +14,7 @@ import {
 import type { JobStore } from "../jobs/job-store";
 import type { EmployeeMission } from "../missions/employee-mission";
 import type { ProfileStore } from "../profile/profile-store";
+import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 import type { EmployeeClient } from "./employee-client";
 import type { JobEvent } from "./rest-contract";
 
@@ -29,6 +30,8 @@ export interface InProcessClientDeps {
   readonly employments: EmploymentStore;
   readonly missions: MissionStore;
   readonly jobs: JobStore;
+  /** Workspaces dedies (hire les cree ; absent = pas de dossier). */
+  readonly workspaces?: EmployeeWorkspaces;
 }
 
 /**
@@ -41,6 +44,7 @@ export class InProcessEmployeeClient implements EmployeeClient {
   private readonly employments: EmploymentStore;
   private readonly missions: MissionStore;
   private readonly jobs: JobStore;
+  private readonly workspaces?: EmployeeWorkspaces;
 
   constructor(deps: InProcessClientDeps) {
     if (!deps.employerId.trim()) {
@@ -51,6 +55,7 @@ export class InProcessEmployeeClient implements EmployeeClient {
     this.employments = deps.employments;
     this.missions = deps.missions;
     this.jobs = deps.jobs;
+    this.workspaces = deps.workspaces;
   }
 
   async hire(employeeId: string): Promise<Employment> {
@@ -58,6 +63,10 @@ export class InProcessEmployeeClient implements EmployeeClient {
     if (!profile) {
       throw new Error(`Employee ${employeeId} not found`);
     }
+    // Dossier AVANT l'engagement : un mkdir rate n'engage personne
+    // (un dossier orphelin se reutilise, l'inverse serait un employe
+    // sans workspace). Idempotent comme hire lui-meme.
+    await this.workspaces?.acquire(profile.id);
     return this.employments.hire({
       employeeId: profile.id,
       employerId: this.employerId,

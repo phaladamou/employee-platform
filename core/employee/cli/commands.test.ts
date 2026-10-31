@@ -34,6 +34,7 @@ describe("runCommand", () => {
         apiUrl: "http://127.0.0.1:1",
         profilesDir: join(dir, "profiles"),
         sandboxDir: join(dir, "sandbox"),
+        workspacesDir: join(dir, "workspaces"),
         shellEnv: {},
         output: (line: string) => lines.push(line),
         ...overrides,

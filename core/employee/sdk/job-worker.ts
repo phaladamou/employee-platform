@@ -7,6 +7,7 @@ import type { MissionStore } from "../missions/mission-store";
 import { setEmployeeStatus } from "../profile/employee-profile";
 import type { ProfileStore } from "../profile/profile-store";
 import type { ProfileRegistry } from "../profiles/profile-registry";
+import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 import { EmployeeRuntime } from "../runtime/employee-runtime";
 import type { EmployeeLLMProvider } from "../runtime/llm-provider";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
@@ -18,6 +19,12 @@ export interface JobWorkerDeps {
   readonly provider: EmployeeLLMProvider;
   readonly tools?: readonly EmployeeTool[];
   readonly toolContext?: ToolContext;
+  /**
+   * Workspaces dedies (absent = repli sandboxRoot partage, chemin
+   * historique). Quand present : acquire avant run, sans echec
+   * du job si l'acquisition echoue (repli sandbox + marqueur).
+   */
+  readonly workspaces?: EmployeeWorkspaces;
   readonly maxSteps?: number;
   readonly profilesRegistry?: ProfileRegistry;
   readonly memory?: EmployeeMemory;
@@ -88,9 +95,26 @@ export async function runClaimedJob(
 
   await deps.profiles.save(setEmployeeStatus(profile, "working"));
 
+  // Workspace dedie : cree (idempotent) AVANT le run. Best-effort :
+  // un workspace indisponible ne bloque jamais la mission (repli
+  // sandbox historique). Le repli est volontairement bruyant dans
+  // les logs du worker pour rester visible en exploitation.
+  let toolContext = deps.toolContext;
+  if (deps.workspaces) {
+    try {
+      const workspaceRoot = await deps.workspaces.acquire(claimed.employeeId);
+      toolContext = { ...deps.toolContext, workspaceRoot };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `workspace acquire failed for ${claimed.employeeId} (sandbox fallback): ${message}`
+      );
+    }
+  }
+
   const runtime = new EmployeeRuntime(deps.provider, {
     tools: deps.tools,
-    toolContext: deps.toolContext,
+    toolContext,
     maxSteps: deps.maxSteps,
     profiles: deps.profilesRegistry,
     memory: deps.memory,

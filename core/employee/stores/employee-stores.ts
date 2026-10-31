@@ -12,6 +12,7 @@ import { FileMissionStore } from "../missions/file-mission-store";
 import type { MissionStore } from "../missions/mission-store";
 import { FileProfileStore } from "../profile/file-profile-store";
 import type { ProfileStore } from "../profile/profile-store";
+import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 
 /**
  * Faisceau de persistance du noyau. Chaque domaine a deja son
@@ -29,12 +30,19 @@ export interface EmployeeStores {
   readonly memory: EmployeeMemoryStore;
 }
 
-/** Backend fichier : un sous-dossier par domaine sous dataDir. */
-export function openFileStores(dataDir: string): EmployeeStores {
+/**
+ * Backend fichier : un sous-dossier par domaine sous dataDir.
+ * `workspaces` (optionnel) active l'archivage auto sur terminate.
+ */
+export function openFileStores(
+  dataDir: string,
+  options: { workspaces?: EmployeeWorkspaces } = {}
+): EmployeeStores {
   return {
     profiles: new FileProfileStore({ directory: join(dataDir, "profiles") }),
     employments: new FileEmploymentStore({
       directory: join(dataDir, "employments"),
+      workspaces: options.workspaces,
     }),
     missions: new FileMissionStore({ directory: join(dataDir, "missions") }),
     jobs: new FileJobStore({ directory: join(dataDir, "jobs") }),

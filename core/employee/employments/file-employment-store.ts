@@ -7,6 +7,7 @@ import {
   isEmployment,
   type Employment,
 } from "./employment";
+import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 
 const STORE_FILE = "employments.json";
 const STORE_VERSION = 1;
@@ -18,7 +19,13 @@ const STORE_VERSION = 1;
  * ici (ni token ni hash), donc pas de chmod 600.
  */
 export class FileEmploymentStore implements EmploymentStore {
-  constructor(private readonly options: { readonly directory: string }) {
+  constructor(
+    private readonly options: {
+      readonly directory: string;
+      /** Workspaces dedies (terminate les archive ; absent = rien). */
+      readonly workspaces?: EmployeeWorkspaces;
+    }
+  ) {
     if (!options.directory) {
       throw new Error("FileEmploymentStore requires a directory");
     }
@@ -135,6 +142,11 @@ export class FileEmploymentStore implements EmploymentStore {
     const terminated = { ...employments[index], terminatedAt: now.toISOString() };
     employments[index] = terminated;
     await this.saveAll(employments);
+
+    // Archive APRES la transition : l'engagement prime (si l'archive
+    // leve, l'emploi est termine mais le dossier reste en place pour
+    // audit/rejeu — jamais de suppression silencieuse).
+    await this.options.workspaces?.archive(terminated.employeeId, now);
 
     return terminated;
   }

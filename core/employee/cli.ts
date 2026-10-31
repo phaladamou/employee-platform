@@ -29,6 +29,7 @@ import type { EmployeeLLMProvider } from "./runtime/llm-provider";
  * - EMPLOYEE_DATA (defaut .data/employee)
  * - EMPLOYEE_PROFILES (defaut core/employee/profiles)
  * - EMPLOYEE_SANDBOX (defaut .data/workspace)
+ * - EMPLOYEE_WORKSPACES_DIR (defaut .data/workspaces : <employeeId>/)
  * - EMPLOYEE_SANDBOX_BIN (binaire emp-sandbox, absent = repli Node)
  * - PORT (port de serve, prioritaire apres --port ; defaut 8000)
  * - EMPLOYEE_PROVIDER : "deepseek" (defaut) | "muse"
@@ -111,6 +112,9 @@ function buildContext(): CliContext {
     token: process.env.EMPLOYEE_TOKEN,
     profilesDir: resolve(process.env.EMPLOYEE_PROFILES ?? "core/employee/profiles"),
     sandboxDir: resolve(process.env.EMPLOYEE_SANDBOX ?? ".data/workspace"),
+    workspacesDir: resolve(
+      process.env.EMPLOYEE_WORKSPACES_DIR ?? ".data/workspaces"
+    ),
     sandboxBin: process.env.EMPLOYEE_SANDBOX_BIN,
     defaultPort,
     portError,

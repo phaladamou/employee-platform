@@ -3,7 +3,22 @@ import { issueEmployerCredential } from "../auth/employer-credential";
 import { isTerminalJobStatus } from "../jobs/employee-job";
 import { loadProfileRegistry } from "../profiles/profile-registry";
 import { EmployeeMemory } from "../memory/employee-memory";
-import { openFileStores } from "../stores/employee-stores";
+import { openFileStores, type EmployeeStores } from "../stores/employee-stores";
+import { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
+
+/**
+ * Faisceau CLI standard : stores fichier + archive workspace sur
+ * terminate. Les commandes one-shot n'ont besoin que de `stores` ;
+ * serve/worker/run construisent en plus leur `EmployeeWorkspaces`
+ * via `cliWorkspaces` pour hire et l'execution des jobs.
+ */
+function openCliStores(ctx: CliContext): EmployeeStores {
+  return openFileStores(ctx.dataDir, { workspaces: cliWorkspaces(ctx) });
+}
+
+function cliWorkspaces(ctx: CliContext): EmployeeWorkspaces {
+  return new EmployeeWorkspaces({ directory: ctx.workspacesDir });
+}
 import {
   assignMission,
   createEmployeeMission,
@@ -27,6 +42,8 @@ export interface CliContext {
   readonly token?: string;
   readonly profilesDir: string;
   readonly sandboxDir: string;
+  /** Racine des workspaces dedies (<employeeId>/). */
+  readonly workspacesDir: string;
   /** Fournisseur LLM (construit depuis l'env par cli.ts, injecte en test). */
   readonly provider?: EmployeeLLMProvider;
   /** Echec de construction du provider (affiche par serve/run). */
@@ -151,7 +168,7 @@ async function cmdKeys(
   ctx: CliContext
 ): Promise<CliResult> {
   const [action, ...rest] = args.positionals;
-  const stores = openFileStores(ctx.dataDir);
+  const stores = openCliStores(ctx);
 
   if (action === "issue") {
     const employerId = flag(args.flags, "employer");
@@ -472,11 +489,13 @@ async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
     profile.id
   );
   const memory = new EmployeeMemory();
-  const memoryStore = openFileStores(ctx.dataDir).memory;
+  const workspaces = cliWorkspaces(ctx);
+  const memoryStore = openFileStores(ctx.dataDir, { workspaces }).memory;
 
   try {
+    const workspaceRoot = await workspaces.acquire(profile.id);
     const runtime = new EmployeeRuntime(ctx.provider, {
-      toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv }, sandboxBin: ctx.sandboxBin },
+      toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv }, sandboxBin: ctx.sandboxBin, workspaceRoot },
       memory,
       memoryStore,
     });
@@ -516,7 +535,8 @@ export async function startServe(
   ctx: CliContext,
   options: ServeOptions = {}
 ): Promise<ServeHandle> {
-  const stores = openFileStores(ctx.dataDir);
+  const workspaces = cliWorkspaces(ctx);
+  const stores = openFileStores(ctx.dataDir, { workspaces });
   const registry = await loadProfileRegistry(ctx.profilesDir);
   const server = await serveEmployeeApi(
     {
@@ -526,6 +546,7 @@ export async function startServe(
       jobs: stores.jobs,
       credentials: stores.credentials,
       registry,
+      workspaces,
     },
     { port: options.port, host: options.host }
   );
@@ -574,7 +595,8 @@ export async function startWorker(
       ctx.providerError ?? "no LLM provider configured (EMPLOYEE_PROVIDER)"
     );
   }
-  const stores = openFileStores(ctx.dataDir);
+  const workspaces = cliWorkspaces(ctx);
+  const stores = openFileStores(ctx.dataDir, { workspaces });
   const registry = await loadProfileRegistry(ctx.profilesDir);
   const provider: EmployeeLLMProvider = ctx.provider;
   const workerDeps: JobWorkerDeps = {
@@ -583,6 +605,7 @@ export async function startWorker(
     profiles: stores.profiles,
     provider,
     toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv }, sandboxBin: ctx.sandboxBin },
+    workspaces,
     profilesRegistry: registry,
     memory: new EmployeeMemory(),
     memoryStore: stores.memory,
@@ -609,7 +632,7 @@ async function cmdRecover(
   }
 
   try {
-    const stores = openFileStores(ctx.dataDir);
+    const stores = openCliStores(ctx);
     const recovered = await stores.jobs.recoverStaleJobs(
       staleAfterMs === undefined ? {} : { staleAfterMs }
     );

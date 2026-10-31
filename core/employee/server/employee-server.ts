@@ -15,6 +15,7 @@ import type { ProfileStore } from "../profile/profile-store";
 import type { ProfileRegistry } from "../profiles/profile-registry";
 import { InProcessEmployeeClient } from "../sdk/in-process-client";
 import { InProcessEmployeeCreator } from "../sdk/in-process-creator";
+import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 
 export interface EmployeeServerDeps {
   readonly profiles: ProfileStore;
@@ -23,6 +24,8 @@ export interface EmployeeServerDeps {
   readonly jobs: JobStore;
   readonly credentials: EmployerCredentialStore;
   readonly registry: ProfileRegistry;
+  /** Workspaces dedies (hire les cree ; absent = pas de dossier). */
+  readonly workspaces?: EmployeeWorkspaces;
   /** Delai entre deux lectures du store sur le flux SSE. */
   readonly eventsPollMs?: number;
   /** Battement SSE (commentaire) pour garder la connexion en vie. */
@@ -152,6 +155,7 @@ export function createEmployeeHandler(deps: EmployeeServerDeps) {
       employments: deps.employments,
       missions: deps.missions,
       jobs: deps.jobs,
+      workspaces: deps.workspaces,
     });
   }
 
