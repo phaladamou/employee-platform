@@ -66,9 +66,11 @@ export default function EmployeesPage() {
           ? t("departments.operations.description")
           : "";
 
-  const openRecruitPage = (departmentId: string) => {
+  const openRecruitPage = (departmentId?: string) => {
     router.push(
-      `/employees/recruit?department=${encodeURIComponent(departmentId)}`
+      departmentId
+        ? `/employees/recruit?department=${encodeURIComponent(departmentId)}`
+        : "/employees/recruit"
     );
   };
 
@@ -94,7 +96,7 @@ export default function EmployeesPage() {
           </div>
           <Button
             disabled={isLoading || !data}
-            onClick={() => openRecruitPage(departmentIds[0] ?? "engineering")}
+            onClick={() => openRecruitPage()}
             type="button"
             variant="brand"
           >

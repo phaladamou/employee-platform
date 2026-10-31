@@ -2,7 +2,7 @@
 "use client";
 
 import { ArrowLeftIcon, SearchIcon } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import useSWR from "swr";
@@ -55,9 +55,15 @@ function RecruitPageContent() {
   const departmentIds = [...new Set(talents.map((t) => t.departmentId))].sort();
 
   const [query, setQuery] = useState("");
+  const paramDepartment = searchParams.get("department");
   const [departmentFilter, setDepartmentFilter] = useState<string | "all">(
-    searchParams.get("department") ?? "all"
+    paramDepartment ?? "all"
   );
+  // Navigation interne (meme page, params differents) : le useState
+  // initial ne se rejoue pas, on resynchronise explicitement.
+  useEffect(() => {
+    setDepartmentFilter(paramDepartment ?? "all");
+  }, [paramDepartment]);
   const effectiveDepartment =
     departmentFilter === "all" || departmentIds.includes(departmentFilter)
       ? departmentFilter
