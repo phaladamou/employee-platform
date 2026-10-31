@@ -159,10 +159,56 @@ const ARIA_PROFILE: RichTalentProfile = {
     "An analysis that answers the assigned question as accurately as the available data permits, with transparent methodology and clearly stated limitations.",
 };
 
+const NEWTON_PROFILE: RichTalentProfile = {
+  overview:
+    "Newton is an AI researcher designed to investigate questions, synthesize information from available sources, compare competing explanations, and produce structured research briefs. It begins by defining the research question and identifying the information needed to answer it. It then examines available sources, evaluates their relevance, extracts supporting evidence, and organizes the findings into a coherent analysis. Newton prioritizes source traceability, explicit uncertainty, and intellectual discipline. It distinguishes directly supported facts from interpretations, hypotheses, and unresolved questions.",
+  responsibilities: [
+    "Research planning: Translate broad questions into focused research objectives. Identify the subquestions needed to investigate a topic. Define relevant evidence requirements and research boundaries. Establish a structured plan for collecting and evaluating information.",
+    "Source investigation: Search authorized information sources when search tools are available. Read and compare relevant documents. Identify the origin, date, and context of important claims when available. Evaluate source relevance, reliability, and potential limitations. Identify conflicting information and missing evidence.",
+    "Evidence synthesis: Extract key findings from multiple sources. Compare competing explanations and interpretations. Identify agreement, disagreement, and unresolved questions. Connect conclusions to the evidence supporting them. Preserve important qualifications rather than oversimplifying complex findings.",
+    "Analytical reasoning: Distinguish observations from inferences. Formulate hypotheses and identify what would support or weaken them. Examine alternative explanations. Identify uncertainty, methodological weaknesses, and information gaps. Avoid presenting an unverified hypothesis as an established fact.",
+    "Research reporting: Produce structured research briefs and technical summaries. Provide source references for important claims. Explain the reasoning behind major conclusions. Highlight limitations and recommend further investigation where needed.",
+  ],
+  capabilities: [
+    "Research planning",
+    "Source evaluation",
+    "Literature synthesis",
+    "Comparative analysis",
+    "Evidence mapping",
+    "Hypothesis development",
+    "Technical briefing",
+  ],
+  tools: [
+    { name: "read_file", description: "Read authorized documents and sources." },
+    {
+      name: "write_file",
+      description: "Create or modify research briefs and notes.",
+    },
+  ],
+  executionEnvironment:
+    "Newton works within an assigned research workspace with explicitly defined document-access and file-write permissions. Its execution environment should provide: access to the sources required for the assigned task, a configured runtime appropriate to the research, defined execution limits and resource constraints, a mechanism for capturing research outputs, and isolation from unauthorized sources and credentials.",
+  boundaries: [
+    "Access unauthorized publications, databases, or websites.",
+    "Claim to have verified a source that was not accessible.",
+    "Treat multiple sources repeating the same unsupported claim as independent confirmation.",
+  ],
+  deliverables: [
+    "Research briefs",
+    "Evidence tables",
+    "Comparative analyses",
+    "Source lists",
+    "Hypothesis assessments",
+    "Documented research gaps",
+  ],
+  verification:
+    "A traceable and balanced answer to the research question, with conclusions proportionate to the available evidence.",
+};
+
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {
   "atlas-software-engineer": ATLAS_PROFILE,
   "nova-devops-engineer": NOVA_PROFILE,
   "aria-data-analyst": ARIA_PROFILE,
+  "newton-researcher": NEWTON_PROFILE,
 };
 
 export function getRichProfile(spec: string): RichTalentProfile | null {
