@@ -67,7 +67,7 @@ describe("talent catalog sync", () => {
     }
   });
 
-  it("syncs the Atlas rich profile without touching the others", async () => {
+  it("syncs every rich profile with its 8 keys", async () => {
     const calls: RecordedCall[] = [];
     await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
 
@@ -131,12 +131,35 @@ describe("talent catalog sync", () => {
     expect(miloValues.responsibilities).toHaveLength(4);
     expect(miloValues.tools).toHaveLength(2);
 
-    // Talents non enrichis : aucune cle riche (jamais d'ecrasement NULL).
+    // Sana : fiche riche synchronisee.
     const sana = calls.find(
       (c) => c.op === "update" && c.values.spec === "sana-seo-analyst"
     );
     expect(sana).toBeDefined();
-    expect("overview" in (sana?.values ?? {})).toBe(false);
-    expect("overview" in (sana?.set ?? {})).toBe(false);
+    const sanaValues = (sana?.values ?? {}) as Record<string, any>;
+    expect(String(sanaValues.overview)).toContain("SEO analyst");
+    expect(sanaValues.responsibilities).toHaveLength(5);
+    expect(sanaValues.tools).toHaveLength(2);
+
+    // Catalogue complet : les 6 talents portent les 8 cles riches.
+    const updates = calls.filter((c) => c.op === "update");
+    expect(updates).toHaveLength(6);
+    for (const update of updates) {
+      for (const key of [
+        "overview",
+        "responsibilities",
+        "capabilities",
+        "tools",
+        "executionEnvironment",
+        "boundaries",
+        "deliverables",
+        "verification",
+      ]) {
+        expect(key in update.values, `${update.values.spec}.${key}`).toBe(true);
+        expect(key in (update.set ?? {}), `${update.values.spec}.set.${key}`).toBe(
+          true
+        );
+      }
+    }
   });
 });

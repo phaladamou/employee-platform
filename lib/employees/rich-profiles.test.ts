@@ -7,7 +7,11 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 
 import { RICH_PROFILES, getRichProfile } from "./rich-profiles.ts";
-import { isCatalogSpec, loadCatalogSpecs } from "./talents.ts";
+import {
+  TALENT_CATALOG,
+  isCatalogSpec,
+  loadCatalogSpecs,
+} from "./talents.ts";
 
 const PROFILES_DIR = join(
   import.meta.dirname,
@@ -19,9 +23,24 @@ const PROFILES_DIR = join(
 );
 
 describe("rich talent profiles", () => {
-  it("returns null for talents without a rich profile", () => {
-    assert.equal(getRichProfile("sana-seo-analyst"), null);
+  it("returns null for unknown specs (catalog is fully enriched)", () => {
+    for (const spec of Object.keys(TALENT_CATALOG)) {
+      assert.ok(getRichProfile(spec), `${spec} should be enriched`);
+    }
     assert.equal(getRichProfile("unknown-spec"), null);
+  });
+
+  it("exposes the Sana profile with exactly the kernel tools", () => {
+    const sana = getRichProfile("sana-seo-analyst");
+    assert.ok(sana);
+    assert.deepEqual(
+      sana.tools.map((tool) => tool.name).sort(),
+      ["read_file", "write_file"]
+    );
+    assert.equal(sana.responsibilities.length, 5);
+    assert.equal(sana.capabilities.length, 6);
+    assert.equal(sana.boundaries.length, 5);
+    assert.equal(sana.deliverables.length, 5);
   });
 
   it("exposes the Milo profile with exactly the kernel tools", () => {
