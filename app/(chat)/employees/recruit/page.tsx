@@ -9,40 +9,24 @@ import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { AgentCard } from "@/components/workspace/recruit/agent-card";
-import {
-  AgentDetailsPanel,
-  type PanelDepartment,
-} from "@/components/workspace/recruit/agent-details-panel";
-import {
-  AGENT_CATEGORIES,
-  AVAILABLE_AGENTS,
-  DEPARTMENTS,
-  filterAgents,
-  type AgentCategory,
-} from "@/lib/employees/catalog";
+import { TalentCard } from "@/components/workspace/recruit/talent-card";
+import { TalentDetailsPanel } from "@/components/workspace/recruit/talent-details-panel";
+import { filterTalents, type TalentProfile } from "@/lib/employees/catalog";
 import { cn, fetcher } from "@/lib/utils";
 
-type EmployeesResponse = {
-  departments: string[];
+type TalentsResponse = {
+  talents: TalentProfile[];
 };
 
-function categoryLabel(
-  t: (key: string) => string,
-  category: AgentCategory
+function departmentName(
+  tEmployees: (key: string) => string,
+  id: string
 ): string {
-  if (category === "development") return t("categories.development");
-  if (category === "research") return t("categories.research");
-  if (category === "data") return t("categories.data");
-  if (category === "design") return t("categories.design");
-  return t("categories.operations");
+  if (id === "engineering") return tEmployees("departments.engineering.name");
+  if (id === "research-data")
+    return tEmployees("departments.research-data.name");
+  if (id === "operations") return tEmployees("departments.operations.name");
+  return id;
 }
 
 export default function RecruitPage() {
@@ -56,67 +40,68 @@ export default function RecruitPage() {
 function RecruitPageContent() {
   const t = useTranslations("recruit");
   const tEmployees = useTranslations("employees");
+  const tAuth = useTranslations("auth");
   const tErr = useTranslations("auth.errors");
+  const tErrors = useTranslations("errors");
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  const { data } = useSWR<EmployeesResponse>("/api/employees", fetcher, {
-    revalidateOnFocus: false,
-  });
-  const departmentIds = data?.departments ?? DEPARTMENTS.map((d) => d.id);
-
-  const departmentName = (id: string) =>
-    id === "engineering"
-      ? tEmployees("departments.engineering.name")
-      : id === "marketing"
-        ? tEmployees("departments.marketing.name")
-        : tEmployees("departments.research.name");
-
-  const departmentOptions: PanelDepartment[] = departmentIds.map((id) => ({
-    id,
-    name: departmentName(id),
-  }));
-
-  const requestedDepartment = searchParams.get("department");
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<AgentCategory | "all">("all");
-  const [targetDepartmentId, setTargetDepartmentId] = useState(
-    requestedDepartment && departmentIds.includes(requestedDepartment)
-      ? requestedDepartment
-      : (DEPARTMENTS[0]?.id ?? "engineering")
+  const { data, error, isLoading, mutate } = useSWR<TalentsResponse>(
+    "/api/talents",
+    fetcher,
+    { revalidateOnFocus: false }
   );
-  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
-  const [recruitedIds, setRecruitedIds] = useState<Set<string>>(new Set());
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const talents = data?.talents ?? [];
+  const departmentIds = [...new Set(talents.map((t) => t.departmentId))].sort();
+
+  const [query, setQuery] = useState("");
+  const [departmentFilter, setDepartmentFilter] = useState<string | "all">(
+    searchParams.get("department") ?? "all"
+  );
+  const effectiveDepartment =
+    departmentFilter === "all" || departmentIds.includes(departmentFilter)
+      ? departmentFilter
+      : "all";
+  const [selectedSpec, setSelectedSpec] = useState<string | null>(null);
+  const [recruitedSpecs, setRecruitedSpecs] = useState<Set<string>>(new Set());
+  const [busySpec, setBusySpec] = useState<string | null>(null);
   const [recruitError, setRecruitError] = useState<string | null>(null);
 
-  const visibleAgents = filterAgents(AVAILABLE_AGENTS, query, category);
-  const selectedAgent =
-    AVAILABLE_AGENTS.find((a) => a.id === selectedAgentId) ?? null;
+  const visibleTalents = filterTalents(talents, query, effectiveDepartment);
+  const selectedTalent =
+    talents.find((talent) => talent.spec === selectedSpec) ?? null;
 
-  const handleRecruit = async (agentId: string, departmentId: string) => {
-    setBusyId(agentId);
+  const isRecruited = (talent: TalentProfile) =>
+    talent.hired === true || recruitedSpecs.has(talent.spec);
+
+  const handleRecruit = async (spec: string) => {
+    setBusySpec(spec);
     setRecruitError(null);
     try {
       const res = await fetch("/api/employees/recruit", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ agentId, departmentId }),
+        body: JSON.stringify({ talentSpec: spec }),
       });
+      if (res.status === 409) {
+        // Deja recrute (double-clic, autre onglet) : etat final coherent.
+        setRecruitedSpecs((prev) => new Set(prev).add(spec));
+        return;
+      }
       if (!res.ok) {
         throw new Error(`recruit failed: HTTP ${res.status}`);
       }
-      setRecruitedIds((prev) => new Set(prev).add(agentId));
+      setRecruitedSpecs((prev) => new Set(prev).add(spec));
     } catch {
       setRecruitError(tErr("network_error"));
     } finally {
-      setBusyId(null);
+      setBusySpec(null);
     }
   };
 
   const clearFilters = () => {
     setQuery("");
-    setCategory("all");
+    setDepartmentFilter("all");
   };
 
   return (
@@ -139,65 +124,43 @@ function RecruitPageContent() {
           </p>
 
           <div className="mt-6 flex flex-col gap-4">
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <div className="relative flex-1">
-                <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  className="pl-9"
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder={t("searchPlaceholder")}
-                  type="search"
-                  value={query}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="shrink-0 text-[12.5px] text-muted-foreground">
-                  {t("targetLabel")} :
-                </span>
-                <Select
-                  onValueChange={setTargetDepartmentId}
-                  value={targetDepartmentId}
-                >
-                  <SelectTrigger aria-label={t("targetLabel")} className="w-40">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="theme-light">
-                    {departmentOptions.map((department) => (
-                      <SelectItem key={department.id} value={department.id}>
-                        {department.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="relative">
+              <SearchIcon className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                className="pl-9"
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t("searchPlaceholder")}
+                type="search"
+                value={query}
+              />
             </div>
 
             <div className="flex flex-wrap gap-2">
               <button
                 className={cn(
                   "rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors",
-                  category === "all"
+                  effectiveDepartment === "all"
                     ? "border-indigo-600 bg-indigo-600 text-white"
                     : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                 )}
-                onClick={() => setCategory("all")}
+                onClick={() => setDepartmentFilter("all")}
                 type="button"
               >
-                {t("allCategories")}
+                {t("allDepartments")}
               </button>
-              {AGENT_CATEGORIES.map((c) => (
+              {departmentIds.map((id) => (
                 <button
                   className={cn(
                     "rounded-full border px-3.5 py-1.5 text-[12.5px] transition-colors",
-                    category === c
+                    effectiveDepartment === id
                       ? "border-indigo-600 bg-indigo-600 text-white"
                       : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                   )}
-                  key={c}
-                  onClick={() => setCategory(c)}
+                  key={id}
+                  onClick={() => setDepartmentFilter(id)}
                   type="button"
                 >
-                  {categoryLabel(t, c)}
+                  {departmentName(tEmployees, id)}
                 </button>
               ))}
             </div>
@@ -205,7 +168,25 @@ function RecruitPageContent() {
         </div>
 
         <div className="scrollbar-none mx-auto min-h-0 w-full max-w-7xl flex-1 overflow-y-auto px-8 pb-16">
-          {visibleAgents.length === 0 ? (
+          {isLoading ? (
+            <p className="py-16 text-center text-[13px] text-muted-foreground">
+              {tAuth("pleaseWait")}
+            </p>
+          ) : error || !data ? (
+            <div className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="text-[13px] text-muted-foreground">
+                {tErr("network_error")}
+              </p>
+              <Button
+                onClick={() => mutate()}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {tErrors("retry")}
+              </Button>
+            </div>
+          ) : visibleTalents.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-16 text-center">
               <p className="text-[13px] text-muted-foreground">
                 {t("noResults")}
@@ -223,21 +204,22 @@ function RecruitPageContent() {
             <div
               className={cn(
                 "grid grid-cols-1 gap-6 sm:grid-cols-2",
-                selectedAgent ? "lg:grid-cols-2" : "lg:grid-cols-3"
+                selectedTalent ? "lg:grid-cols-2" : "lg:grid-cols-3"
               )}
             >
-              {visibleAgents.map((agent) => (
-                <AgentCard
-                  agent={agent}
-                  busy={busyId === agent.id}
-                  categoryLabel={categoryLabel(t, agent.category)}
-                  key={agent.id}
-                  onRecruit={(agentId) =>
-                    handleRecruit(agentId, targetDepartmentId)
-                  }
-                  onSelect={setSelectedAgentId}
-                  recruited={recruitedIds.has(agent.id)}
-                  selected={selectedAgentId === agent.id}
+              {visibleTalents.map((talent) => (
+                <TalentCard
+                  busy={busySpec === talent.spec}
+                  departmentLabel={departmentName(
+                    tEmployees,
+                    talent.departmentId
+                  )}
+                  key={talent.spec}
+                  onRecruit={handleRecruit}
+                  onSelect={setSelectedSpec}
+                  recruited={isRecruited(talent)}
+                  selected={selectedSpec === talent.spec}
+                  talent={talent}
                 />
               ))}
             </div>
@@ -250,27 +232,23 @@ function RecruitPageContent() {
         </div>
       </div>
 
-      {selectedAgent && (
+      {selectedTalent && (
         <aside className="scrollbar-none absolute inset-0 overflow-y-auto bg-card lg:static lg:w-[38%] lg:flex-none lg:border-l lg:border-border/60">
-          <AgentDetailsPanel
-            agent={selectedAgent}
-            busy={busyId === selectedAgent?.id}
-            categoryLabel={
-              selectedAgent ? categoryLabel(t, selectedAgent.category) : ""
-            }
-            departments={departmentOptions}
+          <TalentDetailsPanel
+            busy={busySpec === selectedTalent?.spec}
+            departmentName={departmentName(
+              tEmployees,
+              selectedTalent.departmentId
+            )}
             error={recruitError}
             onClose={() => {
-              setSelectedAgentId(null);
+              setSelectedSpec(null);
               setRecruitError(null);
             }}
             onRecruit={handleRecruit}
-            onTargetChange={setTargetDepartmentId}
             onViewDepartment={() => router.push("/employees")}
-            recruited={
-              selectedAgent ? recruitedIds.has(selectedAgent.id) : false
-            }
-            targetDepartmentId={targetDepartmentId}
+            recruited={isRecruited(selectedTalent)}
+            talent={selectedTalent}
           />
         </aside>
       )}

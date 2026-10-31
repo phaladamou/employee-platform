@@ -28,8 +28,8 @@ type EmployeesResponse = {
 
 const DEPARTMENT_ICONS: Record<string, LucideIcon> = {
   engineering: Code2Icon,
-  marketing: MegaphoneIcon,
-  research: FlaskConicalIcon,
+  "research-data": FlaskConicalIcon,
+  operations: MegaphoneIcon,
 };
 
 export default function EmployeesPage() {
@@ -51,16 +51,20 @@ export default function EmployeesPage() {
   const departmentName = (id: string) =>
     id === "engineering"
       ? t("departments.engineering.name")
-      : id === "marketing"
-        ? t("departments.marketing.name")
-        : t("departments.research.name");
+      : id === "research-data"
+        ? t("departments.research-data.name")
+        : id === "operations"
+          ? t("departments.operations.name")
+          : id;
 
   const departmentDescription = (id: string) =>
     id === "engineering"
       ? t("departments.engineering.description")
-      : id === "marketing"
-        ? t("departments.marketing.description")
-        : t("departments.research.description");
+      : id === "research-data"
+        ? t("departments.research-data.description")
+        : id === "operations"
+          ? t("departments.operations.description")
+          : "";
 
   const openRecruitPage = (departmentId: string) => {
     router.push(

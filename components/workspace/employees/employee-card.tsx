@@ -31,6 +31,8 @@ const STATUS_STYLES: Record<
   },
 };
 
+const VISIBLE_TECHNOLOGIES = 3;
+
 export function EmployeeCard({ employee }: { employee: Employee }) {
   const t = useTranslations("employees");
   const styles = STATUS_STYLES[employee.status];
@@ -40,6 +42,8 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
       : employee.status === "working"
         ? t("status.working")
         : t("status.completed");
+  const technologies = employee.technologies ?? [];
+  const extraTechnologies = technologies.length - VISIBLE_TECHNOLOGIES;
 
   return (
     <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-6 shadow-[var(--shadow-card)]">
@@ -58,6 +62,11 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
             <p className="truncate text-[12px] text-muted-foreground">
               {employee.role}
             </p>
+            {employee.kind === "chef" && (
+              <span className="mt-1 inline-block rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+                {t("card.chef")}
+              </span>
+            )}
           </div>
         </div>
         <span
@@ -70,6 +79,30 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
           {statusLabel}
         </span>
       </div>
+
+      {employee.background && (
+        <p className="line-clamp-2 text-[12.5px] leading-relaxed text-muted-foreground">
+          {employee.background}
+        </p>
+      )}
+
+      {technologies.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {technologies.slice(0, VISIBLE_TECHNOLOGIES).map((technology) => (
+            <span
+              className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+              key={technology}
+            >
+              {technology}
+            </span>
+          ))}
+          {extraTechnologies > 0 && (
+            <span className="px-1 py-0.5 text-[11px] text-muted-foreground">
+              +{extraTechnologies}
+            </span>
+          )}
+        </div>
+      )}
 
       {employee.status === "working" && employee.currentTask && (
         <p className="text-[12.5px] leading-relaxed text-muted-foreground">

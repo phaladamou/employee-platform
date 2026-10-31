@@ -1,23 +1,11 @@
-// components/workspace/recruit/agent-details-panel.tsx
+// components/workspace/recruit/talent-details-panel.tsx
 "use client";
 
 import { CheckIcon, XIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { AvailableAgent } from "@/lib/employees/catalog";
-
-export interface PanelDepartment {
-  id: string;
-  name: string;
-}
+import type { TalentProfile } from "@/lib/employees/catalog";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -26,12 +14,9 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-export function AgentDetailsPanel({
-  agent,
-  categoryLabel,
-  departments,
-  targetDepartmentId,
-  onTargetChange,
+export function TalentDetailsPanel({
+  talent,
+  departmentName,
   onRecruit,
   onViewDepartment,
   recruited,
@@ -39,12 +24,9 @@ export function AgentDetailsPanel({
   error,
   onClose,
 }: {
-  agent: AvailableAgent;
-  categoryLabel: string;
-  departments: PanelDepartment[];
-  targetDepartmentId: string;
-  onTargetChange: (departmentId: string) => void;
-  onRecruit: (agentId: string, departmentId: string) => void;
+  talent: TalentProfile;
+  departmentName: string;
+  onRecruit: (spec: string) => void;
   onViewDepartment: () => void;
   recruited: boolean;
   busy: boolean;
@@ -62,14 +44,14 @@ export function AgentDetailsPanel({
             aria-hidden="true"
             className="flex size-14 shrink-0 items-center justify-center rounded-full bg-muted text-[16px] font-semibold text-foreground"
           >
-            {getInitials(agent.name)}
+            {getInitials(talent.name)}
           </div>
           <div className="min-w-0">
             <h2 className="truncate text-[20px] font-semibold tracking-tight text-foreground">
-              {agent.name}
+              {talent.name}
             </h2>
             <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-              {agent.role} · {categoryLabel}
+              {talent.role} · {departmentName}
             </p>
           </div>
         </div>
@@ -106,29 +88,11 @@ export function AgentDetailsPanel({
           </div>
         ) : (
           <>
-            <div className="mt-3 flex gap-2">
-              <Select
-                disabled={busy}
-                onValueChange={onTargetChange}
-                value={targetDepartmentId}
-              >
-                <SelectTrigger
-                  aria-label={t("targetLabel")}
-                  className="flex-1"
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="theme-light">
-                  {departments.map((department) => (
-                    <SelectItem key={department.id} value={department.id}>
-                      {department.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="mt-3">
               <Button
+                className="w-full"
                 disabled={busy}
-                onClick={() => onRecruit(agent.id, targetDepartmentId)}
+                onClick={() => onRecruit(talent.spec)}
                 size="sm"
                 type="button"
                 variant="brand"
@@ -148,16 +112,7 @@ export function AgentDetailsPanel({
           {t("details.about")}
         </p>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-          {agent.description}
-        </p>
-      </div>
-
-      <div>
-        <p className="text-[12px] font-medium text-foreground/70">
-          {t("details.experience")}
-        </p>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-          {agent.experience}
+          {talent.background}
         </p>
       </div>
 
@@ -166,12 +121,28 @@ export function AgentDetailsPanel({
           {tEmployees("recruit.capabilities")}
         </p>
         <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {agent.capabilities.map((capability) => (
+          {talent.technologies.map((technology) => (
             <span
               className="rounded-full bg-muted px-2.5 py-1 text-[12px] text-muted-foreground"
-              key={capability}
+              key={technology}
             >
-              {capability}
+              {technology}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-[12px] font-medium text-foreground/70">
+          {t("details.tools")}
+        </p>
+        <div className="mt-2.5 flex flex-wrap gap-1.5">
+          {talent.tools.map((tool) => (
+            <span
+              className="rounded-md border border-border px-2 py-1 font-mono text-[11.5px] text-muted-foreground"
+              key={tool}
+            >
+              {tool}
             </span>
           ))}
         </div>

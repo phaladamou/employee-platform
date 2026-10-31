@@ -1,4 +1,4 @@
-// components/workspace/recruit/agent-card.tsx
+// components/workspace/recruit/talent-card.tsx
 "use client";
 
 import { CheckIcon } from "lucide-react";
@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { AvailableAgent } from "@/lib/employees/catalog";
+import type { TalentProfile } from "@/lib/employees/catalog";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -15,28 +15,28 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-const VISIBLE_CAPABILITIES = 3;
+const VISIBLE_TECHNOLOGIES = 3;
 
-export function AgentCard({
-  agent,
-  categoryLabel,
+export function TalentCard({
+  talent,
+  departmentLabel,
   recruited,
   busy,
   selected,
   onRecruit,
   onSelect,
 }: {
-  agent: AvailableAgent;
-  categoryLabel: string;
+  talent: TalentProfile;
+  departmentLabel: string;
   recruited: boolean;
   busy: boolean;
   selected?: boolean;
-  onRecruit: (agentId: string) => void;
-  onSelect?: (agentId: string) => void;
+  onRecruit: (spec: string) => void;
+  onSelect?: (spec: string) => void;
 }) {
   const t = useTranslations("recruit");
-  const extraCapabilities =
-    agent.capabilities.length - VISIBLE_CAPABILITIES;
+  const extraTechnologies =
+    talent.technologies.length - VISIBLE_TECHNOLOGIES;
 
   return (
     <div
@@ -45,7 +45,7 @@ export function AgentCard({
         onSelect && "cursor-pointer transition-colors hover:border-foreground/20",
         selected && "border-indigo-600/50 ring-1 ring-indigo-600/30"
       )}
-      onClick={onSelect ? () => onSelect(agent.id) : undefined}
+      onClick={onSelect ? () => onSelect(talent.spec) : undefined}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
@@ -53,38 +53,40 @@ export function AgentCard({
             aria-hidden="true"
             className="flex size-12 shrink-0 items-center justify-center rounded-full bg-muted text-[14px] font-semibold text-foreground"
           >
-            {getInitials(agent.name)}
+            {getInitials(talent.name)}
           </div>
           <div className="min-w-0">
             <p className="truncate text-[15px] font-medium text-foreground">
-              {agent.name}
+              {talent.name}
             </p>
             <p className="truncate text-[12px] text-muted-foreground">
-              {agent.role}
+              {talent.role}
             </p>
           </div>
         </div>
         <span className="shrink-0 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
-          {categoryLabel}
+          {departmentLabel}
         </span>
       </div>
 
       <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
-        {agent.description}
+        {talent.background}
       </p>
 
       <div className="flex flex-wrap gap-1.5">
-        {agent.capabilities.slice(0, VISIBLE_CAPABILITIES).map((capability) => (
-          <span
-            className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-            key={capability}
-          >
-            {capability}
-          </span>
-        ))}
-        {extraCapabilities > 0 && (
+        {talent.technologies
+          .slice(0, VISIBLE_TECHNOLOGIES)
+          .map((technology) => (
+            <span
+              className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+              key={technology}
+            >
+              {technology}
+            </span>
+          ))}
+        {extraTechnologies > 0 && (
           <span className="px-1 py-0.5 text-[11px] text-muted-foreground">
-            +{extraCapabilities}
+            +{extraTechnologies}
           </span>
         )}
       </div>
@@ -101,7 +103,7 @@ export function AgentCard({
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
-              onRecruit(agent.id);
+              onRecruit(talent.spec);
             }}
             type="button"
             variant="brand"
