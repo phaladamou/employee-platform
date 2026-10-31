@@ -20,10 +20,22 @@ const PROFILES_DIR = join(
 
 describe("rich talent profiles", () => {
   it("returns null for talents without a rich profile", () => {
-    assert.equal(getRichProfile("newton-researcher"), null);
     assert.equal(getRichProfile("milo-content-strategist"), null);
     assert.equal(getRichProfile("sana-seo-analyst"), null);
     assert.equal(getRichProfile("unknown-spec"), null);
+  });
+
+  it("exposes the Newton profile with exactly the kernel tools", () => {
+    const newton = getRichProfile("newton-researcher");
+    assert.ok(newton);
+    assert.deepEqual(
+      newton.tools.map((tool) => tool.name).sort(),
+      ["read_file", "write_file"]
+    );
+    assert.equal(newton.responsibilities.length, 5);
+    assert.equal(newton.capabilities.length, 7);
+    assert.equal(newton.boundaries.length, 3);
+    assert.equal(newton.deliverables.length, 6);
   });
 
   it("exposes the Aria profile with exactly the kernel tools", () => {
