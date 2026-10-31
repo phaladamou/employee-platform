@@ -77,18 +77,25 @@ $EMPLOYEE_DATA/            # e.g. /var/lib/employee
 ├── missions/
 ├── profiles/             # hired employee instances
 └── memory/
-$EMPLOYEE_SANDBOX/         # e.g. .data/workspace — tool-visible files
+$EMPLOYEE_SANDBOX/         # e.g. .data/workspace — shared fallback root
+$EMPLOYEE_WORKSPACES_DIR/  # e.g. .data/workspaces — one dir per employee
+├── <employeeId>/          # live workspace (tools read/write here)
+└── archive/               # terminated workspaces (audit, never deleted)
 ```
 
 ```bash
 # Online backup (writes are atomic renames; a copy is always consistent enough
 # to boot — at worst one in-flight job is recovered on restore)
-tar -czf employee-backup-$(date +%F).tar.gz -C /var/lib employee workspace
+tar -czf employee-backup-$(date +%F).tar.gz -C /var/lib employee workspace workspaces
 
 # Restore
 tar -xzf employee-backup-2026-10-30.tar.gz -C /var/lib
 emp recover   # re-queue anything whose worker died with the old host
 ```
+
+Workspaces are created on `hire` (and on every job start, idempotent);
+`terminate` moves the live directory into `archive/` — back it up like
+the rest, and prune it only under your own retention policy.
 
 Back up `credentials/` with restricted permissions (`chmod 600` on restore)
 and keep operator Ed25519 keys wherever your secrets live — they are not
@@ -163,7 +170,7 @@ docker build -t employee-core .
 # API + embedded worker, read-only root FS, capped resources
 docker run -d --name emp \
   --read-only --tmpfs /tmp:uid=1000,gid=1000 \
-  -v emp-data:/data -v emp-sandbox:/sandbox \
+  -v emp-data:/data -v emp-sandbox:/sandbox -v emp-workspaces:/workspaces \
   -m 512m --cpus=1.0 -p 8000:8000 \
   -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
   employee-core serve --port 8000
@@ -171,7 +178,7 @@ docker run -d --name emp \
 # Second worker on the same data dir (atomic claims)
 docker run -d --name emp-w2 \
   --read-only --tmpfs /tmp \
-  -v emp-data:/data -v emp-sandbox:/sandbox \
+  -v emp-data:/data -v emp-sandbox:/sandbox -v emp-workspaces:/workspaces \
   -m 512m --cpus=1.0 \
   -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
   employee-core worker --id worker_docker_2
@@ -180,18 +187,22 @@ docker run -d --name emp-w2 \
 Notes:
 
 - The container runs as `node` (uid 1000, non-root); only `/tmp`,
-  `/data` and `/sandbox` are writable.
-- Back up the named volumes (`emp-data`, `emp-sandbox`) exactly like
-  §3 (`tar` the volume contents).
+  `/data`, `/sandbox` and `/workspaces` are writable.
+- The image bakes in `emp-sandbox` (Rust multi-stage build), so
+  `run_shell` is Landlock-confined out of the box — no extra setup.
+- Back up the named volumes (`emp-data`, `emp-sandbox`,
+  `emp-workspaces`) exactly like §3 (`tar` the volume contents).
 - `emp recover` / `keys revoke` work unchanged — run them in a
   throwaway container on the same volumes, e.g.
   `docker run --rm -v emp-data:/data … employee-core recover`.
 
 ## 8. Strict shell backend — `EMPLOYEE_SANDBOX_BIN`
 
-By default `run_shell` uses Node `exec` (timeouts + output caps, no
-rlimits). Point it at a built `emp-sandbox` for the strict backend
-(process-group kills, Unix RLIMIT_CPU/FSIZE, fail-closed errors):
+By default `run_shell` uses Node `exec`: timeouts + output caps, but
+only `cwd` confinement — a shell can `cd ..` out of the workspace.
+Point it at a built `emp-sandbox` for the strict backend
+(process-group kills, Unix RLIMIT_CPU/FSIZE, **Landlock filesystem
+confinement** of every shell to its workspace, fail-closed errors):
 
 ```bash
 cd rust && cargo build --locked --release --bin emp-sandbox
@@ -202,10 +213,15 @@ emp serve --port 8000   # run_shell now executes through emp-sandbox
 Rules:
 
 - Unset or missing binary → silent fallback to Node `exec` (same
-  messages, same contract — check the path is right if you expected
-  the strict backend).
+  messages, same contract — but WITHOUT filesystem confinement:
+  check the path is right if you expected the strict backend).
+  Production deployments that run untrusted shell commands must set
+  this variable; the Docker image (§7) already does.
 - Any other sandbox anomaly (bad report, hung bridge, exit 2) fails
-  the tool call — never a silent downgrade.
+  the tool call — never a silent downgrade. This includes kernels
+  without Landlock (pre-5.13, LSM off) or newer than ABI v4: the
+  spawn is refused rather than run unconfined. Non-Linux hosts stay
+  `cwd`-only by design (ADR-015).
 - Ed25519 proofs need no configuration: the WASM module ships inside
   `core/employee/wasm/dist/` and loads automatically, with a Node
   fallback if the file is missing or corrupt.
