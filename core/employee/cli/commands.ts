@@ -477,12 +477,13 @@ async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
     return { exitCode: 1 };
   }
 
-  const identity = idOverride ?? generateEmployeeIdentity().id;
+  const identity = idOverride ? undefined : generateEmployeeIdentity();
   const profile = createEmployeeProfile({
-    id: identity,
+    id: identity?.id ?? idOverride ?? "",
     name: "Aria",
     role: "Data Analyst",
     skills: ["SQL", "forecasting"],
+    identity,
   });
   const mission = assignMission(
     createEmployeeMission({ prompt }),

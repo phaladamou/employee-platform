@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { FileEmploymentStore } from "../employments/file-employment-store";
+import { verifyEmployeeIdentity } from "../identity/employee-id";
 import { FileJobStore } from "../jobs/file-job-store";
 import { FileMissionStore } from "../missions/file-mission-store";
 import { FileProfileStore } from "../profile/file-profile-store";
@@ -77,6 +78,26 @@ describe("InProcessEmployeeCreator", () => {
         specialization: { name: "data-analyst", version: "9.9.9" },
       })
     ).rejects.toThrow('Unknown profile "data-analyst@9.9.9"');
+  });
+
+  it("issues a unique cryptographic identity per published employee", async () => {
+    const creator = await makeCreator();
+
+    const first = await creator.publishEmployee({
+      name: "Aria",
+      role: "Data Analyst",
+    });
+    const second = await creator.publishEmployee({
+      name: "Bob",
+      role: "Assistant",
+    });
+
+    expect(first.identity.id).toBe(first.id);
+    expect(second.identity.id).toBe(second.id);
+    expect(first.identity.id).not.toBe(second.identity.id);
+    expect(first.identity.fingerprint).not.toBe(second.identity.fingerprint);
+    expect(verifyEmployeeIdentity(first.identity)).toBe(true);
+    expect(verifyEmployeeIdentity(second.identity)).toBe(true);
   });
 
   it("suspends and reactivates employees", async () => {

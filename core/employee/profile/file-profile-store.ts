@@ -1,6 +1,7 @@
 import { mkdir, readdir, readFile, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 
+import { isEmployeeIdentity } from "../identity/employee-id";
 import {
   isEmployeeSpecialization,
   type EmployeeSpecialization,
@@ -29,11 +30,13 @@ function parseProfile(raw: unknown): EmployeeProfile | null {
   if (!isRecord(raw)) {
     return null;
   }
-  const { id, name, role, skills, status, specialization } = raw;
+  const { id, identity, name, role, skills, status, specialization } = raw;
 
   if (
     typeof id !== "string" ||
     !id ||
+    !isEmployeeIdentity(identity) ||
+    identity.id !== id ||
     typeof name !== "string" ||
     !name ||
     typeof role !== "string" ||
@@ -56,6 +59,7 @@ function parseProfile(raw: unknown): EmployeeProfile | null {
 
   return {
     id,
+    identity: { ...identity },
     name,
     role,
     skills: [...skills],

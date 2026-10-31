@@ -1,5 +1,10 @@
 import type { ProfileRegistry } from "../profiles/profile-registry";
 import {
+  isEmployeeIdentity,
+  issueEmployeeIdentity,
+  type EmployeeIdentity,
+} from "../identity/employee-id";
+import {
   isEmployeeSpecialization,
   type EmployeeSpecialization,
 } from "../profiles/profile-spec";
@@ -8,6 +13,12 @@ export type EmployeeStatus = "idle" | "working" | "suspended";
 
 export interface EmployeeProfile {
   readonly id: string;
+  /**
+   * Carte d'identite cryptographique delivree a la creation
+   * (id + empreinte + createdAt). Immuable : aucun setter, les
+   * transitions et migrations la preservent telle quelle.
+   */
+  readonly identity: EmployeeIdentity;
   readonly name: string;
   readonly role: string;
   readonly skills: readonly string[];
@@ -28,7 +39,9 @@ const TRANSITIONS: Record<EmployeeStatus, readonly EmployeeStatus[]> = {
 
 /**
  * Cree le profil d'un Employee. Les mises a jour sont immuables :
- * chaque transition retourne un nouveau profil.
+ * chaque transition retourne un nouveau profil. L'identite est
+ * delivree ici (jamais a la volee) : fournie et verifiee, ou emise
+ * pour cet id.
  */
 export function createEmployeeProfile(input: {
   id: string;
@@ -36,6 +49,7 @@ export function createEmployeeProfile(input: {
   role: string;
   skills?: string[];
   specialization?: EmployeeSpecialization | null;
+  identity?: EmployeeIdentity;
 }): EmployeeProfile {
   const id = input.id.trim();
   const name = input.name.trim();
@@ -58,8 +72,22 @@ export function createEmployeeProfile(input: {
     throw new Error("Employee specialization is invalid");
   }
 
+  let identity: EmployeeIdentity;
+  if (input.identity) {
+    if (!isEmployeeIdentity(input.identity)) {
+      throw new Error("Employee identity is invalid");
+    }
+    if (input.identity.id !== id) {
+      throw new Error("Employee identity does not match id");
+    }
+    identity = { ...input.identity };
+  } else {
+    identity = issueEmployeeIdentity(id);
+  }
+
   return {
     id,
+    identity,
     name,
     role,
     skills: [...(input.skills ?? [])],

@@ -18,6 +18,8 @@ import { createRunShellTool } from "./tools/run-shell";
 export type { EmployeeIdentity } from "./identity/employee-id";
 export {
   generateEmployeeIdentity,
+  isEmployeeIdentity,
+  issueEmployeeIdentity,
   verifyEmployeeIdentity,
 } from "./identity/employee-id";
 

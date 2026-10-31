@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  generateEmployeeIdentity,
+  verifyEmployeeIdentity,
+} from "../identity/employee-id";
 import { createProfileRegistry } from "../profiles/profile-registry";
 import {
   createEmployeeProfile,
@@ -18,12 +22,15 @@ describe("createEmployeeProfile", () => {
 
     expect(profile).toEqual({
       id: "emp_1",
+      identity: profile.identity,
       name: "Aria",
       role: "Data Analyst",
       skills: ["SQL"],
       status: "idle",
       specialization: null,
     });
+    expect(profile.identity.id).toBe("emp_1");
+    expect(verifyEmployeeIdentity(profile.identity)).toBe(true);
   });
 
   it("defaults to no skills", () => {
@@ -199,5 +206,63 @@ describe("migrateEmployeeProfile", () => {
     expect(() => migrateEmployeeProfile(bound(), "9.9.9", registry)).toThrow(
       'Unknown profile "data-analyst@9.9.9"'
     );
+  });
+});
+
+describe("employee identity", () => {
+  it("stores a full cryptographic identity at creation", () => {
+    const identity = generateEmployeeIdentity(
+      new Date("2026-01-01T00:00:00.000Z")
+    );
+    const profile = createEmployeeProfile({
+      id: identity.id,
+      name: "Aria",
+      role: "Data Analyst",
+      identity,
+    });
+
+    expect(profile.identity).toEqual(identity);
+    expect(verifyEmployeeIdentity(profile.identity)).toBe(true);
+  });
+
+  it("is defensively copied and preserved across transitions", () => {
+    const identity = generateEmployeeIdentity();
+    const profile = createEmployeeProfile({
+      id: identity.id,
+      name: "Aria",
+      role: "Data Analyst",
+      identity,
+    });
+
+    (identity as unknown as { fingerprint: string }).fingerprint =
+      "0".repeat(64);
+
+    expect(profile.identity.fingerprint).not.toBe("0".repeat(64));
+    expect(verifyEmployeeIdentity(profile.identity)).toBe(true);
+    expect(setEmployeeStatus(profile, "working").identity).toEqual(
+      profile.identity
+    );
+  });
+
+  it("rejects tampered or mismatched identities", () => {
+    const identity = generateEmployeeIdentity();
+
+    expect(() =>
+      createEmployeeProfile({
+        id: identity.id,
+        name: "Aria",
+        role: "Data Analyst",
+        identity: { ...identity, fingerprint: "0".repeat(64) },
+      })
+    ).toThrow("Employee identity is invalid");
+
+    expect(() =>
+      createEmployeeProfile({
+        id: "emp_other",
+        name: "Aria",
+        role: "Data Analyst",
+        identity,
+      })
+    ).toThrow("Employee identity does not match id");
   });
 });

@@ -1,5 +1,4 @@
-import { randomUUID } from "node:crypto";
-
+import { generateEmployeeIdentity } from "../identity/employee-id";
 import {
   createEmployeeProfile,
   setEmployeeStatus,
@@ -50,12 +49,14 @@ export class InProcessEmployeeCreator implements EmployeeCreator {
       }
     }
 
+    const identity = input.id ? undefined : generateEmployeeIdentity();
     const profile = createEmployeeProfile({
-      id: input.id ?? `emp_${randomUUID()}`,
+      id: identity?.id ?? (input.id as string),
       name: input.name,
       role: input.role,
       skills: input.skills,
       specialization,
+      identity,
     });
     await this.profiles.save(profile);
     return profile;
