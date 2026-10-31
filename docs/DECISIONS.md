@@ -194,7 +194,7 @@ each choice costs. Numbered ADRs; newest last.
 - **Context.** The API + worker run as a plain host process with the
   user's privileges and a writable tree — acceptable for development,
   weak as a deployment story.
-- **Decision.** A single `Dockerfile` (API + worker, `node:22-slim`):
+- **Decision.** A single `docker/Dockerfile` (API + worker, `node:22-slim`):
   non-root user (`node`, uid 1000), read-only root filesystem (only
   `/tmp` tmpfs and the `/data` + `/sandbox` volumes writable), resource
   envelope enforced at run time (`-m 512m --cpus=1.0`), healthcheck on

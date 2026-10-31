@@ -165,7 +165,7 @@ Same API + worker as a least-privilege container (see ADR-011).
 One image, two roles — extra workers just override `CMD`:
 
 ```bash
-docker build -t employee-core .
+docker build -f docker/Dockerfile -t employee-core .
 
 # API + embedded worker, read-only root FS, capped resources
 docker run -d --name emp \

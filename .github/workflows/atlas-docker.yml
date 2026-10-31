@@ -10,7 +10,7 @@ on:
   push:
     branches: [main]
     paths:
-      - Dockerfile
+      - docker/**
       - core/employee/**
       - rust/**
       - .github/workflows/atlas-docker.yml
@@ -31,7 +31,7 @@ jobs:
           fi
 
       - name: Build image
-        run: docker build -t employee-core:ci .
+        run: docker build -f docker/Dockerfile -t employee-core:ci .
 
       - name: Start API + worker
         run: |
