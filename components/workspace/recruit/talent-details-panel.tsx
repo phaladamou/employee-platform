@@ -14,6 +14,22 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[12px] font-medium text-foreground/70">{children}</p>
+  );
+}
+
+function BulletList({ items }: { items: string[] }) {
+  return (
+    <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-[13.5px] leading-relaxed text-muted-foreground">
+      {items.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
 export function TalentDetailsPanel({
   talent,
   departmentName,
@@ -35,6 +51,8 @@ export function TalentDetailsPanel({
 }) {
   const t = useTranslations("recruit");
   const tEmployees = useTranslations("employees");
+  const capabilities = talent.capabilities ?? talent.technologies;
+  const environment = talent.executionEnvironment;
 
   return (
     <div className="flex min-h-full flex-col gap-8 p-10">
@@ -108,45 +126,106 @@ export function TalentDetailsPanel({
       </div>
 
       <div>
-        <p className="text-[12px] font-medium text-foreground/70">
-          {t("details.about")}
-        </p>
+        <SectionTitle>
+          {talent.overview ? t("details.overview") : t("details.about")}
+        </SectionTitle>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-          {talent.background}
+          {talent.overview ?? talent.background}
         </p>
       </div>
 
-      <div>
-        <p className="text-[12px] font-medium text-foreground/70">
-          {tEmployees("recruit.capabilities")}
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {talent.technologies.map((technology) => (
-            <span
-              className="rounded-full bg-muted px-2.5 py-1 text-[12px] text-muted-foreground"
-              key={technology}
-            >
-              {technology}
-            </span>
-          ))}
+      {talent.responsibilities && talent.responsibilities.length > 0 && (
+        <div>
+          <SectionTitle>{t("details.responsibilities")}</SectionTitle>
+          <BulletList items={talent.responsibilities} />
         </div>
-      </div>
+      )}
 
-      <div>
-        <p className="text-[12px] font-medium text-foreground/70">
-          {t("details.tools")}
-        </p>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
-          {talent.tools.map((tool) => (
-            <span
-              className="rounded-md border border-border px-2 py-1 font-mono text-[11.5px] text-muted-foreground"
-              key={tool}
-            >
-              {tool}
-            </span>
-          ))}
+      {capabilities.length > 0 && (
+        <div>
+          <SectionTitle>{tEmployees("recruit.capabilities")}</SectionTitle>
+          <div className="mt-2.5 flex flex-wrap gap-1.5">
+            {capabilities.map((capability) => (
+              <span
+                className="rounded-full bg-muted px-2.5 py-1 text-[12px] text-muted-foreground"
+                key={capability}
+              >
+                {capability}
+              </span>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {talent.toolDetails && talent.toolDetails.length > 0 ? (
+        <div>
+          <SectionTitle>{t("details.tools")}</SectionTitle>
+          <div className="mt-2.5 flex flex-col gap-3">
+            {talent.toolDetails.map((tool) => (
+              <div key={tool.name}>
+                <p className="font-mono text-[12px] text-foreground">
+                  {tool.name}
+                </p>
+                <p className="mt-0.5 text-[12.5px] leading-relaxed text-muted-foreground">
+                  {tool.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        talent.tools.length > 0 && (
+          <div>
+            <SectionTitle>{t("details.tools")}</SectionTitle>
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {talent.tools.map((tool) => (
+                <span
+                  className="rounded-md border border-border px-2 py-1 font-mono text-[11.5px] text-muted-foreground"
+                  key={tool}
+                >
+                  {tool}
+                </span>
+              ))}
+            </div>
+          </div>
+        )
+      )}
+
+      {environment && (
+        <div>
+          <SectionTitle>{t("details.executionEnvironment")}</SectionTitle>
+          {typeof environment === "string" ? (
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+              {environment}
+            </p>
+          ) : (
+            <BulletList items={environment} />
+          )}
+        </div>
+      )}
+
+      {talent.boundaries && talent.boundaries.length > 0 && (
+        <div>
+          <SectionTitle>{t("details.boundaries")}</SectionTitle>
+          <BulletList items={talent.boundaries} />
+        </div>
+      )}
+
+      {talent.deliverables && talent.deliverables.length > 0 && (
+        <div>
+          <SectionTitle>{t("details.deliverables")}</SectionTitle>
+          <BulletList items={talent.deliverables} />
+        </div>
+      )}
+
+      {talent.verification && (
+        <div>
+          <SectionTitle>{t("details.verification")}</SectionTitle>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+            {talent.verification}
+          </p>
+        </div>
+      )}
     </div>
   );
 }

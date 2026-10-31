@@ -35,8 +35,8 @@ export function TalentCard({
   onSelect?: (spec: string) => void;
 }) {
   const t = useTranslations("recruit");
-  const extraTechnologies =
-    talent.technologies.length - VISIBLE_TECHNOLOGIES;
+  const badges = talent.capabilities ?? talent.technologies;
+  const extraTechnologies = badges.length - VISIBLE_TECHNOLOGIES;
 
   return (
     <div
@@ -70,20 +70,18 @@ export function TalentCard({
       </div>
 
       <p className="line-clamp-2 text-[13px] leading-relaxed text-muted-foreground">
-        {talent.background}
+        {talent.overview ?? talent.background}
       </p>
 
       <div className="flex flex-wrap gap-1.5">
-        {talent.technologies
-          .slice(0, VISIBLE_TECHNOLOGIES)
-          .map((technology) => (
-            <span
-              className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-              key={technology}
-            >
-              {technology}
-            </span>
-          ))}
+        {badges.slice(0, VISIBLE_TECHNOLOGIES).map((badge) => (
+          <span
+            className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+            key={badge}
+          >
+            {badge}
+          </span>
+        ))}
         {extraTechnologies > 0 && (
           <span className="px-1 py-0.5 text-[11px] text-muted-foreground">
             +{extraTechnologies}
@@ -91,15 +89,33 @@ export function TalentCard({
         )}
       </div>
 
-      <div className="mt-auto pt-2">
+      <div className="mt-auto flex gap-2 pt-2">
+        {onSelect && (
+          <Button
+            className="flex-1"
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(talent.spec);
+            }}
+            type="button"
+            variant="outline"
+          >
+            {t("card.viewProfile")}
+          </Button>
+        )}
         {recruited ? (
-          <Button className="w-full" disabled type="button" variant="outline">
+          <Button
+            className="flex-1"
+            disabled
+            type="button"
+            variant="outline"
+          >
             <CheckIcon className="size-4" />
             {t("card.recruited")}
           </Button>
         ) : (
           <Button
-            className="w-full"
+            className="flex-1"
             disabled={busy}
             onClick={(e) => {
               e.stopPropagation();
