@@ -5,6 +5,7 @@ name: Atlas Docker validation
 # environment ["python3", "pip", "pytest", "git"]), hire him, run a
 # mission that creates code + tests, and require success with
 # --expect-test. Any step failing fails the workflow.
+# Manual re-run without a push: gh workflow run atlas-docker.yml --ref main
 on:
   push:
     branches: [main]
