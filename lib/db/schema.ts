@@ -302,6 +302,18 @@ export const talentProfile = pgTable("TalentProfile", {
   background: text("background").notNull(),
   allowedTools: json("allowedTools").notNull().default([]),
   technologies: json("technologies").notNull().default([]),
+  // Fiche riche (NULL tant que le talent n'est pas enrichi) :
+  // copie de presentation, synchronisee depuis rich-profiles.ts.
+  overview: text("overview"),
+  responsibilities: json("responsibilities"),
+  capabilities: json("capabilities"),
+  // Outils decrits [{name, description}] ; chaque name DOIT exister
+  // dans allowedTools (verifie par rich-profiles.test.ts).
+  tools: json("tools"),
+  executionEnvironment: json("executionEnvironment"),
+  boundaries: json("boundaries"),
+  deliverables: json("deliverables"),
+  verification: text("verification"),
   createdBy: varchar("createdBy", { length: 120 })
     .notNull()
     .default("Cofoundator"),

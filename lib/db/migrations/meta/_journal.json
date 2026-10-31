@@ -50,6 +50,13 @@
       "when": 1793464982347,
       "tag": "0006_tenant_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1793467598645,
+      "tag": "0007_rich_talent_profiles",
+      "breakpoints": true
     }
   ]
 }
