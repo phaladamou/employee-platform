@@ -89,7 +89,7 @@ export function TalentCard({
         )}
       </div>
 
-      <div className="mt-auto flex gap-2 pt-2">
+      <div className="mt-auto flex items-center gap-2 pt-2">
         {onSelect && (
           <Button
             className="flex-1"
@@ -104,15 +104,10 @@ export function TalentCard({
           </Button>
         )}
         {recruited ? (
-          <Button
-            className="flex-1"
-            disabled
-            type="button"
-            variant="outline"
-          >
+          <span className="inline-flex shrink-0 items-center gap-1.5 px-1 text-[12.5px] text-muted-foreground">
             <CheckIcon className="size-4" />
             {t("card.recruited")}
-          </Button>
+          </span>
         ) : (
           <Button
             className="flex-1"
