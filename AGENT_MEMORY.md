@@ -423,8 +423,18 @@ Leçons dures :
   DECISIONS (ADR-001→015), ERROR_HANDLING, OPERATIONS (§3 backup
   workspaces/archive, §7 Docker, §8 strict backend), ROADMAP,
   ARCHITECTURE, READMEs (`core/employee` en FR, `rust/` en EN).
-- **État 2026-10-31 : code @ 59aed5f — 371 tests Vitest (46 fichiers)
-  + 27 cargo (17 lib + 3 bin + 7 Landlock), `tsc` propre, WASM OK.**
+- Identité crypto au Publish (backfill c6598c7) : `identity`
+  (id+fingerprint+createdAt) stockée dans le profil, immuable
+  (copie défensive, parseur strict + quarantaine), `publish`/`run`
+  via `generateEmployeeIdentity()` (+4 tests : unicité, validité).
+- Run neutre + `--spec` opt-in (018ec07) : `cmdRun` généraliste
+  (Runner/Generalist/[], fini Aria/Data Analyst/SQL), métier
+  uniquement via `--spec name@version` (registre sur demande,
+  fail-fast, passé au runtime), erreur générique `name@1.0.0`
+  mutualisée publish/run (+4 tests CLI).
+- **État 2026-10-31 : code @ 018ec07 — 379 tests Vitest (46 fichiers,
+  378 verts + 1 échec env `emp-sandbox not built`) + 27 cargo
+  (17 lib + 3 bin + 7 Landlock), `tsc` propre, WASM OK.**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire seuls ne la font pas bouger.)
 - Résiduels assumés : workspaces par employé pas par employeur
