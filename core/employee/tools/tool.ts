@@ -6,8 +6,14 @@ import { createWriteFileTool } from "./write-file";
 import { createRunShellTool } from "./run-shell";
 
 export interface ToolContext {
-  /** Racine du workspace : les outils ne sortent jamais de ce dossier. */
+  /** Racine partagee (repli quand workspaceRoot est absent). */
   readonly sandboxRoot: string;
+  /**
+   * Dossier dedie de l'employe (<workspaces>/<employeeId>/). Quand il
+   * est pose, les trois outils s'y confinent ; sinon ils utilisent
+   * sandboxRoot (mode partage historique, tests, demo locale).
+   */
+  readonly workspaceRoot?: string;
   /**
    * Environnement des commandes shell. Jamais herite du processus hote :
    * absent = environnement vide (les binaires doivent alors etre appeles
@@ -128,6 +134,15 @@ export async function resolveWithinRoot(
       current = parent;
     }
   }
+}
+
+/**
+ * Racine de confinement effective : le workspace dedie quand il est
+ * pose, sinon la racine partagee. SEUL point de decision : tous les
+ * outils passent par ici, aucun ne lit sandboxRoot directement.
+ */
+export function toolRoot(ctx: ToolContext): string {
+  return ctx.workspaceRoot ?? ctx.sandboxRoot;
 }
 
 /** Les 3 outils de base d'un Employee. */

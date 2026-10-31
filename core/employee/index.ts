@@ -264,7 +264,9 @@ export {
   resolveWithinRoot,
   toolFail,
   toolOk,
+  toolRoot,
 } from "./tools/tool";
+export { EmployeeWorkspaces } from "./workspaces/employee-workspaces";
 export { READ_FILE_MAX_BYTES, createReadFileTool } from "./tools/read-file";
 export { WRITE_FILE_MAX_CHARS, createWriteFileTool } from "./tools/write-file";
 export {

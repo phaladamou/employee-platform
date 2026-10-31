@@ -4,6 +4,7 @@ import {
   resolveWithinRoot,
   toolFail,
   toolOk,
+  toolRoot,
   type EmployeeTool,
   type ToolArgs,
   type ToolContext,
@@ -28,7 +29,7 @@ export function createReadFileTool(): EmployeeTool {
       let resolved: string;
 
       try {
-        resolved = await resolveWithinRoot(ctx.sandboxRoot, args.path);
+        resolved = await resolveWithinRoot(toolRoot(ctx), args.path);
       } catch {
         return toolFail(`path escapes the workspace: ${args.path}`);
       }

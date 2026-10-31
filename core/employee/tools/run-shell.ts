@@ -4,6 +4,7 @@ import { promisify } from "node:util";
 import {
   toolFail,
   toolOk,
+  toolRoot,
   type EmployeeTool,
   type ToolArgs,
   type ToolContext,
@@ -87,7 +88,7 @@ async function runViaSandbox(
     "--max-output-bytes",
     String(RUN_SHELL_MAX_BUFFER),
     "--work-dir",
-    ctx.sandboxRoot,
+    toolRoot(ctx),
   ];
   for (const [key, value] of Object.entries(ctx.env ?? {})) {
     if (value !== undefined) {
@@ -207,7 +208,7 @@ export function createRunShellTool(): EmployeeTool {
 
       try {
         const { stdout, stderr } = await execAsync(args.command, {
-          cwd: ctx.sandboxRoot,
+          cwd: toolRoot(ctx),
           timeout,
           maxBuffer: RUN_SHELL_MAX_BUFFER,
           windowsHide: true,
