@@ -20,9 +20,24 @@ const PROFILES_DIR = join(
 
 describe("rich talent profiles", () => {
   it("returns null for talents without a rich profile", () => {
-    assert.equal(getRichProfile("nova-devops-engineer"), null);
     assert.equal(getRichProfile("aria-data-analyst"), null);
+    assert.equal(getRichProfile("newton-researcher"), null);
+    assert.equal(getRichProfile("milo-content-strategist"), null);
+    assert.equal(getRichProfile("sana-seo-analyst"), null);
     assert.equal(getRichProfile("unknown-spec"), null);
+  });
+
+  it("exposes the Nova profile without write_file (not in kernel)", () => {
+    const nova = getRichProfile("nova-devops-engineer");
+    assert.ok(nova);
+    assert.deepEqual(
+      nova.tools.map((tool) => tool.name).sort(),
+      ["read_file", "run_shell"]
+    );
+    assert.ok(
+      !nova.tools.some((tool) => tool.name === "write_file"),
+      "Nova must not claim write_file"
+    );
   });
 
   it("only references specs from the web catalog", () => {
