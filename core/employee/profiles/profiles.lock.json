@@ -1,8 +1,14 @@
 {
   "version": 1,
   "profiles": {
+    "aria-data-analyst@1.0.0": "311eec7534053b4024bbd336bf62da4aba171591748766ef5ed5618ff9229768",
+    "atlas-software-engineer@1.0.0": "bd604839668f5fb891ae540b6a1101c5ca5ee4001a82b45cc248acf18b430da5",
     "data-analyst@1.0.0": "7e61df8e3cc49829d594e889ecf37a9615b8dfd43d991c5995d2f42b5486b23c",
+    "milo-content-strategist@1.0.0": "c161871c01808282557c32b24f4abdec653ce63edaee50289711fa693c80f4a8",
+    "newton-researcher@1.0.0": "568a368d57b26a1893089d4c876f22b4b8d1095ee31080dc7b33f01afe947393",
+    "nova-devops-engineer@1.0.0": "753cd199b00fb726cbed27e0950d2634ff8454550587b304aa560f1b3adc7e1d",
     "researcher@1.0.0": "507918317cbf6f84865090203e00b9846e31db7b9a96e15da03532cae4e31afe",
+    "sana-seo-analyst@1.0.0": "54d2246564b54a4bf379e13812afd7f7bb06521f7a830b480c6f15f148962d96",
     "software-engineer@1.0.0": "d926d0bd2af3172667971c06005bde739cec3c84e2dc54d4437d344685f0504a"
   }
 }

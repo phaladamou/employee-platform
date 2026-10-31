@@ -24,6 +24,12 @@ export interface EmployeeProfile {
   readonly skills: readonly string[];
   readonly status: EmployeeStatus;
   /**
+   * Marque de provenance posee a la publication (ex. "Cofoundator")
+   * ou null (origine inconnue). Immuable comme l'identite : aucun
+   * setter, les transitions et migrations la preservent telle quelle.
+   */
+  readonly createdBy: string | null;
+  /**
    * ADN pose a l'embauche (specialisation + version exacte) ou null
    * (generaliste). Immuable : aucun setter, seule une migration
    * explicite cree un nouveau profil lie.
@@ -50,6 +56,7 @@ export function createEmployeeProfile(input: {
   skills?: string[];
   specialization?: EmployeeSpecialization | null;
   identity?: EmployeeIdentity;
+  createdBy?: string | null;
 }): EmployeeProfile {
   const id = input.id.trim();
   const name = input.name.trim();
@@ -63,6 +70,13 @@ export function createEmployeeProfile(input: {
   }
   if (!role) {
     throw new Error("Employee role cannot be empty");
+  }
+  if (
+    input.createdBy !== undefined &&
+    input.createdBy !== null &&
+    !input.createdBy.trim()
+  ) {
+    throw new Error("Employee createdBy cannot be empty");
   }
   if (
     input.specialization !== undefined &&
@@ -92,6 +106,7 @@ export function createEmployeeProfile(input: {
     role,
     skills: [...(input.skills ?? [])],
     status: "idle",
+    createdBy: input.createdBy?.trim() ?? null,
     specialization: input.specialization
       ? { ...input.specialization }
       : null,

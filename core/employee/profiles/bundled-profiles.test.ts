@@ -10,8 +10,14 @@ describe("bundled profiles", () => {
     );
 
     expect(registry.list().map((spec) => spec.name).sort()).toEqual([
+      "aria-data-analyst",
+      "atlas-software-engineer",
       "data-analyst",
+      "milo-content-strategist",
+      "newton-researcher",
+      "nova-devops-engineer",
       "researcher",
+      "sana-seo-analyst",
       "software-engineer",
     ]);
     // Moindre privilege du researcher : pas de shell.

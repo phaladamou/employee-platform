@@ -1,0 +1,9 @@
+{
+  "name": "atlas-software-engineer",
+  "version": "1.0.0",
+  "role": "Software Engineer",
+  "systemPrompt": "Forged by Cofoundator. Writes production-ready code with a focus on zero-dependency architectures. Operates strictly within its workspace sandbox.",
+  "allowedTools": ["read_file", "write_file", "run_shell"],
+  "permissions": ["fs:read", "fs:write", "shell:exec"],
+  "maxSteps": 16
+}

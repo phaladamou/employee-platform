@@ -229,6 +229,26 @@ describe("createEmployeeHandler", () => {
     expect(unknownSpec.status).toBe(400);
   });
 
+  it("records the creator mark on publish", async () => {
+    const { handle, tokens } = await makeWorld();
+
+    const created = await call(handle, "POST", "/v1/employees", {
+      token: tokens.admin,
+      body: { name: "Atlas", role: "Software Engineer", createdBy: "Cofoundator" },
+    });
+    expect(created.status).toBe(201);
+    expect((created.json as { createdBy: string | null }).createdBy).toBe(
+      "Cofoundator"
+    );
+
+    const unmarked = await call(handle, "POST", "/v1/employees", {
+      token: tokens.admin,
+      body: { name: "Bob", role: "Assistant" },
+    });
+    expect(unmarked.status).toBe(201);
+    expect((unmarked.json as { createdBy: string | null }).createdBy).toBeNull();
+  });
+
   it("runs the hire -> submit -> status flow", async () => {
     const { handle, tokens } = await makeWorld();
     await call(handle, "POST", "/v1/employees", {

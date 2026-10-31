@@ -275,7 +275,7 @@ async function cmdPublish(
   const role = flag(args.flags, "role");
   if (!name || !role) {
     ctx.output(
-      "Usage: publish --name <name> --role <role> [--skills a,b] [--spec name@version]"
+      "Usage: publish --name <name> --role <role> [--skills a,b] [--spec name@version] [--created-by C]"
     );
     return { exitCode: 1 };
   }
@@ -313,6 +313,7 @@ async function cmdPublish(
           ? skillsRaw.split(",").map((skill) => skill.trim())
           : undefined,
         specialization,
+        createdBy: flag(args.flags, "created-by"),
       }),
     });
     const payload: unknown = await response.json();
@@ -759,7 +760,7 @@ function usage(ctx: CliContext): CliResult {
       "  serve [--port N] [--host H]   start API + worker (port: --port, $PORT, 8000)",
       "  worker [--id W] [--interval-ms N]   start a worker alone",
       "  recover [--stale-after-ms N]   requeue orphaned jobs",
-      "  publish --name N --role R [--skills a,b] [--spec n@v]   (admin)",
+      "  publish --name N --role R [--skills a,b] [--spec n@v] [--created-by C]   (admin)",
       "  hire <employeeId>",
       "  submit <employeeId> \"<prompt>\" [--expect-file a,b] [--expect-contains a=text]",
       "  status <jobId>",

@@ -19,7 +19,7 @@ import type { EmployeeProfile } from "../profile/employee-profile";
  * - GET /v1/missions/:id -> EmployeeMission
  *
  * Routes createur (token admin) :
- * - POST /v1/employees {name, role, skills?, specialization?}
+ * - POST /v1/employees {name, role, skills?, specialization?, createdBy?}
  * - GET /v1/employees -> EmployeeProfile[]
  */
 
@@ -42,6 +42,7 @@ export interface CreateEmployeeRequest {
     readonly name: string;
     readonly version: string;
   } | null;
+  readonly createdBy?: string | null;
 }
 
 export interface JobListQuery {

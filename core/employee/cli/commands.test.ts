@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEmployeeJob } from "../jobs/employee-job";
 import { FileJobStore } from "../jobs/file-job-store";
@@ -194,6 +194,42 @@ describe("runCommand", () => {
     const out = lines.join("\n");
     expect(out).toContain("name@1.0.0");
     expect(out).not.toContain("data-analyst");
+  });
+
+  it("forwards --created-by on publish", async () => {
+    const { ctx, lines } = await makeCtx({ token: "emo_x" });
+    let seenBody: unknown;
+    vi.stubGlobal(
+      "fetch",
+      (async (_url: unknown, init?: { body?: string }) => {
+        seenBody = JSON.parse(init?.body ?? "{}");
+        return { ok: true, json: async () => ({ id: "emp_9" }) };
+      }) as unknown as typeof fetch
+    );
+    try {
+      expect(
+        (
+          await runCommand(
+            [
+              "publish",
+              "--name",
+              "Atlas",
+              "--role",
+              "Dev",
+              "--created-by",
+              "Cofoundator",
+            ],
+            ctx
+          )
+        ).exitCode
+      ).toBe(0);
+      expect((seenBody as { createdBy?: string }).createdBy).toBe(
+        "Cofoundator"
+      );
+      expect(lines.join("\n")).toContain("employee: emp_9");
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("rejects unknown --spec profiles on run (fail fast)", async () => {

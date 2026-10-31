@@ -382,6 +382,7 @@ export function createEmployeeHandler(deps: EmployeeServerDeps) {
                   name: string;
                   version: string;
                 }),
+          createdBy: asNonEmptyString(record.createdBy) ?? null,
         });
         return json(201, created);
       } catch (error) {

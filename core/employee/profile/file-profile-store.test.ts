@@ -37,6 +37,41 @@ describe("FileProfileStore", () => {
     expect(await store.load("emp_missing")).toBeNull();
   });
 
+  it("round-trips the creator mark", async () => {
+    const store = await makeStore();
+    const profile = createEmployeeProfile({
+      id: "emp_1",
+      name: "Atlas",
+      role: "Software Engineer",
+      createdBy: "Cofoundator",
+    });
+
+    await store.save(profile);
+
+    expect((await store.load("emp_1"))?.createdBy).toBe("Cofoundator");
+  });
+
+  it("loads legacy profiles without a creator mark as null", async () => {
+    const store = await makeStore();
+    const profile = createEmployeeProfile({
+      id: "emp_1",
+      name: "Aria",
+      role: "Data Analyst",
+    });
+    const legacy = JSON.parse(JSON.stringify(profile)) as Record<
+      string,
+      unknown
+    >;
+    delete legacy.createdBy;
+    await writeFile(
+      join(dir, "employee_emp_1.json"),
+      JSON.stringify(legacy),
+      "utf8"
+    );
+
+    expect((await store.load("emp_1"))?.createdBy).toBeNull();
+  });
+
   it("upserts on save", async () => {
     const store = await makeStore();
     await store.save(

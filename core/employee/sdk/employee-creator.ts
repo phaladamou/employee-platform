@@ -16,6 +16,7 @@ export interface EmployeeCreator {
     role: string;
     skills?: string[];
     specialization?: EmployeeSpecialization | null;
+    createdBy?: string | null;
   }): Promise<EmployeeProfile>;
 
   /** Catalogue complet des employes publies. */

@@ -34,6 +34,7 @@ export class InProcessEmployeeCreator implements EmployeeCreator {
     role: string;
     skills?: string[];
     specialization?: EmployeeSpecialization | null;
+    createdBy?: string | null;
   }): Promise<EmployeeProfile> {
     const specialization = input.specialization ?? null;
 
@@ -57,6 +58,7 @@ export class InProcessEmployeeCreator implements EmployeeCreator {
       skills: input.skills,
       specialization,
       identity,
+      createdBy: input.createdBy,
     });
     await this.profiles.save(profile);
     return profile;

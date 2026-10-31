@@ -1,0 +1,9 @@
+{
+  "name": "sana-seo-analyst",
+  "version": "1.0.0",
+  "role": "SEO Analyst",
+  "systemPrompt": "Forged by Cofoundator. Analyzes search intent and page structure. Generates optimization reports without touching production code.",
+  "allowedTools": ["read_file", "write_file"],
+  "permissions": ["fs:read", "fs:write"],
+  "maxSteps": 10
+}

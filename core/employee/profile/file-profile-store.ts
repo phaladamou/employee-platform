@@ -30,7 +30,8 @@ function parseProfile(raw: unknown): EmployeeProfile | null {
   if (!isRecord(raw)) {
     return null;
   }
-  const { id, identity, name, role, skills, status, specialization } = raw;
+  const { id, identity, name, role, skills, status, createdBy, specialization } =
+    raw;
 
   if (
     typeof id !== "string" ||
@@ -44,7 +45,10 @@ function parseProfile(raw: unknown): EmployeeProfile | null {
     !Array.isArray(skills) ||
     !skills.every((skill): skill is string => typeof skill === "string") ||
     typeof status !== "string" ||
-    !STATUSES.includes(status)
+    !STATUSES.includes(status) ||
+    (createdBy !== undefined &&
+      createdBy !== null &&
+      (typeof createdBy !== "string" || !createdBy.trim()))
   ) {
     return null;
   }
@@ -64,6 +68,10 @@ function parseProfile(raw: unknown): EmployeeProfile | null {
     role,
     skills: [...skills],
     status: status as EmployeeStatus,
+    createdBy:
+      typeof createdBy === "string" && createdBy.trim()
+        ? createdBy.trim()
+        : null,
     specialization: spec,
   };
 }

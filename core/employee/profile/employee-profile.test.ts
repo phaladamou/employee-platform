@@ -27,6 +27,7 @@ describe("createEmployeeProfile", () => {
       role: "Data Analyst",
       skills: ["SQL"],
       status: "idle",
+      createdBy: null,
       specialization: null,
     });
     expect(profile.identity.id).toBe("emp_1");
@@ -264,5 +265,51 @@ describe("employee identity", () => {
         identity,
       })
     ).toThrow("Employee identity does not match id");
+  });
+});
+
+describe("createdBy provenance", () => {
+  it("stores a trimmed creator mark, null by default", () => {
+    const marked = createEmployeeProfile({
+      id: "emp_1",
+      name: "Atlas",
+      role: "Software Engineer",
+      createdBy: "  Cofoundator  ",
+    });
+    const unmarked = createEmployeeProfile({
+      id: "emp_2",
+      name: "Bob",
+      role: "Assistant",
+    });
+
+    expect(marked.createdBy).toBe("Cofoundator");
+    expect(unmarked.createdBy).toBeNull();
+  });
+
+  it("rejects empty creator marks", () => {
+    expect(() =>
+      createEmployeeProfile({
+        id: "emp_1",
+        name: "Atlas",
+        role: "Software Engineer",
+        createdBy: "   ",
+      })
+    ).toThrow("Employee createdBy cannot be empty");
+  });
+
+  it("preserves the mark across transitions", () => {
+    const profile = createEmployeeProfile({
+      id: "emp_1",
+      name: "Atlas",
+      role: "Software Engineer",
+      createdBy: "Cofoundator",
+    });
+
+    expect(setEmployeeStatus(profile, "working").createdBy).toBe(
+      "Cofoundator"
+    );
+    expect(setEmployeeStatus(profile, "suspended").createdBy).toBe(
+      "Cofoundator"
+    );
   });
 });
