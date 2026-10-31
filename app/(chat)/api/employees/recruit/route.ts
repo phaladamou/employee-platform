@@ -2,16 +2,22 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
-import { createEmployee, getDepartments } from "@/lib/db/queries";
 import {
-  AVAILABLE_AGENTS,
+  getHiredTalentSpecs,
+  getTalentBySpec,
+  hireEmployee,
+  requireAccountId,
+} from "@/lib/db/queries";
+import {
+  asStringList,
+  isEmployeeKind,
   isEmployeeStatus,
   type Employee,
 } from "@/lib/employees/catalog";
 
 export async function POST(request: Request) {
   const session = await auth();
-  if (!session?.user) {
+  if (!session?.user?.id) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -22,30 +28,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const { agentId, departmentId } = body;
-  const agent = AVAILABLE_AGENTS.find((a) => a.id === agentId);
-  if (!agent) {
-    return NextResponse.json({ error: "Unknown agent" }, { status: 400 });
-  }
-  if (typeof departmentId !== "string" || !departmentId) {
-    return NextResponse.json(
-      { error: "Missing department" },
-      { status: 400 }
-    );
+  const { talentSpec } = body;
+  if (typeof talentSpec !== "string" || !talentSpec) {
+    return NextResponse.json({ error: "Missing talent" }, { status: 400 });
   }
 
+  let accountId = "";
   try {
-    const departments = await getDepartments();
-    if (!departments.some((d) => d.id === departmentId)) {
-      return NextResponse.json(
-        { error: "Unknown department" },
-        { status: 400 }
-      );
+    accountId = await requireAccountId(session.user.id);
+    const talent = await getTalentBySpec(talentSpec);
+    if (!talent) {
+      return NextResponse.json({ error: "Unknown talent" }, { status: 404 });
     }
-    const [created] = await createEmployee({
-      name: agent.name,
-      role: agent.role,
-      departmentId,
+    const hired = await getHiredTalentSpecs(accountId);
+    if (hired.includes(talent.spec)) {
+      return NextResponse.json({ error: "Already hired" }, { status: 409 });
+    }
+
+    const [created] = await hireEmployee({
+      accountId,
+      talent: {
+        spec: talent.spec,
+        version: talent.version,
+        name: talent.name,
+        role: talent.role,
+        departmentId: talent.departmentId,
+        background: talent.background,
+        allowedTools: asStringList(talent.allowedTools),
+        technologies: asStringList(talent.technologies),
+        createdBy: talent.createdBy,
+      },
     });
     if (!created) {
       throw new Error("insert returned no row");
@@ -56,10 +68,32 @@ export async function POST(request: Request) {
       role: created.role,
       status: isEmployeeStatus(created.status) ? created.status : "idle",
       departmentId: created.departmentId,
+      ...(isEmployeeKind(created.kind) ? { kind: created.kind } : {}),
+      ...(created.background ? { background: created.background } : {}),
+      technologies: asStringList(created.technologies),
+      hiredAt: created.hiredAt.toISOString(),
+      ...(created.talentSpec ? { talentSpec: created.talentSpec } : {}),
+      ...(created.specVersion ? { specVersion: created.specVersion } : {}),
+      ...(created.createdBy ? { createdBy: created.createdBy } : {}),
     };
     return NextResponse.json({ employee }, { status: 201 });
   } catch (error) {
     console.error("POST /api/employees/recruit DB Error:", error);
+    // Double-clic / course : la contrainte unique a peut-etre fait le
+    // travail -> relecture avant de conclure a l'echec.
+    if (accountId) {
+      try {
+        const hired = await getHiredTalentSpecs(accountId);
+        if (hired.includes(talentSpec)) {
+          return NextResponse.json(
+            { error: "Already hired" },
+            { status: 409 }
+          );
+        }
+      } catch {
+        // Conclusion d'echec ci-dessous.
+      }
+    }
     return NextResponse.json(
       { error: "Failed to recruit employee" },
       { status: 500 }
