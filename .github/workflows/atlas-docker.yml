@@ -1,0 +1,100 @@
+name: Atlas Docker validation
+
+# Proves the production image works end to end: build, boot the real
+# API + worker, publish Atlas (software-engineer spec, which declares
+# environment ["python3", "pip", "pytest", "git"]), hire him, run a
+# mission that creates code + tests, and require success with
+# --expect-test. Any step failing fails the workflow.
+on:
+  push:
+    branches: [main]
+    paths:
+      - Dockerfile
+      - core/employee/**
+      - rust/**
+      - .github/workflows/atlas-docker.yml
+  workflow_dispatch: {}
+
+jobs:
+  atlas-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Muse API secret
+        run: |
+          if [ -z "${{ secrets.MUSE_API_KEY }}" ]; then
+            echo "::error::MUSE_API_KEY secret is missing — add it in Settings > Secrets and variables > Actions, then re-run this workflow."
+            exit 1
+          fi
+
+      - name: Build image
+        run: docker build -t employee-core:ci .
+
+      - name: Start API + worker
+        run: |
+          docker run -d --name emp-ci \
+            -e EMPLOYEE_PROVIDER=muse \
+            -e MUSE_API_KEY=${{ secrets.MUSE_API_KEY }} \
+            employee-core:ci
+          code="down"
+          for _ in $(seq 1 30); do
+            code=$(docker exec emp-ci node -e "fetch('http://127.0.0.1:8000/v1/employees').then(r=>console.log(r.status)).catch(()=>console.log('down'))" 2>/dev/null || echo down)
+            [ "$code" = "401" ] && break
+            sleep 2
+          done
+          [ "$code" = "401" ] || { echo "::error::server never came up (last probe: $code)"; docker logs emp-ci; exit 1; }
+
+      - name: Issue keys, publish and hire Atlas
+        run: |
+          set -eo pipefail
+          cli() { docker exec emp-ci node --experimental-transform-types --no-warnings /app/emp/cli.ts "$@"; }
+          ADMIN_TOKEN=$(cli keys issue --employer ops --admin --label ci | awk '/^token: /{print $2}')
+          EMPLOYER_TOKEN=$(cli keys issue --employer acme --label ci | awk '/^token: /{print $2}')
+          [ -n "$ADMIN_TOKEN" ] && [ -n "$EMPLOYER_TOKEN" ] || { echo "::error::key issue failed"; exit 1; }
+          echo "::add-mask::$ADMIN_TOKEN"
+          echo "::add-mask::$EMPLOYER_TOKEN"
+          echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> "$GITHUB_ENV"
+          echo "EMPLOYER_TOKEN=$EMPLOYER_TOKEN" >> "$GITHUB_ENV"
+          EMP_ID=$(docker exec -e EMPLOYEE_TOKEN="$ADMIN_TOKEN" emp-ci node --experimental-transform-types --no-warnings /app/emp/cli.ts publish --name Atlas --role "Software Engineer" --spec atlas-software-engineer@1.0.0 --created-by Cofoundator | awk '/^employee: /{print $2}')
+          [ -n "$EMP_ID" ] || { echo "::error::publish failed"; exit 1; }
+          echo "EMP_ID=$EMP_ID" >> "$GITHUB_ENV"
+          docker exec -e EMPLOYEE_TOKEN="$EMPLOYER_TOKEN" emp-ci node --experimental-transform-types --no-warnings /app/emp/cli.ts hire "$EMP_ID"
+
+      - name: Submit Atlas mission
+        run: |
+          set -eo pipefail
+          JOB_LINE=$(docker exec -e EMPLOYEE_TOKEN="$EMPLOYER_TOKEN" emp-ci node --experimental-transform-types --no-warnings /app/emp/cli.ts submit "$EMP_ID" "Crée hello.py avec une fonction bonjour(nom) qui retourne une salutation, et test_hello.py avec 2 tests unitaires. Lance pytest pour vérifier." --expect-file "hello.py,test_hello.py" --expect-test "python3 -m pytest -q")
+          echo "$JOB_LINE"
+          JOB_ID=$(echo "$JOB_LINE" | awk '/^job: /{print $2}')
+          [ -n "$JOB_ID" ] || { echo "::error::submit failed"; exit 1; }
+          echo "JOB_ID=$JOB_ID" >> "$GITHUB_ENV"
+
+      - name: Wait for succeeded
+        run: |
+          for _ in $(seq 1 90); do
+            OUT=$(docker exec -e EMPLOYEE_TOKEN="$EMPLOYER_TOKEN" emp-ci node --experimental-transform-types --no-warnings /app/emp/cli.ts status "$JOB_ID")
+            echo "$OUT" | head -n 3
+            STATUS=$(echo "$OUT" | awk '/^job: /{print}' | grep -o '([^)]*)' | tr -d '()')
+            [ "$STATUS" = "succeeded" ] && exit 0
+            case "$STATUS" in
+              failed|cancelled|needs_review)
+                echo "::error::mission ended as $STATUS"
+                echo "$OUT"
+                exit 1
+                ;;
+            esac
+            sleep 8
+          done
+          echo "::error::mission did not finish in time"
+          docker exec -e EMPLOYEE_TOKEN="$EMPLOYER_TOKEN" emp-ci node --experimental-transform-types --no-warnings /app/emp/cli.ts status "$JOB_ID"
+          exit 1
+
+      - name: Dump server logs on failure
+        if: failure()
+        run: docker logs emp-ci 2>&1 | tail -n 100
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f emp-ci
