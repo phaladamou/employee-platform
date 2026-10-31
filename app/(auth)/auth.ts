@@ -16,7 +16,7 @@ import {
   normalizeOtpEmail,
   verifyOtpCode,
 } from "@/lib/db/otp";
-import { getUser } from "@/lib/db/queries";
+import { ensureAccountProvisioned, getUser } from "@/lib/db/queries";
 import { user as userTable } from "@/lib/db/schema";
 import { authConfig } from "./auth.config";
 
@@ -278,6 +278,17 @@ export const {
           } catch (err) {
             console.error("jwt DB error:", err);
           }
+        }
+      }
+
+      // Premier login : cree le compte, le Chef et son chat d'accueil.
+      // Idempotent : les logins suivants relisent le compte existant.
+      // `user` n'est present qu'au sign-in (jamais au refresh session).
+      if (user && !user.isLink && token.id) {
+        try {
+          await ensureAccountProvisioned(token.id);
+        } catch (err) {
+          console.error("account provisioning error:", err);
         }
       }
 
