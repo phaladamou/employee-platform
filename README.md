@@ -1,4 +1,4 @@
-# Employee — recruit digital workers, stop prompting disposable sessions
+# Employee — recruit digital workers, stop prompting disposable sessions 
 
 What if AI workers could be recruited, not just prompted?
 
