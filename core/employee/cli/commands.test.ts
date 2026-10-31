@@ -1,16 +1,38 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { createEmployeeJob } from "../jobs/employee-job";
 import { FileJobStore } from "../jobs/file-job-store";
+import { createProfileLockfile } from "../profiles/profile-registry";
+import type {
+  EmployeeLLMProvider,
+  EmployeeLLMRequest,
+  EmployeeLLMResponse,
+} from "../runtime/llm-provider";
 import {
   parsePortEnv,
   resolveServePort,
   runCommand,
   type CliContext,
 } from "./commands";
+
+class ScriptedProvider implements EmployeeLLMProvider {
+  readonly id = "scripted-cli";
+  readonly seen: EmployeeLLMRequest[] = [];
+
+  constructor(private readonly replies: string[]) {}
+
+  async generate(request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
+    this.seen.push(request);
+    const content = this.replies.shift();
+    if (content === undefined) {
+      throw new Error("script exhausted");
+    }
+    return { content, model: "scripted-cli" };
+  }
+}
 
 describe("runCommand", () => {
   let dir = "";
@@ -139,6 +161,81 @@ describe("runCommand", () => {
     // Prompt nu (sans sous-commande) => run.
     expect((await runCommand(["Hello", "world"], ctx)).exitCode).toBe(1);
     expect(lines.join("\n")).toContain("DEEPSEEK_API_KEY is missing");
+  });
+
+  it("runs with a neutral default profile (no presumed trade)", async () => {
+    const { ctx, lines } = await makeCtx({
+      provider: new ScriptedProvider(["FINAL: done."]),
+    });
+
+    expect((await runCommand(["run", "Hello"], ctx)).exitCode).toBe(0);
+    const out = lines.join("\n");
+    expect(out).toContain("Employee: Runner (emp_");
+    expect(out).toContain("Mission: completed");
+    expect(out).not.toContain("Aria");
+    expect(out).not.toContain("Data Analyst");
+  });
+
+  it("rejects malformed --spec with a generic example", async () => {
+    const { ctx, lines } = await makeCtx({
+      token: "emo_x",
+      provider: new ScriptedProvider(["FINAL: unreachable."]),
+    });
+
+    expect(
+      (await runCommand(["run", "Hello", "--spec", "bad"], ctx)).exitCode
+    ).toBe(1);
+    expect(
+      (await runCommand(
+        ["publish", "--name", "A", "--role", "R", "--spec", "bad"],
+        ctx
+      )).exitCode
+    ).toBe(1);
+    const out = lines.join("\n");
+    expect(out).toContain("name@1.0.0");
+    expect(out).not.toContain("data-analyst");
+  });
+
+  it("rejects unknown --spec profiles on run (fail fast)", async () => {
+    const { ctx, lines } = await makeCtx({
+      provider: new ScriptedProvider(["FINAL: unreachable."]),
+    });
+
+    expect(
+      (await runCommand(["run", "Hello", "--spec", "nope@9.9.9"], ctx))
+        .exitCode
+    ).toBe(1);
+    expect(lines.join("\n")).toContain('Unknown profile "nope@9.9.9"');
+  });
+
+  it("binds --spec specializations on run", async () => {
+    const { ctx, lines } = await makeCtx({
+      provider: new ScriptedProvider(["FINAL: done."]),
+    });
+    await mkdir(ctx.profilesDir, { recursive: true });
+    await writeFile(
+      join(ctx.profilesDir, "tester.json"),
+      JSON.stringify({
+        name: "tester",
+        version: "1.0.0",
+        role: "Tester",
+        systemPrompt: "Be brief.",
+        allowedTools: ["read_file"],
+        permissions: ["fs:read"],
+        maxSteps: 4,
+      })
+    );
+    await createProfileLockfile(ctx.profilesDir);
+
+    expect(
+      (await runCommand(["run", "Hello", "--spec", "tester@1.0.0"], ctx))
+        .exitCode
+    ).toBe(0);
+    expect(lines.join("\n")).toContain("Mission: completed");
+    const seen = (ctx.provider as ScriptedProvider).seen;
+    expect(seen[0]?.messages[0]?.content).toContain(
+      "[SPECIALIZATION tester v1.0.0"
+    );
   });
 
   it("recovers orphaned jobs from the data dir", async () => {

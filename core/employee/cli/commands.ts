@@ -1,7 +1,10 @@
 import type { CredentialScope } from "../auth/employee-credential";
 import { issueEmployerCredential } from "../auth/employer-credential";
 import { isTerminalJobStatus } from "../jobs/employee-job";
-import { loadProfileRegistry } from "../profiles/profile-registry";
+import {
+  loadProfileRegistry,
+  type ProfileRegistry,
+} from "../profiles/profile-registry";
 import { EmployeeMemory } from "../memory/employee-memory";
 import { openFileStores, type EmployeeStores } from "../stores/employee-stores";
 import { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
@@ -143,6 +146,22 @@ function flag(
   return typeof value === "string" ? value : undefined;
 }
 
+/**
+ * Parse --spec name@version (commun a publish et run). Retourne null
+ * quand le format est inutilisable ; l'appelant affiche l'exemple
+ * generique. Aucun metier en dur ici : la validite se verifie contre
+ * le registre, jamais contre une liste codee.
+ */
+function parseSpecFlag(
+  specRaw: string
+): { name: string; version: string } | null {
+  const at = specRaw.lastIndexOf("@");
+  if (at <= 0) {
+    return null;
+  }
+  return { name: specRaw.slice(0, at), version: specRaw.slice(at + 1) };
+}
+
 function clientFor(ctx: CliContext): HttpEmployeeClient {
   if (!ctx.token) {
     throw new HttpEmployeeError(
@@ -265,15 +284,12 @@ async function cmdPublish(
   const specRaw = flag(args.flags, "spec");
   let specialization: { name: string; version: string } | null = null;
   if (specRaw) {
-    const at = specRaw.lastIndexOf("@");
-    if (at <= 0) {
-      ctx.output("Error: --spec must look like data-analyst@1.0.0");
+    const parsed = parseSpecFlag(specRaw);
+    if (!parsed) {
+      ctx.output("Error: --spec must look like name@1.0.0");
       return { exitCode: 1 };
     }
-    specialization = {
-      name: specRaw.slice(0, at),
-      version: specRaw.slice(at + 1),
-    };
+    specialization = parsed;
   }
 
   try {
@@ -465,10 +481,22 @@ async function cmdEvents(args: ParsedArgs, ctx: CliContext): Promise<CliResult> 
 
 async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
   const idOverride = flag(args.flags, "id") ?? null;
+  const specRaw = flag(args.flags, "spec");
   const prompt = args.positionals.join(" ").trim();
   if (!prompt) {
-    ctx.output('Usage: run "<prompt>" [--id <employeeId>]');
+    ctx.output(
+      'Usage: run "<prompt>" [--id <employeeId>] [--spec name@version]'
+    );
     return { exitCode: 1 };
+  }
+  let specialization: { name: string; version: string } | null = null;
+  if (specRaw) {
+    const parsed = parseSpecFlag(specRaw);
+    if (!parsed) {
+      ctx.output("Error: --spec must look like name@1.0.0");
+      return { exitCode: 1 };
+    }
+    specialization = parsed;
   }
   if (!ctx.provider) {
     ctx.output(
@@ -477,12 +505,30 @@ async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
     return { exitCode: 1 };
   }
 
+  // Registre charge uniquement sur demande : le run par defaut reste
+  // generaliste, le metier ne vient que de --spec (fail fast).
+  let registry: ProfileRegistry | undefined;
+  if (specialization) {
+    try {
+      registry = await loadProfileRegistry(ctx.profilesDir);
+    } catch (error) {
+      return printError(ctx, error);
+    }
+    if (!registry.get(specialization.name, specialization.version)) {
+      ctx.output(
+        `Error: Unknown profile "${specialization.name}@${specialization.version}"`
+      );
+      return { exitCode: 1 };
+    }
+  }
+
   const identity = idOverride ? undefined : generateEmployeeIdentity();
   const profile = createEmployeeProfile({
     id: identity?.id ?? idOverride ?? "",
-    name: "Aria",
-    role: "Data Analyst",
-    skills: ["SQL", "forecasting"],
+    name: "Runner",
+    role: "Generalist",
+    skills: [],
+    specialization,
     identity,
   });
   const mission = assignMission(
@@ -499,6 +545,7 @@ async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
       toolContext: { sandboxRoot: ctx.sandboxDir, env: { ...ctx.shellEnv }, sandboxBin: ctx.sandboxBin, workspaceRoot },
       memory,
       memoryStore,
+      profiles: registry,
     });
     const result = await runtime.run(profile, mission);
     ctx.output(`Employee: ${profile.name} (${profile.id})`);
@@ -721,7 +768,7 @@ function usage(ctx: CliContext): CliResult {
       "  keys issue --employer <id> [--label L] [--scopes a,b] [--admin] [--ttl-ms N]",
       "  keys revoke <credentialId>",
       "  keys list --employer <id>",
-      '  run "<prompt>" [--id <employeeId>]   local demo (no server)',
+      '  run "<prompt>" [--id <employeeId>] [--spec name@version]   local demo (no server)',
       "",
       "Env: EMPLOYEE_API_URL, EMPLOYEE_TOKEN, EMPLOYEE_DATA, EMPLOYEE_PROFILES,",
       "     EMPLOYEE_SANDBOX, EMPLOYEE_SANDBOX_BIN, EMPLOYEE_PROVIDER (+ provider keys).",
