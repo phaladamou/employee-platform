@@ -246,3 +246,63 @@ each choice costs. Numbered ADRs; newest last.
 - **Consequences.** `needs_review` has four documented triggers
   (ERROR_HANDLING.md). Same known limit as ADR-009: unusual phrasing
   bypasses the patterns (false negatives, never false failures).
+
+## ADR-014 — One workspace directory per employee
+
+- **Context.** All tools (`read_file`, `write_file`, `run_shell`) shared
+  a single sandbox root: any employee could read or overwrite another
+  employee's files with `../sibling/...`, and acceptance checks verified
+  the same shared tree.
+- **Decision.** Each employee gets a dedicated directory,
+  `$EMPLOYEE_WORKSPACES_DIR/<employeeId>/` (default
+  `.data/workspaces/`), created idempotently on `hire` and on every job
+  start (`EmployeeWorkspaces.acquire`). `ToolContext.workspaceRoot`
+  carries it; `toolRoot()` is the single decision point — every tool,
+  the reasoning loop's `mkdir`, and the acceptance check resolve
+  through it, never through `sandboxRoot` directly. Path escapes fail
+  with `path escapes the workspace: …`. `terminate` archives the
+  directory to `archive/<id>-<timestamp>/` — never deletes (audit).
+- **Rejected.** (a) Per-(employer, employee) directories — stronger
+  multi-tenant isolation, but two employers sharing one employee is
+  out of scope today; documented as a 3-line hardening
+  (`<employerId>/<employeeId>/`). (b) Deleting on `terminate` —
+  destroys audit evidence; archiving costs one `rename`.
+- **Consequences.** Cross-employee file access is structurally
+  impossible for `read_file`/`write_file`/acceptance (proven by
+  `tools/workspace-confinement.test.ts`). `run_shell` additionally
+  needs kernel enforcement (ADR-015): a raw shell can `cd ..` past
+  any string-level check.
+
+## ADR-015 — Landlock filesystem confinement for `run_shell`
+
+- **Context.** ADR-014 confines file tools by resolving every path, but
+  a shell command is an opaque string: blocking `..` substrings would
+  be theater (trivially bypassed via variables, globs, encodings)
+  while breaking legitimate commands. `cwd`-only confinement leaves
+  `cat ../sibling/secret` working.
+- **Decision.** `emp-sandbox` applies a Landlock policy to the child
+  before `exec` (in `pre_exec`, allocation-free): the `--work-dir`
+  workspace is read-write, `/bin /sbin /usr /lib /lib64 /etc` are
+  read-only, everything else (`/tmp`, `/home`, `/proc`, `/dev`,
+  sibling workspaces) is denied — through symlinks and `..`, at every
+  access (no TOCTOU). `TMPDIR` is pointed inside the workspace.
+  Fail-closed: no Landlock (pre-5.13, LSM off) or a kernel ABI newer
+  than v4 (v4 itself adds network rights only, which this FS-only
+  policy does not need) refuses the spawn with exit 2 instead of
+  running unconfined. Zero new dependencies (raw syscalls over the
+  existing `libc`).
+- **Rejected.** (a) `..`-substring filtering — false assurance plus
+  false positives on legitimate commands. (b) Confining the
+  `emp-sandbox` parent instead of the child — broke the parent itself
+  (`/dev/null` for stdin became unreachable); child-side `pre_exec`
+  was verified after that failure. (c) Allowing `/dev` or `/proc`
+  read-only — would leak raw devices and other processes'
+  environments; the minimal shell profile needs neither.
+- **Consequences.** Shell escapes are blocked by the kernel (proven by
+  `rust/tests/fs_confinement.rs` plus a TypeScript full-chain test).
+  Production shell confinement requires Linux ≥ 5.13 and
+  `EMPLOYEE_SANDBOX_BIN` set; without the binary, `run_shell` stays
+  `cwd`-only (OPERATIONS.md §8). Known residuals: no network
+  namespacing (Landlock V4 TCP rights deliberately unused), and the
+  minimal read-only view does not cover runtimes needing `/proc`
+  (e.g. node-in-shell is untested under confinement).

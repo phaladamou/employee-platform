@@ -16,8 +16,10 @@ to the doc or ADR that defines "done".
 | Recovery audit | A dead worker loses no job | `recoverStaleJobs`, stale-lease tests |
 | Completion proofs | Finished work carries a forgery-resistant receipt | Ed25519 proofs (ADR-002), T4 tamper test |
 | Verified success | `succeeded` means the goal was checked, not claimed | Acceptance checks, `needs_review` (ADR-007), T3a/b/c |
+| Per-employee workspaces | One directory per employee; tools cannot cross | `acquire`/`archive`, `toolRoot()` (ADR-014), confinement tests |
+| Kernel shell confinement | `run_shell` jailed to its workspace by Landlock | `fs_confinement.rs` (ADR-015), cargo + full-chain tests |
 
-Net: **44 test files, 349 tests + 15 Rust tests green, `tsc` clean**, live-verified against
+Net: **46 test files, 371 tests + 27 Rust tests green, `tsc` clean**, live-verified against
 Meta Muse. The engine runs standalone (API + N workers, zero external
 services besides the LLM provider).
 

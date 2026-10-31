@@ -93,6 +93,7 @@ core/employee/
   jobs/           jobs + FileJobStore (claim atomique) + signaux
   runtime/        EmployeeRuntime + boucle ReAct + providers LLM
   tools/          read_file / write_file / run_shell (sandboxes)
+  workspaces/     dossiers par employe (acquire/archive, ADR-014)
   sdk/            EmployeeClient / EmployeeCreator, in-process + HTTP/SSE,
                   runJobOnce / runClaimedJob (worker partage)
   server/         handler pur + adaptateur node:http + boucle worker
@@ -104,6 +105,10 @@ core/employee/
 `profiles/ employments/ missions/ jobs/ credentials/ memory/` — JSON
 `0600`, un fichier par entite (+ `.lock` transitoires pour les jobs).
 Fichiers corrompus : quarantaine `.corrupt.<ts>`, jamais de crash.
+
+Workspaces (`$EMPLOYEE_WORKSPACES_DIR`, defaut `.data/workspaces/`) :
+un dossier `<employeeId>/` par employe (cree au `hire`, archive au
+`terminate`), racine effective des outils via `toolRoot()`.
 
 ## Tests
 

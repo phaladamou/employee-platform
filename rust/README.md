@@ -10,14 +10,18 @@ and audited crypto matter most (ADR-010).
 rust/
 ├── Cargo.toml          # crate employee-native (cdylib + rlib)
 ├── Cargo.lock          # pinned deps (reproducible builds)
-├── build.sh            # -> core/employee/wasm/dist/*.wasm (committed)
+├── build.sh            # -> core/employee/wasm/dist/*.wasm (committed, --lib)
 ├── src/
 │   ├── lib.rs          # modules + cfg gates
 │   ├── crypto.rs       # Ed25519 keygen/sign/verify (WASM + native)
 │   ├── sandbox.rs      # strict subprocess sandbox (NATIVE ONLY)
+│   ├── fs_confinement.rs  # Landlock FS policy (LINUX ONLY, no-op elsewhere)
 │   ├── wasm_api.rs     # minimal C ABI (alloc/free + ed_*)
 │   └── bin/
 │       └── emp-sandbox.rs  # strict shell runner, JSON report
+└── tests/
+    └── fs_confinement.rs   # full-chain Landlock proof via the binary
+```
 ../core/employee/wasm/
 ├── wrapper.ts          # Node loader + typed Ed25519 API (sync + async)
 ├── wrapper.test.ts     # interop: Rust <-> Node byte-identical
@@ -35,13 +39,21 @@ rust/
   binary exposes it over a JSON protocol; `run_shell` bridges to it
   when `EMPLOYEE_SANDBOX_BIN` is set (ENOENT-only fallback, everything
   else fails closed).
+- `fs_confinement` (ADR-015) restricts the sandboxed child to its
+  workspace (read-write) plus a minimal read-only system view, via
+  Landlock in a `pre_exec` hook — raw syscalls over the existing
+  `libc`, zero new dependencies. Policy frozen in the parent
+  (canonical path + ABI mask), applied allocation-free in the child;
+  missing Landlock or an ABI newer than v4 refuses the spawn
+  (fail-closed). No-op on non-Linux Unix.
 
 ## Commands
 
 ```bash
-cargo test --locked                        # 15 tests (lib + binary)
-cargo build --locked --release --target wasm32-unknown-unknown
-./build.sh                                 # rebuild + refresh dist/
+cargo test --locked                        # 27 tests (17 lib + 3 binary + 7 Landlock)
+cargo build --locked --release --target wasm32-unknown-unknown --lib
+./build.sh                                 # rebuild + refresh dist/ (--lib only:
+                                           # emp-sandbox is native-only)
 cargo build --locked --release --bin emp-sandbox   # strict backend
 ./target/release/emp-sandbox --timeout-ms 5000 --max-output-bytes 200000 \
   --work-dir /tmp -- /bin/echo hello

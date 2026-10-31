@@ -16,12 +16,14 @@ adversarial cases, and honest coverage notes.
 | Adversarial | `cli/adversarial.test.ts` + `missions/*.test.ts` | Forged proofs, cross-tenant access, lying employees (see §4) |
 | E2E (scripted) | `cli/e2e.test.ts` | Hire → submit → worker → status through the real CLI + server |
 | E2E (live LLM) | Manual T1–T4 runs (Muse) | The full loop works against a real provider |
-| Native (Rust) | `cargo test` in `rust/` | Ed25519 roundtrip/tamper, sandbox timeout/overflow/grandchild/env, CLI parsing |
+| Native (Rust) | `cargo test` in `rust/` | Ed25519 roundtrip/tamper, sandbox timeout/overflow/grandchild/env, CLI parsing, Landlock masks/policy units |
+| Landlock confinement | `rust/tests/fs_confinement.rs` | Real `emp-sandbox`: inside R/W, `..`/absolute/symlink escapes denied, system RO, `TMPDIR` inside |
 | WASM interop | `core/employee/wasm/wrapper.test.ts` | Rust↔Node signatures byte-identical both directions |
 | Crypto backend | `missions/mission-proof.test.ts` | WASM-first proofs, Node fallback (missing/corrupt module) |
 | Shell bridge | `tools/run-shell.test.ts` | Fake-binary protocol tests, ENOENT-only fallback, fail-closed errors |
+| Workspace isolation | `tools/workspace-confinement.test.ts` | `toolRoot` decision, cross-employee read/write blocked, shell cwd + `--work-dir` routing, full-chain escape via the real binary (Linux) |
 
-Current state: **44 files, 349 tests, all green** (Vitest) **+ 15 Rust tests** (`cargo test --locked`).
+Current state: **46 files, 371 tests, all green** (Vitest) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -38,12 +40,20 @@ cd core/employee && ../../node_modules/.bin/vitest run missions/mission-proof.te
 # Type gate — must be clean before any commit
 ./node_modules/.bin/tsc --noEmit --incremental false
 
-# Rust security modules (crypto + sandbox + emp-sandbox CLI)
-cd rust && cargo test --locked   # 15 tests: roundtrips, tamper, timeout/overflow/
-                                 # grandchild kills, CLI parsing, JSON shape
+# Rust security modules (crypto + sandbox + emp-sandbox CLI + Landlock)
+cd rust && cargo test --locked   # 27 tests: roundtrips, tamper, timeout/overflow/
+                                 # grandchild kills, CLI parsing, JSON shape,
+                                 # Landlock masks + 7 full-chain confinement runs
 ./rust/build.sh                  # rebuild core/employee/wasm/dist/*.wasm (committed)
 cargo build --locked --release --bin emp-sandbox  # strict shell backend
 ```
+
+The full-chain shell test (`workspace-confinement.test.ts` →
+`rust/target/debug/emp-sandbox`) requires `cargo build` first and a
+Landlock-capable Linux kernel; elsewhere it skips loudly
+(`SKIP …` in the output — same convention as the cargo suite on
+non-Landlock kernels), never silently. A missing binary fails the
+test with the build command, like the committed WASM artifact.
 
 There is no separate `test:adversarial` script: adversarial tests are regular
 Vitest files and always run with the suite. This is deliberate — security
@@ -114,6 +124,20 @@ Each case below is a committed regression test, not a one-off script:
   load time.
 - **Purity guard** (`purity.test.ts`): no `react` / `next` / `electron`
   import and no `process.env` outside `cli.ts` in non-test files.
+- **Cross-employee file access** (`tools/workspace-confinement.test.ts`):
+  `read_file` / `write_file` with `../sibling/…` or absolute paths
+  outside the workspace fail with `path escapes the workspace`, with
+  no content leak; acceptance checks verify the same effective root
+  (E2E T3c pins the workspace location).
+- **Shell escape** (`rust/tests/fs_confinement.rs`, full-chain
+  `workspace-confinement.test.ts`): `cat ../sibling/secret` and
+  `echo … > ../evil` through the real `emp-sandbox` are denied by
+  the kernel (`Permission denied`, secret never in stdout), via
+  relative, absolute, and symlink paths alike.
+- **Lock contention** (`jobs/file-job-store.test.ts`): ten same-tick
+  heartbeats serialize through the bounded `.lock` retry instead of
+  failing — the heartbeat-vs-finish race that flaked the suite is
+  pinned shut.
 
 ## 5. Coverage — what is tested and what is not
 
@@ -127,6 +151,9 @@ Tested automatically (CI gate = `tsc` + `pnpm test:employee`):
   lockfile verification.
 - Worker loop: claim → heartbeat → execute → proof → accept, plus stale
   recovery.
+- Workspace isolation: per-employee directories (acquire on hire/job
+  start, archive on terminate), `toolRoot` as the single decision
+  point, kernel-level shell confinement on Linux.
 
 Deliberately not covered yet (see [ROADMAP.md](ROADMAP.md)):
 
@@ -139,3 +166,11 @@ Deliberately not covered yet (see [ROADMAP.md](ROADMAP.md)):
   no soak test with N workers hammering one data dir yet.
 - **Web → `/v1` wiring**: the web UI still uses a static catalog; contract
   tests cover the API, not the wiring.
+- **TOCTOU on file tools**: `resolveWithinRoot` checks-then-uses, so a
+  symlink replanted mid-call could slip through — accepted for a
+  supervised local tool, not for hostile multi-tenancy (shell
+  commands, which run under Landlock, have no such window: the kernel
+  checks every access).
+- **Per-(employer, employee) workspaces**: two employers sharing one
+  employee share its directory (ADR-014); the `<employerId>/`
+  hardening is a documented 3-line change with no test yet.
