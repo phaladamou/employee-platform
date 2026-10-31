@@ -42,6 +42,19 @@ const STALE_LOCK_MS = 60_000;
  */
 export const DEFAULT_STALE_AFTER_MS = 120_000;
 
+/**
+ * Collisions legitimes (battement de bail vs finish sur le meme
+ * `.lock`, tenu quelques ms) : retry borne au lieu d'un echec
+ * immediat. 20 x 5 ms = 100 ms max, negligeable devant STALE_LOCK_MS
+ * (60 s) — le vol de verrou abandonne reste inchange a chaque tour.
+ */
+const LOCK_ATTEMPTS = 20;
+const LOCK_RETRY_MS = 5;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function sanitizeId(id: string): string {
   const safe = id.replace(/[^a-zA-Z0-9_-]/g, "_");
   if (!safe) {
@@ -135,7 +148,7 @@ export class FileJobStore implements JobStore {
     await mkdir(this.directory, { recursive: true });
     const path = this.lockPath(jobId);
 
-    for (let attempt = 0; attempt < 2; attempt += 1) {
+    for (let attempt = 0; attempt < LOCK_ATTEMPTS; attempt += 1) {
       try {
         const handle = await open(path, "wx", 0o600);
         await handle.writeFile(
@@ -158,7 +171,11 @@ export class FileJobStore implements JobStore {
         await unlink(path).catch(() => undefined);
         continue;
       }
-      return null;
+      // Verrou tenu par un pair legitime : on attend un tour (sauf au
+      // dernier essai, qui rend null comme avant).
+      if (attempt + 1 < LOCK_ATTEMPTS) {
+        await sleep(LOCK_RETRY_MS);
+      }
     }
 
     return null;

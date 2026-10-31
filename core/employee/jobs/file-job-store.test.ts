@@ -270,6 +270,28 @@ describe("FileJobStore", () => {
     );
   });
 
+  it("serializes concurrent holders instead of failing them", async () => {
+    const store = await makeStore();
+    await store.enqueue(job("job_1"));
+    await store.claim("job_1", "worker-1");
+
+    // Dix battements le meme tick : sans retry, neuf se brisent sur
+    // le .lock (EEXIST -> null -> throw). Avec retry borne, tous
+    // passent, serialises.
+    const touched = await Promise.all(
+      Array.from({ length: 10 }, (_, index) =>
+        store.heartbeat(
+          "job_1",
+          "worker-1",
+          new Date(`2026-01-01T00:00:${String(index).padStart(2, "0")}.000Z`)
+        )
+      )
+    );
+
+    expect(touched).toHaveLength(10);
+    expect((await store.load("job_1"))?.status).toBe("running");
+  });
+
   it("recovers orphaned jobs and settles orphaned cancellations", async () => {
     const store = await makeStore();
     const old = new Date("2020-01-01T00:00:00.000Z");
