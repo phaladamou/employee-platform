@@ -66,4 +66,37 @@ describe("talent catalog sync", () => {
       expect(talent.set?.updatedAt).toBeInstanceOf(Date);
     }
   });
+
+  it("syncs the Atlas rich profile without touching the others", async () => {
+    const calls: RecordedCall[] = [];
+    await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
+
+    const atlas = calls.find(
+      (c) => c.op === "update" && c.values.spec === "atlas-software-engineer"
+    );
+    expect(atlas).toBeDefined();
+    const values = (atlas?.values ?? {}) as Record<string, any>;
+    expect(String(values.overview)).toContain("AI software engineer");
+    expect(values.responsibilities).toHaveLength(5);
+    expect(values.capabilities).toContain("Debugging");
+    expect(values.tools).toHaveLength(3);
+    expect(String(values.executionEnvironment)).toContain("assigned workspace");
+    expect(values.boundaries).toHaveLength(7);
+    expect(values.deliverables).toHaveLength(5);
+    expect(String(values.verification)).toContain(
+      "traceable engineering outcome"
+    );
+    // Meme contenu dans la clause de conflit (update).
+    const set = (atlas?.set ?? {}) as Record<string, any>;
+    expect(set.overview).toBe(values.overview);
+    expect(set.tools).toBe(values.tools);
+
+    // Talents non enrichis : aucune cle riche (jamais d'ecrasement NULL).
+    const nova = calls.find(
+      (c) => c.op === "update" && c.values.spec === "nova-devops-engineer"
+    );
+    expect(nova).toBeDefined();
+    expect("overview" in (nova?.values ?? {})).toBe(false);
+    expect("overview" in (nova?.set ?? {})).toBe(false);
+  });
 });

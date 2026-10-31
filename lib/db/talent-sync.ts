@@ -9,6 +9,7 @@ import { join } from "node:path";
 
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
+import { getRichProfile } from "../employees/rich-profiles";
 import {
   loadCatalogSpecs,
   toTalentSeed,
@@ -26,6 +27,20 @@ async function ensureDepartments(db: SyncDb, ids: string[]): Promise<void> {
 
 async function upsertTalents(db: SyncDb, seeds: TalentSeed[]): Promise<void> {
   for (const seed of seeds) {
+    // Fiche riche : uniquement les cles fournies (jamais d'ecrasement
+    // par NULL : les enrichissements gardent leur valeur en base).
+    const rich = seed.richProfile
+      ? {
+          overview: seed.richProfile.overview,
+          responsibilities: seed.richProfile.responsibilities,
+          capabilities: seed.richProfile.capabilities,
+          tools: seed.richProfile.tools,
+          executionEnvironment: seed.richProfile.executionEnvironment,
+          boundaries: seed.richProfile.boundaries,
+          deliverables: seed.richProfile.deliverables,
+          verification: seed.richProfile.verification,
+        }
+      : {};
     await db
       .insert(talentProfile)
       .values({
@@ -38,6 +53,7 @@ async function upsertTalents(db: SyncDb, seeds: TalentSeed[]): Promise<void> {
         allowedTools: seed.allowedTools,
         technologies: seed.technologies,
         createdBy: seed.createdBy,
+        ...rich,
       })
       .onConflictDoUpdate({
         target: talentProfile.spec,
@@ -51,6 +67,7 @@ async function upsertTalents(db: SyncDb, seeds: TalentSeed[]): Promise<void> {
           technologies: seed.technologies,
           createdBy: seed.createdBy,
           updatedAt: new Date(),
+          ...rich,
         },
       });
   }
@@ -60,7 +77,10 @@ export async function syncTalentCatalog(
   db: SyncDb,
   profilesDir: string = join(process.cwd(), "core", "employee", "profiles")
 ): Promise<{ count: number }> {
-  const seeds = loadCatalogSpecs(profilesDir).map(toTalentSeed);
+  const seeds = loadCatalogSpecs(profilesDir).map((spec) => ({
+    ...toTalentSeed(spec),
+    richProfile: getRichProfile(spec.name),
+  }));
   const departmentIds = [...new Set(seeds.map((seed) => seed.departmentId))];
   await ensureDepartments(db, departmentIds);
   await upsertTalents(db, seeds);
