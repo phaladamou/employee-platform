@@ -61,8 +61,61 @@ const ATLAS_PROFILE: RichTalentProfile = {
     "An assignment is considered successfully completed when the requested changes have been implemented within the authorized scope, the applicable verification checks have been performed, and the final report accurately describes the results. A successful execution is not merely a plausible code response. It is a traceable engineering outcome.",
 };
 
+const NOVA_PROFILE: RichTalentProfile = {
+  overview:
+    "Nova is an AI DevOps engineer designed to automate development infrastructure, build pipelines, deployment workflows, and environment configuration. It examines existing infrastructure definitions, identifies configuration problems, and develops repeatable workflows for building, testing, packaging, and delivering software. Nova prioritizes reproducibility, explicit configuration, controlled changes, and reliable recovery procedures. Its objective is to reduce manual operational work while making infrastructure behavior easier to understand and verify. Nova operates within the infrastructure scope and permissions explicitly assigned to its mission.",
+  responsibilities: [
+    "CI/CD automation: Inspect existing build and deployment workflows. Create and improve continuous integration pipelines. Configure automated quality checks and build steps. Diagnose failed pipeline executions. Reduce unnecessary or duplicated workflow steps.",
+    "Infrastructure configuration: Create and maintain infrastructure configuration files. Improve environment consistency and reproducibility. Identify configuration drift and fragile operational assumptions. Document required environment variables and dependencies. Support container-based development and deployment workflows.",
+    "Containerization: Develop and improve Dockerfiles and container configurations. Identify unnecessary image layers and excessive image size. Configure appropriate build and runtime settings. Investigate container startup and execution failures. Apply least-privilege principles where supported.",
+    "Operational reliability: Analyze build logs and deployment failures. Identify recurring operational problems. Propose rollback and recovery procedures. Improve health checks and diagnostic output. Document operational dependencies and failure conditions.",
+    "Technical reporting: Explain infrastructure changes. Report pipeline execution results. Identify configuration risks and unresolved failures. Document deployment prerequisites and recovery procedures.",
+  ],
+  capabilities: [
+    "CI/CD automation",
+    "Docker",
+    "Shell scripting",
+    "Infrastructure configuration",
+    "Build troubleshooting",
+    "Deployment workflow analysis",
+    "Operational documentation",
+  ],
+  // Ajuste vs la spec proposee : write_file retire, le noyau Nova ne
+  // l'implemente pas (run_shell + read_file uniquement).
+  tools: [
+    {
+      name: "run_shell",
+      description: "Execute approved infrastructure and shell commands.",
+    },
+    {
+      name: "read_file",
+      description: "Read configuration and infrastructure files.",
+    },
+  ],
+  executionEnvironment:
+    "Nova works within an assigned infrastructure environment with explicitly defined command-execution and file-access permissions. Its execution environment should provide: access to the configuration files and build scripts required for the assigned task, approved shell and containerization tools, defined execution limits and resource constraints, a mechanism for capturing command output and exit codes, and isolation from unauthorized infrastructure and secrets.",
+  boundaries: [
+    "Deploy to production.",
+    "Modify cloud infrastructure or network policies.",
+    "Access production secrets or credentials.",
+    "Destroy existing resources without authorization.",
+    "Push changes to remote repositories without explicit approval.",
+  ],
+  deliverables: [
+    "Pipeline configurations",
+    "Container definitions",
+    "Infrastructure configuration changes",
+    "Operational scripts",
+    "Execution reports",
+    "Deployment documentation",
+  ],
+  verification:
+    "A reproducible and verifiable infrastructure improvement that stays within the authorized operational scope.",
+};
+
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {
   "atlas-software-engineer": ATLAS_PROFILE,
+  "nova-devops-engineer": NOVA_PROFILE,
 };
 
 export function getRichProfile(spec: string): RichTalentProfile | null {
