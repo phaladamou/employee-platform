@@ -89,6 +89,25 @@ export function parseKernelSpec(value: unknown): KernelEmployeeSpec {
   };
 }
 
+export interface RichTool {
+  name: string;
+  description: string;
+}
+
+// Fiche riche d'un talent : copie de presentation (Talent Network).
+// `tools[].name` doit rester un sous-ensemble des allowedTools du
+// noyau (contrat verifie par rich-profiles.test.ts).
+export interface RichTalentProfile {
+  overview: string;
+  responsibilities: string[];
+  capabilities: string[];
+  tools: RichTool[];
+  executionEnvironment: string | string[];
+  boundaries: string[];
+  deliverables: string[];
+  verification: string;
+}
+
 export interface TalentSeed {
   spec: string;
   version: string;
@@ -99,6 +118,7 @@ export interface TalentSeed {
   allowedTools: string[];
   technologies: string[];
   createdBy: string;
+  richProfile: RichTalentProfile | null;
 }
 
 export function toTalentSeed(spec: KernelEmployeeSpec): TalentSeed {
@@ -116,6 +136,9 @@ export function toTalentSeed(spec: KernelEmployeeSpec): TalentSeed {
     allowedTools: [...spec.allowedTools],
     technologies: [...catalog.technologies],
     createdBy: "Cofoundator",
+    // Enrichi par talent-sync depuis rich-profiles.ts (NULL = fiche
+    // standard : background + technologies + allowedTools).
+    richProfile: null,
   };
 }
 
