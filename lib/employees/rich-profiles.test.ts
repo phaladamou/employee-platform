@@ -20,11 +20,23 @@ const PROFILES_DIR = join(
 
 describe("rich talent profiles", () => {
   it("returns null for talents without a rich profile", () => {
-    assert.equal(getRichProfile("aria-data-analyst"), null);
     assert.equal(getRichProfile("newton-researcher"), null);
     assert.equal(getRichProfile("milo-content-strategist"), null);
     assert.equal(getRichProfile("sana-seo-analyst"), null);
     assert.equal(getRichProfile("unknown-spec"), null);
+  });
+
+  it("exposes the Aria profile with exactly the kernel tools", () => {
+    const aria = getRichProfile("aria-data-analyst");
+    assert.ok(aria);
+    assert.deepEqual(
+      aria.tools.map((tool) => tool.name).sort(),
+      ["read_file", "write_file"]
+    );
+    assert.equal(aria.responsibilities.length, 5);
+    assert.equal(aria.capabilities.length, 7);
+    assert.equal(aria.boundaries.length, 4);
+    assert.equal(aria.deliverables.length, 6);
   });
 
   it("exposes the Nova profile without write_file (not in kernel)", () => {

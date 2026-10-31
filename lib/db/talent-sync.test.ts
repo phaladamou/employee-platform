@@ -101,12 +101,22 @@ describe("talent catalog sync", () => {
     expect(novaValues.responsibilities).toHaveLength(5);
     expect(novaValues.tools).toHaveLength(2);
 
-    // Talents non enrichis : aucune cle riche (jamais d'ecrasement NULL).
+    // Aria : fiche riche synchronisee.
     const aria = calls.find(
       (c) => c.op === "update" && c.values.spec === "aria-data-analyst"
     );
     expect(aria).toBeDefined();
-    expect("overview" in (aria?.values ?? {})).toBe(false);
-    expect("overview" in (aria?.set ?? {})).toBe(false);
+    const ariaValues = (aria?.values ?? {}) as Record<string, any>;
+    expect(String(ariaValues.overview)).toContain("data analyst");
+    expect(ariaValues.responsibilities).toHaveLength(5);
+    expect(ariaValues.tools).toHaveLength(2);
+
+    // Talents non enrichis : aucune cle riche (jamais d'ecrasement NULL).
+    const newton = calls.find(
+      (c) => c.op === "update" && c.values.spec === "newton-researcher"
+    );
+    expect(newton).toBeDefined();
+    expect("overview" in (newton?.values ?? {})).toBe(false);
+    expect("overview" in (newton?.set ?? {})).toBe(false);
   });
 });
