@@ -87,11 +87,18 @@
     "clearFilters": "Effacer les filtres",
     "card": {
       "recruitAction": "Recruter",
-      "recruited": "Recruté"
+      "recruited": "Recruté",
+      "viewProfile": "Voir la fiche"
     },
     "details": {
       "about": "À propos",
+      "overview": "Vue d'ensemble",
+      "responsibilities": "Responsabilités",
       "tools": "Outils",
+      "executionEnvironment": "Environnement d'exécution",
+      "boundaries": "Limites",
+      "deliverables": "Livrables",
+      "verification": "Vérification",
       "recruitTitle": "Recruter ce talent",
       "viewInDepartment": "Voir dans le département"
     }

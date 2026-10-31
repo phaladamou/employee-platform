@@ -87,11 +87,18 @@
     "clearFilters": "清除筛选",
     "card": {
       "recruitAction": "招聘",
-      "recruited": "已招聘"
+      "recruited": "已招聘",
+      "viewProfile": "查看资料"
     },
     "details": {
       "about": "简介",
+      "overview": "概述",
+      "responsibilities": "职责",
       "tools": "工具",
+      "executionEnvironment": "执行环境",
+      "boundaries": "边界",
+      "deliverables": "交付物",
+      "verification": "验证",
       "recruitTitle": "招聘此人才",
       "viewInDepartment": "在部门中查看"
     }
