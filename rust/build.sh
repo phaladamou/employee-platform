@@ -10,7 +10,9 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-cargo build --locked --release --target wasm32-unknown-unknown
+# --lib only: emp-sandbox is native-only (processes cannot exist in
+# WASM) and must not be built for this target.
+cargo build --locked --release --target wasm32-unknown-unknown --lib
 mkdir -p ../core/employee/wasm/dist
 cp target/wasm32-unknown-unknown/release/employee_native.wasm ../core/employee/wasm/dist/
 ls -la ../core/employee/wasm/dist/employee_native.wasm

@@ -13,6 +13,11 @@
 //! Exit 2 (message on stderr) for sandbox-side errors: bad arguments,
 //! missing work dir, spawn failure. Streams are lossy UTF-8 by design
 //! (matches the `run_shell` text contract).
+//!
+//! With `--work-dir`, the work dir becomes a Landlock-confined workspace
+//! on Linux (writable workspace, read-only system view, everything else
+//! denied, `TMPDIR` pointed inside); without Landlock the run is refused
+//! rather than executed unconfined.
 
 use employee_native::sandbox::{run_sandboxed, SandboxLimits};
 use serde::Serialize;
@@ -125,7 +130,7 @@ struct JsonReport {
 
 fn run() -> Result<(), String> {
     let argv: Vec<String> = std::env::args().collect();
-    let cli = parse_args(&argv).map_err(|message| {
+    let mut cli = parse_args(&argv).map_err(|message| {
         if message == "help" {
             println!("{USAGE}");
             std::process::exit(0);
@@ -137,15 +142,25 @@ fn run() -> Result<(), String> {
         if !dir.is_dir() {
             return Err(format!("work dir is not a directory: {}", dir.display()));
         }
+        // `/tmp` is outside the Landlock policy: point temporary files
+        // at the workspace so well-behaved tools keep working, confined.
+        if !cli.extra_env.iter().any(|(key, _)| key == "TMPDIR") {
+            cli.extra_env
+                .push(("TMPDIR".to_string(), dir.display().to_string()));
+        }
     }
 
+    // The work dir doubles as the Landlock root on Linux (writable
+    // workspace, read-only system view, deny the rest); without
+    // Landlock the spawn is refused rather than run unconfined.
     let result = run_sandboxed(
         &cli.program,
         &cli.args.iter().map(String::as_str).collect::<Vec<_>>(),
         &SandboxLimits {
             timeout: Duration::from_millis(cli.timeout_ms),
             max_output_bytes: cli.max_output_bytes,
-            work_dir: cli.work_dir,
+            work_dir: cli.work_dir.clone(),
+            confine_fs_to: cli.work_dir,
             clear_env: !cli.keep_env,
             extra_env: cli.extra_env,
         },

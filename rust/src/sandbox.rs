@@ -8,7 +8,10 @@
 //! - stdin `/dev/null`, optional clean environment and work dir,
 //! - Unix extras via `pre_exec`: RLIMIT_CPU + RLIMIT_FSIZE, plus its
 //!   own process group so timeout/overflow kills reach grandchildren
-//!   (a killed shell must not orphan a pipe-holding `sleep`).
+//!   (a killed shell must not orphan a pipe-holding `sleep`);
+//! - optional Landlock filesystem confinement (`confine_fs_to`, Linux):
+//!   writable workspace, read-only system view, deny the rest —
+//!   applied in the child before `exec`, fail-closed.
 //!
 //! Non-goal: fork-bomb containment (RLIMIT_NPROC would apply to the
 //! whole host user, not the sandbox). Cap total abuse with the Docker
@@ -17,6 +20,8 @@
 use std::io::{self, Read};
 #[cfg(unix)]
 use std::os::unix::process::CommandExt;
+#[cfg(unix)]
+use crate::fs_confinement::{apply_fs_policy_in_child, prepare_fs_policy, FsPolicy};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -33,6 +38,12 @@ pub struct SandboxLimits {
     pub max_output_bytes: usize,
     /// Run inside this directory (created by nobody: must exist).
     pub work_dir: Option<PathBuf>,
+    /// Landlock filesystem confinement (Linux): the child sees this
+    /// directory writable, a minimal system view read-only, and
+    /// nothing else. Usually equal to `work_dir`. Refused (spawn
+    /// error, fail-closed) when Landlock is unavailable. Unix-only;
+    /// validated but ignored on other platforms.
+    pub confine_fs_to: Option<PathBuf>,
     /// Drop the parent environment instead of inheriting it.
     pub clear_env: bool,
     /// Explicit variables, applied after clearing (never inherited).
@@ -45,6 +56,7 @@ impl Default for SandboxLimits {
             timeout: Duration::from_secs(10),
             max_output_bytes: 1_000_000,
             work_dir: None,
+            confine_fs_to: None,
             clear_env: true,
             extra_env: Vec::new(),
         }
@@ -99,13 +111,32 @@ pub fn run_sandboxed(
     if let Some(dir) = &limits.work_dir {
         command.current_dir(dir);
     }
+    // Parent side of Landlock: probe + freeze the policy BEFORE fork
+    // (rich errors, allocation allowed). The child hook below only
+    // applies the frozen bytes — strictly allocation-free, safe even
+    // when forked from a multi-threaded test process.
+    #[cfg(unix)]
+    let fs_policy: Option<FsPolicy> = match &limits.confine_fs_to {
+        Some(root) => Some(prepare_fs_policy(root).map_err(|message| {
+            io::Error::new(io::ErrorKind::PermissionDenied, message)
+        })?),
+        None => None,
+    };
+
     // SAFETY: pre_exec runs after fork, before exec. Only async-signal-safe
-    // libc calls (setrlimit, setpgid), no allocation, no locks.
+    // libc calls (setpgid, setrlimit, Landlock syscalls on frozen data),
+    // no allocation, no locks.
     #[cfg(unix)]
     unsafe {
         let cpu_secs = limits.timeout.as_secs().saturating_add(2);
         let max_file = limits.max_output_bytes.saturating_mul(4) as u64;
         command.pre_exec(move || {
+            // Filesystem confinement first: a child that cannot be
+            // confined must never reach exec.
+            if let Some(policy) = &fs_policy {
+                // SAFETY: allocation-free (see fs_confinement docs).
+                apply_fs_policy_in_child(policy)?;
+            }
             // Own process group: kill_tree() below reaches grandchildren.
             if libc::setpgid(0, 0) != 0 {
                 return Err(io::Error::last_os_error());
@@ -226,6 +257,7 @@ mod tests {
             timeout: Duration::from_secs(5),
             max_output_bytes: 64_000,
             work_dir: None,
+            confine_fs_to: None,
             clear_env: true,
         }
     }
