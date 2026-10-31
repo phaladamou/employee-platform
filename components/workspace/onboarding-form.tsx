@@ -71,8 +71,13 @@ export function OnboardingForm({
         setError(tErr("network_error"));
         return;
       }
+      const data = (await res.json()) as { chatId?: string | null };
       await update({ onboarded: true });
-      window.location.href = "/workspace";
+      // Atterrit sur le chat du Chef (repli : accueil du workspace).
+      window.location.href =
+        data.chatId && typeof data.chatId === "string"
+          ? `/workspace/${data.chatId}`
+          : "/workspace";
     } catch {
       setError(tErr("network_error"));
     } finally {

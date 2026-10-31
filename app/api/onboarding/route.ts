@@ -9,6 +9,7 @@ import { eq } from "drizzle-orm";
 
 import { auth } from "@/app/(auth)/auth";
 import { getDb } from "@/lib/db/client";
+import { getFirstChatIdForUser } from "@/lib/db/queries";
 import { user } from "@/lib/db/schema";
 
 const INTENTS = ["solo", "startup", "enterprise"] as const;
@@ -56,5 +57,7 @@ export async function POST(request: Request) {
     })
     .where(eq(user.id, session.user.id));
 
-  return NextResponse.json({ ok: true });
+  // Le nouvel utilisateur atterrit sur le chat de son Chef.
+  const chatId = await getFirstChatIdForUser(session.user.id);
+  return NextResponse.json({ ok: true, chatId });
 }
