@@ -38,18 +38,21 @@
 //! `docs/OPERATIONS.md`).
 //!
 //! Raw syscalls (`libc::syscall`) on purpose: zero new dependencies,
-//! and the half-dozen constants below are stable kernel ABI (values
-//! from `linux/landlock.h`, Linux 6.8).
+//! and the constants below are stable kernel ABI (bits 0-14 from
+//! `linux/landlock.h` as of Linux 6.8, `IOCTL_DEV` bit 15 from the
+//! current uapi header).
 
 use std::io;
 use std::path::Path;
 
 /// Highest Landlock ABI this binary understands. V4 (Linux 6.7) added
 /// only *network* rights (`LANDLOCK_ACCESS_NET_*`, a separate ruleset
-/// field this FS-only policy does not use), so the V3 filesystem mask
-/// stays complete through ABI v4. Refuse to run on anything newer
-/// (fail-closed, see module docs).
-const MAX_SUPPORTED_ABI: i32 = 4;
+/// field this FS-only policy does not use); V5 (Linux 6.10) added
+/// `LANDLOCK_ACCESS_FS_IOCTL_DEV` (device ioctl, handled below); V6
+/// (scopes), V7 (audit flags) and V8 (TSYNC) added no filesystem
+/// rights. Refuse to run on anything newer (fail-closed, see module
+/// docs).
+const MAX_SUPPORTED_ABI: i32 = 8;
 
 // `landlock_create_ruleset` flags (linux/landlock.h).
 #[cfg(target_os = "linux")]
@@ -73,9 +76,12 @@ const FS_MAKE_SOCK: u64 = 1 << 9;
 const FS_MAKE_FIFO: u64 = 1 << 10;
 const FS_MAKE_BLOCK: u64 = 1 << 11;
 const FS_MAKE_SYM: u64 = 1 << 12;
-// ABI V2 adds refer (link/rename across boundaries), V3 adds truncate.
+// ABI V2 adds refer (link/rename across boundaries), V3 adds truncate,
+// V5 adds ioctl on character/block devices (V4 and V6-V8 add no FS
+// rights: network, scopes, audit flags, TSYNC).
 const FS_REFER: u64 = 1 << 13;
 const FS_TRUNCATE: u64 = 1 << 14;
+const FS_IOCTL_DEV: u64 = 1 << 15;
 
 // All thirteen V1 rights, spelled out so the mask stays reviewable.
 const V1_ALL: u64 = FS_EXECUTE
@@ -120,8 +126,10 @@ fn handled_mask(abi: i32) -> Option<u64> {
         mask |= FS_REFER;
     }
     if abi >= 3 {
-        // V4 adds no filesystem rights (network only): same mask.
         mask |= FS_TRUNCATE;
+    }
+    if abi >= 5 {
+        mask |= FS_IOCTL_DEV;
     }
     Some(mask)
 }
@@ -338,7 +346,15 @@ mod tests {
         assert_eq!(handled_mask(0), None);
         // V4: same filesystem mask as V3 (network rights only).
         assert_eq!(handled_mask(4), handled_mask(3));
-        assert_eq!(handled_mask(5), None);
+        // V5 adds the device-ioctl right; V6-V8 add no FS rights.
+        assert_eq!(
+            handled_mask(5),
+            Some(0x1fff | FS_REFER | FS_TRUNCATE | FS_IOCTL_DEV)
+        );
+        assert_eq!(handled_mask(6), handled_mask(5));
+        assert_eq!(handled_mask(7), handled_mask(5));
+        assert_eq!(handled_mask(8), handled_mask(5));
+        assert_eq!(handled_mask(9), None);
         assert_eq!(handled_mask(99), None);
     }
 

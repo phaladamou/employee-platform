@@ -44,7 +44,7 @@ rust/
   Landlock in a `pre_exec` hook — raw syscalls over the existing
   `libc`, zero new dependencies. Policy frozen in the parent
   (canonical path + ABI mask), applied allocation-free in the child;
-  missing Landlock or an ABI newer than v4 refuses the spawn
+  missing Landlock or an ABI newer than v8 refuses the spawn
   (fail-closed). No-op on non-Linux Unix.
 
 ## Commands
