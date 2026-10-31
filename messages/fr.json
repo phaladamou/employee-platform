@@ -25,13 +25,13 @@
         "name": "Ingénierie",
         "description": "Conçoit et livre le produit."
       },
-      "marketing": {
-        "name": "Marketing",
-        "description": "Développe la notoriété et le pipeline."
+      "research-data": {
+        "name": "Recherche & Data",
+        "description": "Transforme les données brutes en décisions."
       },
-      "research": {
-        "name": "Recherche",
-        "description": "Explore ce qui vient ensuite."
+      "operations": {
+        "name": "Opérations",
+        "description": "Fait tourner contenus et processus."
       }
     },
     "status": {
@@ -40,7 +40,8 @@
       "completed": "Terminé"
     },
     "card": {
-      "currentTask": "Tâche en cours"
+      "currentTask": "Tâche en cours",
+      "chef": "Manager"
     },
     "recruit": {
       "title": "Recruter un employé",
@@ -80,17 +81,9 @@
     "title": "Réseau de talents",
     "subtitle": "Découvrez et recrutez des employés IA pour vos départements.",
     "back": "Employés",
-    "searchPlaceholder": "Rechercher agents, rôles, compétences…",
-    "allCategories": "Tous",
-    "categories": {
-      "development": "Développement",
-      "research": "Recherche",
-      "data": "Données & Analyse",
-      "design": "Design",
-      "operations": "Opérations"
-    },
-    "targetLabel": "Recruter dans",
-    "noResults": "Aucun agent ne correspond à votre recherche.",
+    "searchPlaceholder": "Rechercher talents, rôles, compétences…",
+    "allDepartments": "Tous",
+    "noResults": "Aucun talent ne correspond à votre recherche.",
     "clearFilters": "Effacer les filtres",
     "card": {
       "recruitAction": "Recruter",
@@ -98,8 +91,8 @@
     },
     "details": {
       "about": "À propos",
-      "experience": "Expérience",
-      "recruitTitle": "Recruter cet agent",
+      "tools": "Outils",
+      "recruitTitle": "Recruter ce talent",
       "viewInDepartment": "Voir dans le département"
     }
   },

@@ -25,13 +25,13 @@
         "name": "工程",
         "description": "构建并交付产品。"
       },
-      "marketing": {
-        "name": "市场",
-        "description": "提升知名度与商机。"
+      "research-data": {
+        "name": "研究与数据",
+        "description": "将原始数据转化为决策。"
       },
-      "research": {
-        "name": "研究",
-        "description": "探索未来方向。"
+      "operations": {
+        "name": "运营",
+        "description": "保障内容与流程运转。"
       }
     },
     "status": {
@@ -40,7 +40,8 @@
       "completed": "已完成"
     },
     "card": {
-      "currentTask": "当前任务"
+      "currentTask": "当前任务",
+      "chef": "经理"
     },
     "recruit": {
       "title": "招聘员工",
@@ -80,17 +81,9 @@
     "title": "人才库",
     "subtitle": "为您部门发现并招聘 AI 员工。",
     "back": "员工",
-    "searchPlaceholder": "搜索智能体、角色、技能…",
-    "allCategories": "全部",
-    "categories": {
-      "development": "开发",
-      "research": "研究",
-      "data": "数据与分析",
-      "design": "设计",
-      "operations": "运营"
-    },
-    "targetLabel": "招聘至",
-    "noResults": "没有符合搜索的智能体。",
+    "searchPlaceholder": "搜索人才、角色、技能…",
+    "allDepartments": "全部",
+    "noResults": "没有符合搜索的人才。",
     "clearFilters": "清除筛选",
     "card": {
       "recruitAction": "招聘",
@@ -98,8 +91,8 @@
     },
     "details": {
       "about": "简介",
-      "experience": "经验",
-      "recruitTitle": "招聘此智能体",
+      "tools": "工具",
+      "recruitTitle": "招聘此人才",
       "viewInDepartment": "在部门中查看"
     }
   },

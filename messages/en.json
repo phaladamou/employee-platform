@@ -25,13 +25,13 @@
         "name": "Engineering",
         "description": "Builds and ships the product."
       },
-      "marketing": {
-        "name": "Marketing",
-        "description": "Grows awareness and pipeline."
+      "research-data": {
+        "name": "Research & Data",
+        "description": "Turns raw data into decisions."
       },
-      "research": {
-        "name": "Research",
-        "description": "Explores what comes next."
+      "operations": {
+        "name": "Operations",
+        "description": "Keeps content and processes running."
       }
     },
     "status": {
@@ -40,7 +40,8 @@
       "completed": "Completed"
     },
     "card": {
-      "currentTask": "Current task"
+      "currentTask": "Current task",
+      "chef": "Manager"
     },
     "recruit": {
       "title": "Recruit an employee",
@@ -80,17 +81,9 @@
     "title": "Talent Network",
     "subtitle": "Discover and hire AI employees for your departments.",
     "back": "Employees",
-    "searchPlaceholder": "Search agents, roles, skills…",
-    "allCategories": "All",
-    "categories": {
-      "development": "Development",
-      "research": "Research",
-      "data": "Data & Analysis",
-      "design": "Design",
-      "operations": "Operations"
-    },
-    "targetLabel": "Recruit into",
-    "noResults": "No agents match your search.",
+    "searchPlaceholder": "Search talents, roles, skills…",
+    "allDepartments": "All",
+    "noResults": "No talents match your search.",
     "clearFilters": "Clear filters",
     "card": {
       "recruitAction": "Recruit",
@@ -98,8 +91,8 @@
     },
     "details": {
       "about": "About",
-      "experience": "Experience",
-      "recruitTitle": "Recruit this agent",
+      "tools": "Tools",
+      "recruitTitle": "Recruit this talent",
       "viewInDepartment": "View in department"
     }
   },
