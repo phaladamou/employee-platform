@@ -1,123 +1,146 @@
 // lib/employees/catalog.test.ts
-// Contrat du catalogue employes.
+// Contrat du catalogue employes (types web + helpers purs).
 // Execution : node --test lib/employees/catalog.test.ts
 // (runner natif Node >= 22.18, zero dependance).
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AVAILABLE_AGENTS,
   DEPARTMENTS,
-  EMPLOYEES,
+  asStringList,
   countByStatus,
-  filterAgents,
+  filterTalents,
   getEmployeesByDepartment,
+  isEmployeeKind,
   isEmployeeStatus,
-  recruitEmployee,
+  isKnownDepartment,
+  isMissionStatus,
+  type Employee,
+  type TalentProfile,
 } from "./catalog.ts";
+
+const TEAM: Employee[] = [
+  {
+    id: "emp-chef",
+    name: "Chef",
+    role: "Manager",
+    status: "idle",
+    departmentId: "operations",
+    kind: "hired",
+  },
+  {
+    id: "emp-atlas",
+    name: "Atlas",
+    role: "Software Engineer",
+    status: "working",
+    departmentId: "engineering",
+    currentTask: "Shipping the API",
+    kind: "hired",
+  },
+  {
+    id: "emp-nova",
+    name: "Nova",
+    role: "DevOps Engineer",
+    status: "idle",
+    departmentId: "engineering",
+    kind: "hired",
+  },
+];
+
+const TALENTS: TalentProfile[] = [
+  {
+    spec: "atlas-software-engineer",
+    version: "1.0.0",
+    name: "Atlas",
+    role: "Software Engineer",
+    departmentId: "engineering",
+    background: "Writes production-ready code.",
+    technologies: ["Python", "pytest"],
+    tools: ["read_file", "write_file", "run_shell"],
+    createdBy: "Cofoundator",
+  },
+  {
+    spec: "aria-data-analyst",
+    version: "1.0.0",
+    name: "Aria",
+    role: "Data Analyst",
+    departmentId: "research-data",
+    background: "Extracts insights from datasets.",
+    technologies: ["SQL", "Reporting"],
+    tools: ["read_file", "write_file"],
+    createdBy: "Cofoundator",
+  },
+];
 
 describe("employee catalog", () => {
   it("exposes the three departments", () => {
     assert.deepEqual(
       DEPARTMENTS.map((d) => d.id),
-      ["engineering", "marketing", "research"]
+      ["engineering", "research-data", "operations"]
     );
   });
 
-  it("every seed employee belongs to a known department", () => {
-    const ids = new Set(DEPARTMENTS.map((d) => d.id));
-    for (const employee of EMPLOYEES) {
-      assert.ok(ids.has(employee.departmentId), employee.id);
-    }
+  it("recognizes known departments only", () => {
+    assert.equal(isKnownDepartment("engineering"), true);
+    assert.equal(isKnownDepartment("research-data"), true);
+    assert.equal(isKnownDepartment("marketing"), false);
+    assert.equal(isKnownDepartment("unknown"), false);
   });
 
   it("groups employees by department", () => {
-    const engineering = getEmployeesByDepartment(EMPLOYEES, "engineering");
-    assert.equal(engineering.length, 3);
+    const engineering = getEmployeesByDepartment(TEAM, "engineering");
+    assert.equal(engineering.length, 2);
     assert.ok(engineering.every((e) => e.departmentId === "engineering"));
-    assert.deepEqual(getEmployeesByDepartment(EMPLOYEES, "unknown"), []);
+    assert.deepEqual(getEmployeesByDepartment(TEAM, "unknown"), []);
   });
 
   it("counts employees by status", () => {
-    assert.deepEqual(countByStatus(EMPLOYEES), {
+    assert.deepEqual(countByStatus(TEAM), {
       idle: 2,
-      working: 4,
-      completed: 1,
+      working: 1,
+      completed: 0,
     });
     assert.deepEqual(countByStatus([]), { idle: 0, working: 0, completed: 0 });
   });
 
-  it("recruits an agent without mutating the input list", () => {
-    const before = [...EMPLOYEES];
-    const agent = AVAILABLE_AGENTS[0];
-    const next = recruitEmployee(EMPLOYEES, agent, "engineering", "emp-kai");
-
-    assert.deepEqual(EMPLOYEES, before);
-    assert.equal(next.length, EMPLOYEES.length + 1);
-    assert.deepEqual(next[next.length - 1], {
-      id: "emp-kai",
-      name: agent.name,
-      role: agent.role,
-      status: "idle",
-      departmentId: "engineering",
-    });
-  });
-
-  it("recruiting into an unknown department throws", () => {
-    assert.throws(() =>
-      recruitEmployee(EMPLOYEES, AVAILABLE_AGENTS[0], "unknown", "emp-x")
-    );
-  });
-
-  it("validates employee statuses", () => {
-    assert.equal(isEmployeeStatus("idle"), true);
+  it("guards statuses and kinds read from the database", () => {
     assert.equal(isEmployeeStatus("working"), true);
-    assert.equal(isEmployeeStatus("completed"), true);
-    assert.equal(isEmployeeStatus("flying"), false);
-    assert.equal(isEmployeeStatus(null), false);
-    assert.equal(isEmployeeStatus(undefined), false);
+    assert.equal(isEmployeeStatus("bogus"), false);
+    assert.equal(isEmployeeKind("chef"), true);
+    assert.equal(isEmployeeKind("hired"), true);
+    assert.equal(isEmployeeKind("admin"), false);
+    assert.equal(isMissionStatus("needs_review"), true);
+    assert.equal(isMissionStatus("done"), false);
   });
 
-  it("every listed agent has network metadata", () => {
-    assert.ok(AVAILABLE_AGENTS.length >= 8);
-    for (const agent of AVAILABLE_AGENTS) {
-      assert.ok(agent.category);
-      assert.ok(agent.experience.length > 0);
-      assert.ok(agent.capabilities.length > 0);
-    }
+  it("coerces json columns to string lists", () => {
+    assert.deepEqual(asStringList(["a", "b"]), ["a", "b"]);
+    assert.deepEqual(asStringList(["a", 1, null]), ["a"]);
+    assert.deepEqual(asStringList(null), []);
+    assert.deepEqual(asStringList("nope"), []);
   });
 
-  it("filters agents by category", () => {
-    const dev = filterAgents(AVAILABLE_AGENTS, "", "development");
-    assert.equal(dev.length, 2);
-    assert.ok(dev.every((a) => a.category === "development"));
-    assert.equal(
-      filterAgents(AVAILABLE_AGENTS, "", "all").length,
-      AVAILABLE_AGENTS.length
+  it("filters talents by department", () => {
+    assert.equal(filterTalents(TALENTS, "", "all").length, 2);
+    const engineering = filterTalents(TALENTS, "", "engineering");
+    assert.deepEqual(
+      engineering.map((t) => t.spec),
+      ["atlas-software-engineer"]
     );
+    assert.deepEqual(filterTalents(TALENTS, "", "operations"), []);
   });
 
-  it("searches agents by name, role and capability", () => {
+  it("filters talents by full-text query (every token must match)", () => {
     assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "mira", "all").map((a) => a.id),
-      ["agent-researcher"]
+      filterTalents(TALENTS, "atlas python", "all").map((t) => t.spec),
+      ["atlas-software-engineer"]
     );
     assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "dAtA eNgInEeR", "all").map((a) => a.id),
-      ["agent-dataeng"]
+      filterTalents(TALENTS, "  ARIA sql  ", "all").map((t) => t.spec),
+      ["aria-data-analyst"]
     );
-    assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "docker", "all").map((a) => a.id),
-      ["agent-devops"]
-    );
-    assert.deepEqual(filterAgents(AVAILABLE_AGENTS, "plumber", "all"), []);
-  });
-
-  it("combines search and category", () => {
-    assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "data", "design"),
-      []
-    );
-    assert.equal(filterAgents(AVAILABLE_AGENTS, "data", "data").length, 2);
+    assert.deepEqual(filterTalents(TALENTS, "atlas sql", "all"), []);
+    // La recherche respecte aussi le filtre departement.
+    assert.deepEqual(filterTalents(TALENTS, "aria", "engineering"), []);
   });
 });
