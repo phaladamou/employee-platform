@@ -1,6 +1,7 @@
 # AGENT_MEMORY.md — Handoff notes (Muse Code)
 
-> Mémoire de travail du chantier **app Windows bureau**. Régénéré le 2026-10-28.
+> Mémoire de travail PARTAGÉE (commitée, poussée) : bureau Windows (§1-4),
+> web (§5-7), EmployeeCore (§8), conventions (§9). Régénéré le 2026-10-31.
 > Règle n°1 : la racine = l'app web de l'utilisateur. L'agent desktop ne touche
 > qu'à `desktop/` + `/.github/workflows/desktop.yml` (seul fichier racine
 > autorisé : GitHub n'exécute que les workflows racine).
@@ -369,6 +370,66 @@ Leçons dures :
   reussis, rapport preserve, zero preuve), sinon confiance inchangee.
   T3a/b/c E2E. Test heartbeat rendu deterministe (attente observee,
   plus de sleep fixe). 307 tests.
+- Heuristiques claims/refus (T5a/b/c + audit 4 points) : Final qui
+  affirme des effets sans appel supportant -> `needs_review`
+  (`missions/mission-claims.ts`, FR+EN, `(?![\p{L}])` + flag `u`,
+  apostrophes `['’]?`, exclusion agents tiers) ; refus honnetes
+  avoues -> `needs_review` aussi (jamais `failed` auto). 4 declen-
+  cheurs `needs_review` documentes (ERROR_HANDLING.md). Limite :
+  faux negatifs par reformulation, jamais faux echecs. 349 tests.
+- Couche Rust (crate `employee-native`, zero deps sauf ed25519/serde/
+  libc/rand) : `crypto.rs` (Ed25519, WASM + natif), `sandbox.rs`
+  (timeouts, plafonds sortie, rlimits Unix, kill groupe via setpgid),
+  binaire `emp-sandbox` (protocole JSON, exit 2 = erreur sandbox),
+  pont `run_shell` (repli Node silencieux sur ENOENT uniquement,
+  fail-closed sinon). WASM sans wasm-bindgen (`wasm_api.rs` + wrapper
+  TS sync/async, `new WebAssembly.Module`, seed hote pour keygen).
+  `.wasm` COMMITÉ (`core/employee/wasm/dist/`, tests sans toolchain).
+  `build.sh` = `--lib` uniquement (le binaire natif ne compile pas en
+  wasm32 — casse depuis son introduction, fixée).
+- Docker + Cosign : image multi-stage (node:22-slim + rust:1-bookworm),
+  `emp-sandbox` inclus, user node, root FS read-only, volumes `/data
+  /sandbox /workspaces`, `CMD serve --port 8000 --host 0.0.0.0`.
+  Transform `.ts` rejouée localement (Usage + `keys issue` + grep
+  imports, zéro restant). `docker build` jamais exécuté ici (pas de
+  daemon — dit honnêtement, précédent ADR-011). Cosign keyless sur
+  les installeurs desktop (`.sig` + `.pem`, vérifiés en CI).
+- E2E live réel + 3 gaps corrigés (rapport honnête livré) ; `PORT`
+  cloud (`--port` > `PORT` > 8000, erreur paresseuse) ; faisceau
+  `EmployeeStores` + stub `openPostgresStores` (fichier par défaut,
+  Postgres à implémenter) ; pas de `vercel.json` (Next standard).
+- Workspaces par employé (ADR-014) : `EMPLOYEE_WORKSPACES_DIR`
+  (défaut `.data/workspaces/`), `<employeeId>/`, `ToolContext.-
+  workspaceRoot` + `toolRoot()` SEUL point de décision (outils +
+  `mkdir` boucle + vérification acceptance — T3c a attrapé le
+  contournement : fichier créé mais « missing »), `acquire` idem-
+  potent au hire/démarrage job (repli sandbox bruyant si échec),
+  `archive` au terminate (jamais de suppression). Évasion =
+  `path escapes the workspace`. T3c vit dans le workspace,
+  `sandbox/` n'est plus créé quand le workspace est posé.
+- Confinement Landlock `run_shell` (ADR-015) : `rust/src/-
+  fs_confinement.rs`, politique côté fils (`pre_exec`, zéro alloc —
+  confiner le parent cassait `/dev/null`/stdin), workspace RW +
+  `/bin /sbin /usr /lib /lib64 /etc` RO, tout le reste refusé à
+  chaque accès (pas de TOCTOU) ; `TMPDIR` dans le workspace ;
+  fail-closed (pas de Landlock ou ABI > v4 = refus exit 2).
+  Filtrage `..` en chaîne REFUSÉ (théâtre + faux positifs).
+  Sans `EMPLOYEE_SANDBOX_BIN` : repli Node `cwd`-only, SANS
+  confinement FS (doc OPERATIONS §8, binaire requis en prod).
+- Race heartbeat-vs-finish : `acquireLock` single-attempt flakait
+  ~50 % sous charge → retry borné 20×5 ms (vol stale inchangé) +
+  test 10 battements same-tick (red-green). Ne pas régresser.
+- Docs pro EN : TESTING (suites + T1-T5 + couverture honnête),
+  DECISIONS (ADR-001→015), ERROR_HANDLING, OPERATIONS (§3 backup
+  workspaces/archive, §7 Docker, §8 strict backend), ROADMAP,
+  ARCHITECTURE, READMEs (`core/employee` en FR, `rust/` en EN).
+- **État 2026-10-31 (main @ 59aed5f) : 371 tests Vitest (46 fichiers)
+  + 27 cargo (17 lib + 3 bin + 7 Landlock), `tsc` propre, WASM OK.**
+- Résiduels assumés : workspaces par employé pas par employeur
+  (durcissement `<employerId>/` = 3 lignes, documenté), TOCTOU
+  outils fichiers accepté (supervisé local, pas multi-tenant
+  hostile), pas d'isolation réseau (TCP V4 inutilisé), node-in-
+  shell non testé sous Landlock, `.data/` scratch non-tracké.
 
 ## 9. Conventions et environnement (rappel)
 
@@ -385,3 +446,16 @@ Leçons dures :
 - `.data/` = scratch employee-core, non commité. `SignOutForm` inutilisé
   (logout réel dans `sidebar-user-nav`). User teste sur l'URL codespace
   `*.app.github.dev`. Ne pas éditer pendant ses tests.
+- EmployeeCore : gates `tsc` + `vitest run` + `cargo test --locked`
+  avant tout push ; tests obligatoires par fix (red-green, plus petit
+  test ciblé) ; micro-commits en tant que `phaladamou`, push sur main
+  à la fin de chaque bloc ; CLI sans `tsx` (copie `.tmp/` + rewrite
+  `.ts` + `node --experimental-transform-types`) ; rester dans le
+  dossier assigné, pas de run-ahead ; français en chat, docs EN.
+- Toolchain Rust : `$HOME` read-only → `CARGO_HOME`/`RUSTUP_HOME`
+  dans `/tmp/emp-rust`, **effacé entre sessions** (réinstaller avec
+  `rustup.sh --no-modify-path` puis `rustup default stable`).
+- Tests confinement : binaire debug requis (`cargo build`) + noyau
+  Landlock ; skip BRUYANT (`SKIP …`) sinon, jamais silencieux.
+- Ce fichier EST la mémoire partagée : chaque bloc terminé l'actualise
+  (état + comptes de tests + commit main), puis commit + push.
