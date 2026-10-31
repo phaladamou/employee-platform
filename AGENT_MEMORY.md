@@ -423,8 +423,9 @@ Leçons dures :
   DECISIONS (ADR-001→015), ERROR_HANDLING, OPERATIONS (§3 backup
   workspaces/archive, §7 Docker, §8 strict backend), ROADMAP,
   ARCHITECTURE, READMEs (`core/employee` en FR, `rust/` en EN).
-- **État 2026-10-31 (main @ 59aed5f) : 371 tests Vitest (46 fichiers)
+- **État 2026-10-31 (main @ aa61120) : 371 tests Vitest (46 fichiers)
   + 27 cargo (17 lib + 3 bin + 7 Landlock), `tsc` propre, WASM OK.**
+  (aa61120 = commit mémoire uniquement, zéro changement de code.)
 - Résiduels assumés : workspaces par employé pas par employeur
   (durcissement `<employerId>/` = 3 lignes, documenté), TOCTOU
   outils fichiers accepté (supervisé local, pas multi-tenant
@@ -459,3 +460,7 @@ Leçons dures :
   Landlock ; skip BRUYANT (`SKIP …`) sinon, jamais silencieux.
 - Ce fichier EST la mémoire partagée : chaque bloc terminé l'actualise
   (état + comptes de tests + commit main), puis commit + push.
+- Deux mémoires distinctes, ne pas confondre : `MEMORY.md` privé de
+  l'agent (`~/.local/share/muse/memory/...`, hors repo, JAMAIS poussé,
+  meurt avec la machine) vs ce `AGENT_MEMORY.md` (dans le repo,
+  commité/poussé, lui seul fait foi pour les handoffs).
