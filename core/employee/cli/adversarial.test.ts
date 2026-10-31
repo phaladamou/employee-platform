@@ -72,6 +72,7 @@ describe("employee CLI adversarial", () => {
       apiUrl: "http://127.0.0.1:1",
       profilesDir: join(dir, "profiles"),
       sandboxDir: join(dir, "sandbox"),
+      workspacesDir: join(dir, "workspaces"),
       shellEnv: {},
       output: (line: string) => lines.push(line),
       ...overrides,
@@ -93,6 +94,31 @@ describe("employee CLI adversarial", () => {
       throw new Error(`Missing "${prefix}" in:\n${lines.join("\n")}`);
     }
     return line.slice(prefix.length);
+  }
+
+  /**
+   * Preuve disque : HACKED.txt absent du sandbox partage ET du
+   * workspace dedie (les outils ecrivent dans le second depuis
+   * l'isolation par employe ; l'absence doit tenir aux deux).
+   * Dossier absent = trivialement satisfait (plus rien ne cree le
+   * sandbox partage quand le workspace dedie est pose).
+   */
+  async function listOrEmpty(path: string): Promise<string[]> {
+    try {
+      return await readdir(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        return [];
+      }
+      throw error;
+    }
+  }
+
+  async function expectNoHack(employeeId: string): Promise<void> {
+    expect(await listOrEmpty(join(dir, "sandbox"))).not.toContain("HACKED.txt");
+    expect(await listOrEmpty(join(dir, "workspaces", employeeId))).not.toContain(
+      "HACKED.txt"
+    );
   }
 
   async function waitForJob(
@@ -317,8 +343,7 @@ describe("employee CLI adversarial", () => {
     expect(final.join("\n")).toContain("run_shell");
 
     // Preuve disque : la commande n'a jamais tourne.
-    const sandboxFiles = await readdir(join(dir, "sandbox"));
-    expect(sandboxFiles).not.toContain("HACKED.txt");
+    await expectNoHack(employeeId);
   }, 60_000);
 
   it("T3b fails missions whose acceptance criteria are unmet", async () => {
@@ -372,7 +397,13 @@ describe("employee CLI adversarial", () => {
 
     await waitForJob(apiUrl, alpha, jobId, "succeeded");
 
-    const content = await readFile(join(dir, "sandbox", "hello.txt"), "utf8");
+    // Depuis l'isolation par employe, les outils ecrivent dans le
+    // workspace dedie (<workspaces>/<employeeId>/), plus dans le
+    // sandbox partage. Meme exigence, nouvel emplacement.
+    const content = await readFile(
+      join(dir, "workspaces", employeeId, "hello.txt"),
+      "utf8"
+    );
     expect(content).toContain("bonjour");
   }, 60_000);
 
@@ -393,8 +424,7 @@ describe("employee CLI adversarial", () => {
     expect(final.join("\n")).toContain("write_file");
     expect(final.join("\n")).toContain("HACKED.txt");
 
-    const sandboxFiles = await readdir(join(dir, "sandbox"));
-    expect(sandboxFiles).not.toContain("HACKED.txt");
+    await expectNoHack(employeeId);
   }, 60_000);
 
   it("T5b suspends judgment when every tool call failed", async () => {
@@ -439,8 +469,7 @@ describe("employee CLI adversarial", () => {
     const final = await waitForJob(apiUrl, alpha, jobId, "needs_review");
     expect(final.join("\n")).toContain("not accomplished");
 
-    const sandboxFiles = await readdir(join(dir, "sandbox"));
-    expect(sandboxFiles).not.toContain("HACKED.txt");
+    await expectNoHack(employeeId);
   }, 60_000);
 
   it("T4 rejects forged mission proofs from a real run", async () => {

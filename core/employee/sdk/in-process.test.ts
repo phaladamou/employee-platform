@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -8,6 +8,7 @@ import { FileJobStore } from "../jobs/file-job-store";
 import { FileMissionStore } from "../missions/file-mission-store";
 import { FileProfileStore } from "../profile/file-profile-store";
 import { createProfileRegistry } from "../profiles/profile-registry";
+import { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 import { InProcessEmployeeClient } from "./in-process-client";
 import { InProcessEmployeeCreator } from "./in-process-creator";
 
@@ -148,6 +149,33 @@ describe("InProcessEmployeeClient", () => {
     await expect(client.hire("emp_missing")).rejects.toThrow(
       "Employee emp_missing not found"
     );
+  });
+
+  it("creates the employee workspace on hire", async () => {
+    const { creator } = await makeWorld("acme");
+    await creator.publishEmployee({ id: "emp_1", name: "Aria", role: "Dev" });
+    const workspaces = new EmployeeWorkspaces({
+      directory: join(dir, "workspaces"),
+    });
+    const client = new InProcessEmployeeClient({
+      employerId: "acme",
+      profiles: new FileProfileStore({ directory: join(dir, "profiles") }),
+      employments: new FileEmploymentStore({
+        directory: join(dir, "employments"),
+      }),
+      missions: new FileMissionStore({ directory: join(dir, "missions") }),
+      jobs: new FileJobStore({ directory: join(dir, "jobs") }),
+      workspaces,
+    });
+
+    await expect(stat(join(dir, "workspaces", "emp_1"))).rejects.toThrow();
+    await client.hire("emp_1");
+
+    const info = await stat(join(dir, "workspaces", "emp_1"));
+    expect(info.isDirectory()).toBe(true);
+    // Idempotent comme hire : le second appel ne detruit rien.
+    await client.hire("emp_1");
+    expect((await stat(join(dir, "workspaces", "emp_1"))).isDirectory()).toBe(true);
   });
 
   it("submits jobs only to hired employees", async () => {

@@ -1,7 +1,7 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEmployeeJob } from "../jobs/employee-job";
 import { FileJobStore } from "../jobs/file-job-store";
@@ -22,6 +22,7 @@ import type {
   EmployeeLLMResponse,
 } from "../runtime/llm-provider";
 import type { ToolContext } from "../tools/tool";
+import { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 import { runJobOnce, type JobWorkerDeps } from "./job-worker";
 
 class ScriptedProvider implements EmployeeLLMProvider {
@@ -57,8 +58,9 @@ describe("runJobOnce", () => {
   });
 
   async function makeDeps(
-    provider: EmployeeLLMProvider
-  ): Promise<{ deps: JobWorkerDeps; sandbox: ToolContext }> {
+    provider: EmployeeLLMProvider,
+    options: { coreTools?: boolean; workspaces?: boolean } = {}
+  ): Promise<{ deps: JobWorkerDeps; sandbox: ToolContext; dir: string }> {
     dir = await mkdtemp(join(tmpdir(), "emp-worker-"));
     const sandbox = join(dir, "sandbox");
     return {
@@ -67,10 +69,20 @@ describe("runJobOnce", () => {
         missions: new FileMissionStore({ directory: join(dir, "missions") }),
         profiles: new FileProfileStore({ directory: join(dir, "profiles") }),
         provider,
-        tools: [],
+        // Defaut historique : aucun outil. coreTools les omet pour
+        // retrouver les outils natifs du runtime.
+        ...(options.coreTools ? {} : { tools: [] }),
         toolContext: { sandboxRoot: sandbox },
+        ...(options.workspaces
+          ? {
+              workspaces: new EmployeeWorkspaces({
+                directory: join(dir, "workspaces"),
+              }),
+            }
+          : {}),
       },
       sandbox: { sandboxRoot: sandbox },
+      dir,
     };
   }
 
@@ -312,5 +324,60 @@ describe("runJobOnce", () => {
 
     const stored = await deps.jobs.load(jobId);
     expect(stored?.lastHeartbeatAt).toBe(stored?.startedAt);
+  });
+
+  it("runs tools inside the acquired employee workspace", async () => {
+    const { deps, dir: root } = await makeDeps(
+      new ScriptedProvider([
+        'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "bonjour"}}',
+        "FINAL: done.",
+      ]),
+      { coreTools: true, workspaces: true }
+    );
+    const jobId = await seedPending(deps);
+    // Criteres d'acceptation : la verification doit elle aussi lire
+    // dans le workspace (non-regression T3c : elle lisait le sandbox
+    // partage et echouait sur un fichier pourtant cree).
+    const job = await deps.jobs.load(jobId);
+    const mission = await deps.missions.load(job?.missionId ?? "");
+    await deps.missions.save({
+      ...mission!,
+      acceptance: { files: [{ path: "hello.txt", contains: "bonjour" }] },
+    });
+
+    const finished = await runJobOnce(deps, jobId, "worker-1");
+
+    expect(finished?.status).toBe("succeeded");
+    // Preuve disque : l'outil a ecrit DANS le workspace, pas dans le
+    // sandbox partage.
+    const written = await readFile(
+      join(root, "workspaces", "emp_1", "hello.txt"),
+      "utf8"
+    );
+    expect(written).toBe("bonjour");
+    await expect(stat(join(root, "sandbox", "hello.txt"))).rejects.toThrow();
+  });
+
+  it("falls back to the shared sandbox when acquire fails", async () => {
+    const { deps, dir: root } = await makeDeps(
+      new ScriptedProvider(["FINAL: done."]),
+      { workspaces: true }
+    );
+    // Empoisonne : un FICHIER a la place du dossier racine — mkdir
+    // echoue en ENOTDIR, sans bloquer la mission.
+    await writeFile(join(root, "workspaces"), "not-a-directory");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const jobId = await seedPending(deps);
+
+      const finished = await runJobOnce(deps, jobId, "worker-1");
+
+      expect(finished?.status).toBe("succeeded");
+      expect(warn).toHaveBeenCalledWith(
+        expect.stringContaining("workspace acquire failed")
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
