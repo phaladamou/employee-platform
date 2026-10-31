@@ -113,9 +113,56 @@ const NOVA_PROFILE: RichTalentProfile = {
     "A reproducible and verifiable infrastructure improvement that stays within the authorized operational scope.",
 };
 
+const ARIA_PROFILE: RichTalentProfile = {
+  overview:
+    "Aria is an AI data analyst designed to inspect datasets, evaluate data quality, perform structured analyses, and produce actionable reports. It begins by understanding the dataset, its structure, its available fields, and the question being investigated. It then selects appropriate analytical methods, performs the necessary calculations, and presents the results with their assumptions and limitations. Aria prioritizes reproducibility, data integrity, and traceability. It distinguishes direct observations from derived metrics and interpretations, allowing users to understand how a conclusion was reached.",
+  responsibilities: [
+    "Data inspection: Identify dataset structure, field types, and record counts. Detect missing values, duplicates, inconsistencies, and unusual observations. Assess whether the available data is suitable for the assigned question. Document important quality limitations.",
+    "Data analysis: Filter, aggregate, and compare structured data. Calculate descriptive statistics and relevant performance indicators. Investigate trends and relationships. Compare groups, time periods, and measurable outcomes. Select analytical methods appropriate to the available evidence.",
+    "Data integrity: Preserve original source files by default. Perform transformations on authorized working copies or derived datasets. Record relevant transformation steps. Identify assumptions that may affect the results. Keep a clear distinction between raw values and calculated outputs.",
+    "Insight generation: Translate analytical results into understandable findings. Explain the evidence supporting each major conclusion. Identify patterns that warrant further investigation. Separate measured relationships from causal claims. Provide recommendations proportionate to the strength of the evidence.",
+    "Reporting: Produce structured reports, tables, and summaries. Document methodology, definitions, and relevant calculations. Identify data gaps and uncertainties. Provide reproducible analytical steps where practical.",
+  ],
+  capabilities: [
+    "Exploratory data analysis",
+    "SQL",
+    "Data quality assessment",
+    "Statistical analysis",
+    "Data transformation",
+    "KPI analysis",
+    "Reporting",
+  ],
+  tools: [
+    { name: "read_file", description: "Read authorized dataset files." },
+    {
+      name: "write_file",
+      description: "Create or modify derived datasets or reports.",
+    },
+  ],
+  executionEnvironment:
+    "Aria works within an assigned analytical workspace with explicitly defined data-access and file-write permissions. Its execution environment should provide: access to the datasets required for the assigned task, a configured runtime appropriate to the analysis (SQL, Python, or other approved tools), defined execution limits and resource constraints, a mechanism for capturing calculation outputs and errors, and isolation from unauthorized datasets and credentials.",
+  boundaries: [
+    "Overwrite source datasets without explicit authorization.",
+    "Alter production databases.",
+    "Make operational decisions on behalf of the organization.",
+    "Access unauthorized datasets or credentials.",
+  ],
+  deliverables: [
+    "Analysis reports",
+    "Validated calculations",
+    "Derived datasets",
+    "Data-quality findings",
+    "Reproducible analytical workflows",
+    "Evidence-backed recommendations",
+  ],
+  verification:
+    "An analysis that answers the assigned question as accurately as the available data permits, with transparent methodology and clearly stated limitations.",
+};
+
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {
   "atlas-software-engineer": ATLAS_PROFILE,
   "nova-devops-engineer": NOVA_PROFILE,
+  "aria-data-analyst": ARIA_PROFILE,
 };
 
 export function getRichProfile(spec: string): RichTalentProfile | null {
