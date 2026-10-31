@@ -123,6 +123,14 @@ export {
 } from "./jobs/job-signal";
 export type { JobStore } from "./jobs/job-store";
 export type { MissionStore } from "./missions/mission-store";
+export {
+  openFileStores,
+  type EmployeeStores,
+} from "./stores/employee-stores";
+export {
+  openPostgresStores,
+  type PostgresStoresOptions,
+} from "./stores/postgres-stores";
 export { FileMissionStore } from "./missions/file-mission-store";
 export {
   generateMissionProof,

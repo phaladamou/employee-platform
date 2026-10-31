@@ -4,7 +4,7 @@ dotenv.config({ path: ".env.local" });
 
 import { resolve } from "node:path";
 
-import { runCommand, type CliContext } from "./cli/commands";
+import { parsePortEnv, runCommand, type CliContext } from "./cli/commands";
 import { FetchLLMProvider } from "./runtime/fetch-llm-provider";
 import type { EmployeeLLMProvider } from "./runtime/llm-provider";
 
@@ -29,6 +29,8 @@ import type { EmployeeLLMProvider } from "./runtime/llm-provider";
  * - EMPLOYEE_DATA (defaut .data/employee)
  * - EMPLOYEE_PROFILES (defaut core/employee/profiles)
  * - EMPLOYEE_SANDBOX (defaut .data/workspace)
+ * - EMPLOYEE_SANDBOX_BIN (binaire emp-sandbox, absent = repli Node)
+ * - PORT (port de serve, prioritaire apres --port ; defaut 8000)
  * - EMPLOYEE_PROVIDER : "deepseek" (defaut) | "muse"
  *   - deepseek : DEEPSEEK_API_KEY (+ DEEPSEEK_BASE_URL, DEEPSEEK_MODEL)
  *   - muse : MUSE_API_KEY (+ MUSE_BASE_URL, MUSE_MODEL)
@@ -89,6 +91,17 @@ function buildContext(): CliContext {
     providerError = error instanceof Error ? error.message : String(error);
   }
 
+  // PORT paresseux comme le provider : un PORT casse ne doit pas
+  // empecher keys/status ; seul serve echoue dessus.
+  let defaultPort: number | undefined;
+  let portError: string | undefined;
+  try {
+    defaultPort = parsePortEnv(process.env.PORT);
+  } catch (error) {
+    defaultPort = undefined;
+    portError = error instanceof Error ? error.message : String(error);
+  }
+
   return {
     dataDir: resolve(process.env.EMPLOYEE_DATA ?? ".data/employee"),
     apiUrl: (process.env.EMPLOYEE_API_URL ?? "http://127.0.0.1:8000").replace(
@@ -99,6 +112,8 @@ function buildContext(): CliContext {
     profilesDir: resolve(process.env.EMPLOYEE_PROFILES ?? "core/employee/profiles"),
     sandboxDir: resolve(process.env.EMPLOYEE_SANDBOX ?? ".data/workspace"),
     sandboxBin: process.env.EMPLOYEE_SANDBOX_BIN,
+    defaultPort,
+    portError,
     provider,
     providerError,
     shellEnv,

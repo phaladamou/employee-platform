@@ -5,7 +5,12 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { createEmployeeJob } from "../jobs/employee-job";
 import { FileJobStore } from "../jobs/file-job-store";
-import { runCommand, type CliContext } from "./commands";
+import {
+  parsePortEnv,
+  resolveServePort,
+  runCommand,
+  type CliContext,
+} from "./commands";
 
 describe("runCommand", () => {
   let dir = "";
@@ -180,5 +185,24 @@ describe("runCommand", () => {
     lines.length = 0;
     expect((await runCommand(["worker"], ctx)).exitCode).toBe(1);
     expect(lines.join("\n")).toContain("no LLM provider configured");
+  });
+});
+
+describe("serve port resolution", () => {
+  it("parses PORT strictly", () => {
+    expect(parsePortEnv(undefined)).toBeUndefined();
+    expect(parsePortEnv("")).toBeUndefined();
+    expect(parsePortEnv("   ")).toBeUndefined();
+    expect(parsePortEnv("8080")).toBe(8080);
+    expect(parsePortEnv("0")).toBe(0);
+    expect(() => parsePortEnv("nope")).toThrow("PORT must be an integer");
+    expect(() => parsePortEnv("80.5")).toThrow("PORT must be an integer");
+  });
+
+  it("prefers --port, then PORT, then 8000", () => {
+    expect(resolveServePort(undefined, undefined)).toBe(8000);
+    expect(resolveServePort(undefined, 9000)).toBe(9000);
+    expect(resolveServePort("8100", 9000)).toBe(8100);
+    expect(resolveServePort("nope", 9000)).toBeNull();
   });
 });

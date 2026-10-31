@@ -1,16 +1,9 @@
-import { join } from "node:path";
-
 import type { CredentialScope } from "../auth/employee-credential";
 import { issueEmployerCredential } from "../auth/employer-credential";
-import { FileEmployerCredentialStore } from "../auth/file-employer-credential-store";
-import { FileEmploymentStore } from "../employments/file-employment-store";
 import { isTerminalJobStatus } from "../jobs/employee-job";
-import { FileJobStore } from "../jobs/file-job-store";
-import { FileMissionStore } from "../missions/file-mission-store";
-import { FileProfileStore } from "../profile/file-profile-store";
 import { loadProfileRegistry } from "../profiles/profile-registry";
 import { EmployeeMemory } from "../memory/employee-memory";
-import { FileMemoryStore } from "../memory/file-memory-store";
+import { openFileStores } from "../stores/employee-stores";
 import {
   assignMission,
   createEmployeeMission,
@@ -42,6 +35,10 @@ export interface CliContext {
   readonly shellEnv: Readonly<Record<string, string>>;
   /** Binaire emp-sandbox (EMPLOYEE_SANDBOX_BIN), absent = repli Node. */
   readonly sandboxBin?: string;
+  /** Port par defaut de serve (PORT, lue par cli.ts). */
+  readonly defaultPort?: number;
+  /** PORT illisible (erreur paresseuse, comme providerError). */
+  readonly portError?: string;
   readonly output: (line: string) => void;
 }
 
@@ -56,21 +53,6 @@ export const DEFAULT_EMPLOYER_SCOPES: readonly CredentialScope[] = [
   "employments:read",
   "employments:write",
 ];
-
-function openLocalStores(dataDir: string) {
-  return {
-    profiles: new FileProfileStore({ directory: join(dataDir, "profiles") }),
-    employments: new FileEmploymentStore({
-      directory: join(dataDir, "employments"),
-    }),
-    missions: new FileMissionStore({ directory: join(dataDir, "missions") }),
-    jobs: new FileJobStore({ directory: join(dataDir, "jobs") }),
-    credentials: new FileEmployerCredentialStore({
-      directory: join(dataDir, "credentials"),
-    }),
-    memory: new FileMemoryStore({ directory: join(dataDir, "memory") }),
-  };
-}
 
 interface ParsedArgs {
   readonly positionals: string[];
@@ -103,6 +85,37 @@ function parseArgs(argv: string[]): ParsedArgs {
   }
 
   return { positionals, flags };
+}
+
+/**
+ * Parse la variable PORT (convention Cloud Run / PaaS). Vide/absent =
+ * pas de port impose ; invalide = erreur fatale (mieux qu'un port
+ * silencieux). Pure (testee) : la lecture d'env reste dans cli.ts.
+ */
+export function parsePortEnv(value: string | undefined): number | undefined {
+  if (value === undefined || value.trim() === "") {
+    return undefined;
+  }
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed)) {
+    throw new Error(`PORT must be an integer, got ${JSON.stringify(value)}`);
+  }
+  return parsed;
+}
+
+/**
+ * Port effectif de `serve` : --port > PORT (ctx) > 8000.
+ * Retourne null quand le flag est invalide (erreur CLI gerable).
+ */
+export function resolveServePort(
+  portRaw: string | true | undefined,
+  defaultPort: number | undefined
+): number | null {
+  if (portRaw === undefined) {
+    return defaultPort ?? 8000;
+  }
+  const parsed = Number(portRaw);
+  return Number.isInteger(parsed) ? parsed : null;
 }
 
 function flag(
@@ -138,7 +151,7 @@ async function cmdKeys(
   ctx: CliContext
 ): Promise<CliResult> {
   const [action, ...rest] = args.positionals;
-  const stores = openLocalStores(ctx.dataDir);
+  const stores = openFileStores(ctx.dataDir);
 
   if (action === "issue") {
     const employerId = flag(args.flags, "employer");
@@ -459,9 +472,7 @@ async function cmdRun(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
     profile.id
   );
   const memory = new EmployeeMemory();
-  const memoryStore = new FileMemoryStore({
-    directory: join(ctx.dataDir, "memory"),
-  });
+  const memoryStore = openFileStores(ctx.dataDir).memory;
 
   try {
     const runtime = new EmployeeRuntime(ctx.provider, {
@@ -505,7 +516,7 @@ export async function startServe(
   ctx: CliContext,
   options: ServeOptions = {}
 ): Promise<ServeHandle> {
-  const stores = openLocalStores(ctx.dataDir);
+  const stores = openFileStores(ctx.dataDir);
   const registry = await loadProfileRegistry(ctx.profilesDir);
   const server = await serveEmployeeApi(
     {
@@ -563,7 +574,7 @@ export async function startWorker(
       ctx.providerError ?? "no LLM provider configured (EMPLOYEE_PROVIDER)"
     );
   }
-  const stores = openLocalStores(ctx.dataDir);
+  const stores = openFileStores(ctx.dataDir);
   const registry = await loadProfileRegistry(ctx.profilesDir);
   const provider: EmployeeLLMProvider = ctx.provider;
   const workerDeps: JobWorkerDeps = {
@@ -598,7 +609,7 @@ async function cmdRecover(
   }
 
   try {
-    const stores = openLocalStores(ctx.dataDir);
+    const stores = openFileStores(ctx.dataDir);
     const recovered = await stores.jobs.recoverStaleJobs(
       staleAfterMs === undefined ? {} : { staleAfterMs }
     );
@@ -618,8 +629,12 @@ async function cmdRecover(
 async function cmdServe(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
   const portRaw = flag(args.flags, "port");
   const host = flag(args.flags, "host");
-  const port = portRaw !== undefined ? Number(portRaw) : undefined;
-  if (portRaw !== undefined && !Number.isInteger(port)) {
+  if (portRaw === undefined && ctx.portError !== undefined) {
+    ctx.output(`Error: ${ctx.portError}`);
+    return { exitCode: 1 };
+  }
+  const port = resolveServePort(portRaw, ctx.defaultPort);
+  if (port === null) {
     ctx.output("Error: --port must be an integer");
     return { exitCode: 1 };
   }
@@ -670,7 +685,7 @@ function usage(ctx: CliContext): CliResult {
     [
       "Usage: cli.ts <command> [args]",
       "",
-      "  serve [--port N] [--host H]   start API + worker",
+      "  serve [--port N] [--host H]   start API + worker (port: --port, $PORT, 8000)",
       "  worker [--id W] [--interval-ms N]   start a worker alone",
       "  recover [--stale-after-ms N]   requeue orphaned jobs",
       "  publish --name N --role R [--skills a,b] [--spec n@v]   (admin)",
