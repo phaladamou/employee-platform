@@ -465,3 +465,20 @@ Leçons dures :
   l'agent (`~/.local/share/muse/memory/...`, hors repo, JAMAIS poussé,
   meurt avec la machine) vs ce `AGENT_MEMORY.md` (dans le repo,
   commité/poussé, lui seul fait foi pour les handoffs).
+- Déménagement codespace (checklist, vécue le 2026-10-31) : tout le
+  code est sur `origin/main` (vérifier `git status` propre hors
+  `.data/` + `HEAD == origin/main` avant de jeter l'ancien). Ce qui
+  NE suit PAS et doit être refait à la main dans le nouveau :
+  1. Secrets `.env.local` racine (21 clés : Postgres, Auth, OAuth
+     GitHub/Notion, DeepSeek/Tavily/Resend/Upstash/Termii, Muse…)
+     + `desktop/windows/.env.local` (3 clés) — jamais commités,
+     les recopier depuis le gestionnaire de mots de passe.
+  2. `pnpm install` (racine ; pnpm 10.32.1 côté desktop) +
+     toolchain Rust dans `/tmp/emp-rust` (voir plus haut) +
+     `cargo build` (binaire debug pour le test full-chain) +
+     `rustup target add wasm32-unknown-unknown` si rebuild WASM.
+  3. Relire ce fichier en premier ; `gh` refonctionne seul
+     (token codespace auto-fourni).
+  Jetable sans regret : `.data/` (scratch ~20 Ko), `/tmp/*`
+  (replays, toolchains, logs), `MEMORY.md` privé + logs de
+  sessions (`~/.local/share/muse/`, machine-locaux).
