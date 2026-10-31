@@ -198,9 +198,10 @@ describe("formatObservation", () => {
   });
 
   it("truncates oversized outputs", () => {
-    const formatted = formatObservation("read_file", true, "x".repeat(9000));
+    const oversized = "x".repeat(OBSERVATION_MAX_CHARS + 1000);
+    const formatted = formatObservation("read_file", true, oversized);
 
-    expect(formatted.length).toBeLessThan(9000);
+    expect(formatted.length).toBeLessThan(oversized.length);
     expect(formatted).toContain("[truncated]");
     expect(formatted.length).toBeLessThanOrEqual(
       OBSERVATION_MAX_CHARS + 100

@@ -188,6 +188,9 @@ Notes:
 
 - The container runs as `node` (uid 1000, non-root); only `/tmp`,
   `/data`, `/sandbox` and `/workspaces` are writable.
+- The image ships a Python toolchain (`python3`, `pip`, `pytest`,
+  `git`) for the software-engineer profile, which declares it in
+  `environment` and refuses missions when any binary is missing.
 - The image bakes in `emp-sandbox` (Rust multi-stage build), so
   `run_shell` is Landlock-confined out of the box — no extra setup.
 - Back up the named volumes (`emp-data`, `emp-sandbox`,
@@ -217,6 +220,11 @@ Rules:
   check the path is right if you expected the strict backend).
   Production deployments that run untrusted shell commands must set
   this variable; the Docker image (§7) already does.
+- Either backend is one-shot: every `run_shell` call starts a fresh
+  shell, so `cd`, exported variables and background jobs never
+  survive to the next call. Agents must chain dependent commands
+  with `&&` in a single call. A persistent session would require a
+  protocol change on both backends — documented limit, not a bug.
 - Any other sandbox anomaly (bad report, hung bridge, exit 2) fails
   the tool call — never a silent downgrade. This includes kernels
   without Landlock (pre-5.13, LSM off) or newer than ABI v4: the

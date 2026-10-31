@@ -61,6 +61,23 @@ describe("isEmployeeProfileSpec", () => {
     expect(isEmployeeProfileSpec("data-analyst")).toBe(false);
     expect(isEmployeeProfileSpec([])).toBe(false);
   });
+
+  it("accepts an optional environment prerequisite list", () => {
+    expect(
+      isEmployeeProfileSpec(makeSpec({ environment: ["python3", "pytest"] }))
+    ).toBe(true);
+    expect(isEmployeeProfileSpec(makeSpec({ environment: [] }))).toBe(true);
+    expect(isEmployeeProfileSpec(makeSpec({ environment: [""] }))).toBe(false);
+    expect(
+      isEmployeeProfileSpec(makeSpec({ environment: [" pytest"] }))
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(makeSpec({ environment: ["bin/tool"] }))
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(makeSpec({ environment: "python3" }))
+    ).toBe(false);
+  });
 });
 
 describe("isEmployeeSpecialization", () => {

@@ -12,15 +12,27 @@ export interface FileExpectation {
 }
 
 /**
+ * Attente test : la commande (executee dans le workspace via le
+ * shell confine, avec le timeout shell max) doit reussir (exit 0).
+ * Une seule commande par entree ; enchaine avec && pour une suite.
+ */
+export interface TestExpectation {
+  readonly command: string;
+}
+
+/**
  * Criteres d'acceptation d'une mission : effets machine-verifiables
  * declares par le donneur d'ordre. Vide = mission non verifiable
  * automatiquement (confiance + signaux, voir needs_review).
  */
 export interface MissionAcceptance {
   readonly files: readonly FileExpectation[];
+  readonly tests?: readonly TestExpectation[];
 }
 
 export const EMPTY_ACCEPTANCE: MissionAcceptance = { files: [] };
+export const MAX_ACCEPTANCE_TESTS = 8;
+export const MAX_TEST_COMMAND_CHARS = 2000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
@@ -28,8 +40,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 /**
  * Valide des criteres bruts (submit API/SDK/CLI) : chemins relatifs
- * non vides, sans echappement, `contains` non vide si present.
- * Leve sur tout defaut (fail fast, jamais de critere douteux).
+ * non vides, sans echappement, `contains` non vide si present,
+ * commandes de test non vides et bornees. Leve sur tout defaut
+ * (fail fast, jamais de critere douteux).
  */
 export function validateAcceptance(value: unknown): MissionAcceptance {
   if (value === undefined || value === null) {
@@ -78,7 +91,33 @@ export function validateAcceptance(value: unknown): MissionAcceptance {
     return { path, contains };
   });
 
-  return { files };
+  const rawTests = value.tests;
+  if (rawTests === undefined || rawTests === null) {
+    return { files };
+  }
+  if (!Array.isArray(rawTests)) {
+    throw new Error("Acceptance tests must be an array");
+  }
+  if (rawTests.length > MAX_ACCEPTANCE_TESTS) {
+    throw new Error(
+      `Acceptance allows at most ${MAX_ACCEPTANCE_TESTS} tests`
+    );
+  }
+  const tests: TestExpectation[] = rawTests.map((entry, index) => {
+    if (!isRecord(entry) || typeof entry.command !== "string") {
+      throw new Error(`Acceptance tests[${index}] requires a command string`);
+    }
+    const command = entry.command.trim();
+    if (!command) {
+      throw new Error(`Acceptance tests[${index}] command cannot be empty`);
+    }
+    if (command.length > MAX_TEST_COMMAND_CHARS) {
+      throw new Error(`Acceptance tests[${index}] command is too long`);
+    }
+    return { command };
+  });
+
+  return { files, tests };
 }
 
 export interface AcceptanceResult {
@@ -122,6 +161,42 @@ export async function verifyAcceptance(
           `expected file does not contain required text: ${expected.path}`
         );
       }
+    }
+  }
+
+  return { passed: failures.length === 0, failures };
+}
+
+/**
+ * Execute les criteres test via le runner fourni (le shell confine
+ * du run, cote runtime). Fail closed : echec, erreur ou exception
+ * du runner = echec de verification, jamais d'exception.
+ */
+export async function verifyAcceptanceTests(
+  tests: readonly TestExpectation[],
+  run: (command: string) => Promise<{
+    readonly ok: boolean;
+    readonly output: string;
+  }>
+): Promise<AcceptanceResult> {
+  const failures: string[] = [];
+
+  for (const expected of tests) {
+    try {
+      const result = await run(expected.command);
+      if (!result.ok) {
+        const head = result.output.trim().slice(0, 200);
+        failures.push(
+          head.length > 0
+            ? `expected test failed: ${expected.command} (${head})`
+            : `expected test failed: ${expected.command} (no output)`
+        );
+      }
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      failures.push(
+        `expected test errored: ${expected.command} (${detail.slice(0, 200)})`
+      );
     }
   }
 

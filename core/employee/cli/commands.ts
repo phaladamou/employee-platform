@@ -353,7 +353,7 @@ async function cmdSubmit(args: ParsedArgs, ctx: CliContext): Promise<CliResult> 
   const prompt = promptParts.join(" ").trim();
   if (!employeeId || !prompt) {
     ctx.output(
-      'Usage: submit <employeeId> "<prompt>" [--expect-file a,b] [--expect-contains a=text]'
+      'Usage: submit <employeeId> "<prompt>" [--expect-file a,b] [--expect-contains a=text] [--expect-test "cmd"]'
     );
     return { exitCode: 1 };
   }
@@ -389,12 +389,25 @@ async function cmdSubmit(args: ParsedArgs, ctx: CliContext): Promise<CliResult> 
       }
     }
   }
+  // Une seule commande (les commandes contiennent des virgules :
+  // pas de split, enchaine avec && pour une suite).
+  const tests: { command: string }[] = [];
+  const testRaw = flag(args.flags, "expect-test");
+  if (testRaw !== undefined) {
+    if (!testRaw.trim()) {
+      ctx.output("Error: --expect-test command cannot be empty");
+      return { exitCode: 1 };
+    }
+    tests.push({ command: testRaw.trim() });
+  }
 
   try {
     const job = await clientFor(ctx).submit(
       employeeId,
       prompt,
-      files.length > 0 ? { acceptance: { files } } : {}
+      files.length > 0 || tests.length > 0
+        ? { acceptance: { files, ...(tests.length > 0 ? { tests } : {}) } }
+        : {}
     );
     ctx.output(`job: ${job.id} (${job.status})`);
     return { exitCode: 0 };
@@ -762,7 +775,7 @@ function usage(ctx: CliContext): CliResult {
       "  recover [--stale-after-ms N]   requeue orphaned jobs",
       "  publish --name N --role R [--skills a,b] [--spec n@v] [--created-by C]   (admin)",
       "  hire <employeeId>",
-      "  submit <employeeId> \"<prompt>\" [--expect-file a,b] [--expect-contains a=text]",
+      "  submit <employeeId> \"<prompt>\" [--expect-file a,b] [--expect-contains a=text] [--expect-test \"cmd\"]",
       "  status <jobId>",
       "  cancel <jobId>",
       "  events <jobId>",

@@ -86,6 +86,10 @@ describe("initial AI employee catalog", () => {
         resolveToolsForProfile(spec!, createCoreTools())
       ).not.toThrow();
     }
+    // Atlas declare sa chaine Python : refusable si absente.
+    expect(
+      registry.get("atlas-software-engineer", "1.0.0")?.environment
+    ).toEqual(["python3", "pip", "pytest", "git"]);
   });
 
   it("publishes 6 uniquely-identified, hirable employees", async () => {

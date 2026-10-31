@@ -232,6 +232,55 @@ describe("runCommand", () => {
     }
   });
 
+  it("forwards --expect-test on submit", async () => {
+    const { ctx, lines } = await makeCtx({ token: "emo_x" });
+    let seenBody: unknown;
+    vi.stubGlobal(
+      "fetch",
+      (async (_url: unknown, init?: { body?: string }) => {
+        seenBody = JSON.parse(init?.body ?? "{}");
+        return {
+          status: 202,
+          ok: true,
+          text: async () =>
+            JSON.stringify({ id: "job_1", status: "queued" }),
+        };
+      }) as unknown as typeof fetch
+    );
+    try {
+      expect(
+        (
+          await runCommand(
+            ["submit", "emp_1", "Fix the bug", "--expect-test", "pytest -q"],
+            ctx
+          )
+        ).exitCode
+      ).toBe(0);
+      expect(seenBody).toEqual({
+        employeeId: "emp_1",
+        prompt: "Fix the bug",
+        acceptance: { files: [], tests: [{ command: "pytest -q" }] },
+      });
+      expect(lines.join("\n")).toContain("job: job_1 (queued)");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("rejects an empty --expect-test command", async () => {
+    const { ctx, lines } = await makeCtx({ token: "emo_x" });
+
+    expect(
+      (
+        await runCommand(
+          ["submit", "emp_1", "Fix the bug", "--expect-test", "  "],
+          ctx
+        )
+      ).exitCode
+    ).toBe(1);
+    expect(lines.join("\n")).toContain("--expect-test command cannot be empty");
+  });
+
   it("rejects unknown --spec profiles on run (fail fast)", async () => {
     const { ctx, lines } = await makeCtx({
       provider: new ScriptedProvider(["FINAL: unreachable."]),

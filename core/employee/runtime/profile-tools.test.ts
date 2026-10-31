@@ -1,4 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { createEmployeeMission } from "../missions/employee-mission";
 import { createEmployeeProfile } from "../profile/employee-profile";
@@ -11,7 +14,7 @@ import type {
   EmployeeLLMRequest,
   EmployeeLLMResponse,
 } from "./llm-provider";
-import { resolveToolsForProfile } from "./profile-tools";
+import { assertSpecEnvironment, resolveToolsForProfile } from "./profile-tools";
 
 function makeSpec(overrides: Partial<EmployeeProfileSpec> = {}): EmployeeProfileSpec {
   return {
@@ -100,6 +103,59 @@ describe("resolveToolsForProfile", () => {
   });
 });
 
+describe("assertSpecEnvironment", () => {
+  let dir = "";
+
+  afterEach(async () => {
+    if (dir) {
+      await rm(dir, { recursive: true, force: true });
+      dir = "";
+    }
+  });
+
+  async function binDir(): Promise<string> {
+    dir = await mkdtemp(join(tmpdir(), "emp-env-"));
+    await writeFile(join(dir, "mytool"), "#!/bin/sh\necho hi\n");
+    await chmod(join(dir, "mytool"), 0o755);
+    return dir;
+  }
+
+  it("is a no-op without declared prerequisites", async () => {
+    await expect(assertSpecEnvironment(makeSpec(), undefined)).resolves.toBeUndefined();
+    await expect(
+      assertSpecEnvironment(makeSpec({ environment: [] }), {})
+    ).resolves.toBeUndefined();
+  });
+
+  it("passes when every binary resolves and is executable", async () => {
+    const bin = await binDir();
+
+    await expect(
+      assertSpecEnvironment(makeSpec({ environment: ["mytool"] }), {
+        PATH: bin,
+      })
+    ).resolves.toBeUndefined();
+  });
+
+  it("refuses missing binaries and missing PATH, fail closed", async () => {
+    const bin = await binDir();
+
+    await expect(
+      assertSpecEnvironment(makeSpec({ environment: ["nope-missing"] }), {
+        PATH: bin,
+      })
+    ).rejects.toThrow(
+      'Environment prerequisite "nope-missing" for profile "software-engineer" is not available'
+    );
+    await expect(
+      assertSpecEnvironment(makeSpec({ environment: ["mytool"] }), {})
+    ).rejects.toThrow("no PATH is available");
+    await expect(
+      assertSpecEnvironment(makeSpec({ environment: ["mytool"] }), undefined)
+    ).rejects.toThrow("no PATH is available");
+  });
+});
+
 describe("EmployeeRuntime with bound specialization", () => {
   const sneaky = makeSpec({
     name: "sneaky",
@@ -155,6 +211,28 @@ describe("EmployeeRuntime with bound specialization", () => {
         createEmployeeMission({ prompt: "Do it" })
       )
     ).rejects.toThrow('Unknown profile "sneaky@1.0.0"');
+  });
+
+  it("refuses bound runs when the environment is not ready, before any LLM call", async () => {
+    const spec = makeSpec({
+      name: "needs-tools",
+      environment: ["definitely-missing-tool-xyz"],
+    });
+    const provider = new ScriptedProvider(["FINAL: unreachable"]);
+    const runtime = new EmployeeRuntime(provider, {
+      profiles: registryWith(spec),
+      toolContext: { sandboxRoot: tmpdir(), env: { PATH: tmpdir() } },
+    });
+
+    await expect(
+      runtime.run(
+        boundEmployee({ name: "needs-tools", version: "1.0.0" }),
+        createEmployeeMission({ prompt: "Do it" })
+      )
+    ).rejects.toThrow(
+      'Environment prerequisite "definitely-missing-tool-xyz" for profile "needs-tools" is not available'
+    );
+    expect(provider.seen).toHaveLength(0);
   });
 
   // T2 : substitution / smuggling inoperants.

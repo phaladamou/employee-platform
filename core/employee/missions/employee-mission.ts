@@ -4,6 +4,7 @@ import {
   validateAcceptance,
   type MissionAcceptance,
 } from "./mission-acceptance";
+import { assertAcceptanceForIntent } from "./mission-intent";
 
 export type EmployeeMissionStatus =
   | "pending"
@@ -58,6 +59,7 @@ export function createEmployeeMission(input: {
   }
 
   const acceptance = validateAcceptance(input.acceptance);
+  assertAcceptanceForIntent(prompt, acceptance);
 
   return {
     id: input.id ?? `msn_${randomUUID()}`,

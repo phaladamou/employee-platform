@@ -50,9 +50,11 @@ export {
   EMPTY_ACCEPTANCE,
   validateAcceptance,
   verifyAcceptance,
+  verifyAcceptanceTests,
   type AcceptanceResult,
   type FileExpectation,
   type MissionAcceptance,
+  type TestExpectation,
 } from "./missions/mission-acceptance";
 
 export type { EmployeeCredentialStore } from "./auth/credential-store";

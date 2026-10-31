@@ -23,6 +23,27 @@ describe("createEmployeeMission", () => {
   it("rejects an empty prompt", () => {
     expect(() => createEmployeeMission({ prompt: "   " })).toThrow();
   });
+
+  it("requires acceptance matching the prompt intent", () => {
+    expect(() => createEmployeeMission({ prompt: "Create hello.txt" })).toThrow(
+      "--expect-file"
+    );
+    expect(() =>
+      createEmployeeMission({
+        prompt: "Create hello.txt",
+        acceptance: { files: [{ path: "hello.txt" }] },
+      })
+    ).not.toThrow();
+    expect(() =>
+      createEmployeeMission({ prompt: "Fix the login bug" })
+    ).toThrow("--expect-test");
+    expect(() =>
+      createEmployeeMission({
+        prompt: "Fix the login bug",
+        acceptance: { files: [], tests: [{ command: "pytest" }] },
+      })
+    ).not.toThrow();
+  });
 });
 
 describe("assignMission", () => {

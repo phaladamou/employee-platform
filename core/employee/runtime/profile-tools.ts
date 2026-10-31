@@ -1,3 +1,7 @@
+import { access } from "node:fs/promises";
+import { constants as fsConstants } from "node:fs";
+import { delimiter, join } from "node:path";
+
 import type { EmployeeProfileSpec, ToolPermission } from "../profiles/profile-spec";
 import type { EmployeeTool } from "../tools/tool";
 
@@ -56,4 +60,44 @@ export function resolveToolsForProfile(
   }
 
   return resolved;
+}
+
+/**
+ * Refuse le run quand l'environnement ne fournit pas les binaires
+ * declares par la spec (`environment`). Resolution via le PATH du
+ * contexte shell (celui que `run_shell` verra), executable requis.
+ * Echec ferme, avant le premier appel LLM. Sans exigence : no-op.
+ */
+export async function assertSpecEnvironment(
+  spec: EmployeeProfileSpec,
+  env: Readonly<Record<string, string | undefined>> | undefined
+): Promise<void> {
+  const required = spec.environment;
+  if (!required || required.length === 0) {
+    return;
+  }
+  const pathValue = env?.PATH;
+  if (!pathValue) {
+    throw new Error(
+      `Profile "${spec.name}" requires environment [${required.join(", ")}] but no PATH is available`
+    );
+  }
+  const dirs = pathValue.split(delimiter).filter((dir) => dir.length > 0);
+  for (const name of required) {
+    let found = false;
+    for (const dir of dirs) {
+      try {
+        await access(join(dir, name), fsConstants.X_OK);
+        found = true;
+        break;
+      } catch {
+        // Continue la recherche dans le repertoire suivant.
+      }
+    }
+    if (!found) {
+      throw new Error(
+        `Environment prerequisite "${name}" for profile "${spec.name}" is not available`
+      );
+    }
+  }
 }

@@ -27,6 +27,13 @@ export interface EmployeeProfileSpec {
   readonly allowedTools: readonly string[];
   readonly permissions: readonly ToolPermission[];
   readonly maxSteps: number;
+  /**
+   * Binaires exiges dans l'environnement d'execution (noms de
+   * commandes, resolus via le PATH du shell). Absent ou vide =
+   * aucune exigence. Verifie au demarrage du run, avant le
+   * premier appel LLM ; manquant = mission refusee.
+   */
+  readonly environment?: readonly string[];
 }
 
 const NAME_PATTERN = /^[a-z0-9-]+$/;
@@ -78,6 +85,16 @@ export function isEmployeeProfileSpec(
     typeof spec.maxSteps === "number" &&
     Number.isInteger(spec.maxSteps) &&
     spec.maxSteps >= 1 &&
-    spec.maxSteps <= MAX_PROFILE_STEPS
+    spec.maxSteps <= MAX_PROFILE_STEPS &&
+    (spec.environment === undefined ||
+      (Array.isArray(spec.environment) &&
+        spec.environment.every(
+          (entry): entry is string =>
+            typeof entry === "string" &&
+            entry.length > 0 &&
+            entry.trim() === entry &&
+            !entry.includes("/") &&
+            !entry.includes("\\")
+        )))
   );
 }

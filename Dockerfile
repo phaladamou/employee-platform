@@ -47,6 +47,16 @@ RUN npm init -y >/dev/null 2>&1 \
   && npm cache clean --force \
   && rm package.json package-lock.json
 
+# Atlas toolchain: the atlas-software-engineer profile declares
+# environment ["python3", "pip", "pytest", "git"] and the runtime
+# refuses its missions when these binaries are missing. All land
+# under /usr (covered by the Landlock read-only system view).
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends python3 python3-pip git \
+  && pip3 install --no-cache-dir --break-system-packages pytest \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists
+
 # Runnable .ts copy: extensionless relative imports gain their `.ts`
 # suffix (same transform as core/employee/README.md, via node since
 # the slim image ships no perl).

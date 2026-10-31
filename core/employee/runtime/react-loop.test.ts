@@ -12,6 +12,7 @@ import type {
   EmployeeLLMRequest,
   EmployeeLLMResponse,
 } from "./llm-provider";
+import { OBSERVATION_MAX_CHARS } from "./react-protocol";
 import { runReasoningLoop } from "./react-loop";
 
 function makeProfile() {
@@ -54,7 +55,10 @@ function noisyTool(): EmployeeTool {
     name: "noise",
     description: "Returns a huge output.",
     argsDescription: "{}",
-    execute: async () => ({ ok: true, output: "x".repeat(20_000) }),
+    execute: async () => ({
+      ok: true,
+      output: "x".repeat(OBSERVATION_MAX_CHARS + 1000),
+    }),
   };
 }
 

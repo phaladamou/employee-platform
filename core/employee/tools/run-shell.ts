@@ -14,7 +14,7 @@ const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
 export const RUN_SHELL_DEFAULT_TIMEOUT_MS = 30_000;
-export const RUN_SHELL_MAX_TIMEOUT_MS = 120_000;
+export const RUN_SHELL_MAX_TIMEOUT_MS = 300_000;
 export const RUN_SHELL_MAX_BUFFER = 200_000;
 /** Grace ajoutee au timeout pour le pont lui-meme (tuer un binaire bloque). */
 const SANDBOX_BRIDGE_GRACE_MS = 5_000;
@@ -163,7 +163,10 @@ async function runViaSandbox(
  * `ctx.sandboxBin` est pose, sinon Node `exec` (repli). Dans les deux
  * cas : repertoire confine (cwd), delai borne, sortie bornee, et
  * environnement JAMAIS herite du processus hote (vide sauf variables
- * explicitement fournies). En revanche ce n'est PAS une jail :
+ * explicitement fournies). Chaque appel demarre un shell neuf : ni cd,
+ * ni exports, ni taches de fond ne survivent (pas de session
+ * persistante — l'exiger serait un changement d'architecture, cote
+ * pont Node comme cote emp-sandbox). En revanche ce n'est PAS une jail :
  * chemins absolus, `cd ..`, acces reseau et appels systeme restent
  * possibles depuis le shell. Ne jamais exposer a des prompts non
  * fiables sans supervision ; un vrai isolement exigerait un conteneur.
@@ -175,7 +178,9 @@ export function createRunShellTool(): EmployeeTool {
       "Run a system command with the workspace as working directory and " +
       "return its output. Commands run with an empty environment unless " +
       "the host provides variables; use absolute binary paths when unsure. " +
-      "Fails on non-zero exit, timeout or oversized output.",
+      "Each call starts a fresh shell: cd, exported variables and background " +
+      "jobs do not persist between calls, so chain dependent commands with " +
+      "&& in a single call. Fails on non-zero exit, timeout or oversized output.",
     argsDescription:
       '{ "command": "<shell command>", "timeoutMs": <optional ms> }',
     async execute(

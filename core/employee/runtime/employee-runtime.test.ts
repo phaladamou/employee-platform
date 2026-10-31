@@ -7,6 +7,7 @@ import { InMemoryJobSignal } from "../jobs/job-signal";
 import { createEmployeeProfile } from "../profile/employee-profile";
 import { createEmployeeMission } from "../missions/employee-mission";
 import { createReadFileTool } from "../tools/read-file";
+import { createRunShellTool } from "../tools/run-shell";
 import { createWriteFileTool } from "../tools/write-file";
 import type { ToolContext } from "../tools/tool";
 import { EmployeeRuntime } from "./employee-runtime";
@@ -234,6 +235,66 @@ describe("EmployeeRuntime.run", () => {
 
     expect(result.mission.status).toBe("completed");
     expect(result.error).toBeNull();
+  });
+
+  it("runs test acceptance through the confined shell", async () => {
+    const node = JSON.stringify(process.execPath);
+    const runtime = new EmployeeRuntime(new ScriptedProvider(["FINAL: Fixed."]), {
+      tools: [createRunShellTool()],
+      toolContext: await sandbox(),
+    });
+    const mission = createEmployeeMission({
+      prompt: "Fix the typo",
+      acceptance: {
+        files: [],
+        tests: [{ command: `${node} -e "process.exit(0)"` }],
+      },
+    });
+
+    const result = await runtime.run(makeProfile(), mission);
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.error).toBeNull();
+  });
+
+  it("fails missions whose test acceptance fails or cannot run", async () => {
+    const node = JSON.stringify(process.execPath);
+    const failing = new EmployeeRuntime(
+      new ScriptedProvider(["FINAL: Fixed."]),
+      {
+        tools: [createRunShellTool()],
+        toolContext: await sandbox(),
+      }
+    );
+    const bad = await failing.run(
+      makeProfile(),
+      createEmployeeMission({
+        prompt: "Fix the typo",
+        acceptance: {
+          files: [],
+          tests: [{ command: `${node} -e "process.exit(3)"` }],
+        },
+      })
+    );
+    expect(bad.mission.status).toBe("failed");
+    expect(bad.error).toContain("expected test failed");
+
+    const noshell = new EmployeeRuntime(
+      new ScriptedProvider(["FINAL: Fixed."]),
+      {
+        tools: [createReadFileTool()],
+        toolContext: await sandbox(),
+      }
+    );
+    const stuck = await noshell.run(
+      makeProfile(),
+      createEmployeeMission({
+        prompt: "Fix the typo",
+        acceptance: { files: [], tests: [{ command: "true" }] },
+      })
+    );
+    expect(stuck.mission.status).toBe("failed");
+    expect(stuck.error).toContain("run_shell");
   });
 
   it("flags for review when reaching outside the profile with nothing done", async () => {

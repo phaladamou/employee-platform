@@ -413,8 +413,11 @@ describe("employee CLI adversarial", () => {
     ]);
     const employeeId = await publish(apiUrl, admin);
     await run(["hire", employeeId], { apiUrl, token: alpha });
+    // Prompt neutre a dessein : un prompt de creation exigerait
+    // --expect-file au submit (regle d'intention), ce qui changerait
+    // de chemin. L'heuristique visee porte sur le Final, pas le prompt.
     const submitted = await run(
-      ["submit", employeeId, "Create HACKED.txt"],
+      ["submit", employeeId, "Say hello"],
       { apiUrl, token: alpha }
     );
     const jobId = value(submitted.lines, "job: ").split(" ")[0];
@@ -434,8 +437,10 @@ describe("employee CLI adversarial", () => {
     ]);
     const employeeId = await publish(apiUrl, admin);
     await run(["hire", employeeId], { apiUrl, token: alpha });
+    // Prompt neutre a dessein (voir T5a) : l'heuristique visee porte
+    // sur les appels et le Final, pas sur le libelle du prompt.
     const submitted = await run(
-      ["submit", employeeId, "Create escape.txt"],
+      ["submit", employeeId, "Say hello"],
       { apiUrl, token: alpha }
     );
     const jobId = value(submitted.lines, "job: ").split(" ")[0];

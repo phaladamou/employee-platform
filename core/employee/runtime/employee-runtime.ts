@@ -13,7 +13,11 @@ import {
   type EmployeeMission,
   type MissionReport,
 } from "../missions/employee-mission";
-import { verifyAcceptance } from "../missions/mission-acceptance";
+import {
+  verifyAcceptance,
+  verifyAcceptanceTests,
+} from "../missions/mission-acceptance";
+import { RUN_SHELL_MAX_TIMEOUT_MS } from "../tools/run-shell";
 import {
   CLAIM_SUPPORT_LABEL,
   detectRefusalAdmission,
@@ -30,7 +34,7 @@ import {
 } from "../memory/memory-store";
 import type { JobRunSignal } from "../jobs/job-signal";
 import type { EmployeeLLMProvider } from "./llm-provider";
-import { resolveToolsForProfile } from "./profile-tools";
+import { assertSpecEnvironment, resolveToolsForProfile } from "./profile-tools";
 import { formatSpecializationBlock } from "./react-protocol";
 import {
   DEFAULT_SANDBOX_DIR,
@@ -209,6 +213,7 @@ export class EmployeeRuntime {
         spec,
         this.options.tools ?? createCoreTools()
       );
+      await assertSpecEnvironment(spec, this.options.toolContext?.env);
       systemPrompt = formatSpecializationBlock(spec);
 
       if (maxSteps === undefined) {
@@ -257,18 +262,41 @@ export class EmployeeRuntime {
       content: loop.reportContent,
     };
 
-    // 1. Criteres declares : verification deterministe contre la
-    //    racine effective (workspace dedie si pose). Un Final qui ne
-    //    les satisfait pas est un echec, pas un succes.
-    if (running.acceptance.files.length > 0) {
+    // 1. Criteres declares : verification deterministe (fichiers
+    //    contre la racine effective, tests via le shell confine).
+    //    Un Final qui ne les satisfait pas est un echec, pas un succes.
+    const acceptanceTests = running.acceptance.tests ?? [];
+    if (running.acceptance.files.length > 0 || acceptanceTests.length > 0) {
       const context = this.options.toolContext;
       const root = context ? toolRoot(context) : resolve(DEFAULT_SANDBOX_DIR);
       const check = await verifyAcceptance(root, running.acceptance);
+      const failures = [...check.failures];
 
-      if (!check.passed) {
+      if (acceptanceTests.length > 0) {
+        const shell = (tools ?? createCoreTools()).find(
+          (tool) => tool.name === "run_shell"
+        );
+        if (!shell || !context) {
+          failures.push(
+            "test verification requires the run_shell tool with a tool context"
+          );
+        } else {
+          const testCheck = await verifyAcceptanceTests(
+            acceptanceTests,
+            (command) =>
+              shell.execute(
+                { command, timeoutMs: RUN_SHELL_MAX_TIMEOUT_MS },
+                context
+              )
+          );
+          failures.push(...testCheck.failures);
+        }
+      }
+
+      if (failures.length > 0) {
         const failed = failEmployeeMission(
           running,
-          `verification failed: ${check.failures.join("; ")}`
+          `verification failed: ${failures.join("; ")}`
         );
         await this.persistMemory(profile, failed);
 

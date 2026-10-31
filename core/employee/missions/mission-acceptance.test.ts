@@ -4,8 +4,11 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+  MAX_ACCEPTANCE_TESTS,
+  MAX_TEST_COMMAND_CHARS,
   validateAcceptance,
   verifyAcceptance,
+  verifyAcceptanceTests,
 } from "./mission-acceptance";
 
 describe("validateAcceptance", () => {
@@ -48,6 +51,73 @@ describe("validateAcceptance", () => {
     expect(() => validateAcceptance({ files: [{ path: "a", contains: "" }] })).toThrow(
       "contains cannot be empty"
     );
+  });
+
+  it("accepts an optional bounded tests array", () => {
+    expect(validateAcceptance({ files: [], tests: [] })).toEqual({
+      files: [],
+      tests: [],
+    });
+    expect(
+      validateAcceptance({ files: [], tests: [{ command: "  pytest  " }] })
+    ).toEqual({ files: [], tests: [{ command: "pytest" }] });
+    expect(() =>
+      validateAcceptance({ files: [], tests: "pytest" })
+    ).toThrow("tests must be an array");
+    expect(() =>
+      validateAcceptance({ files: [], tests: [{}] })
+    ).toThrow("requires a command string");
+    expect(() =>
+      validateAcceptance({ files: [], tests: [{ command: "   " }] })
+    ).toThrow("command cannot be empty");
+    expect(() =>
+      validateAcceptance({
+        files: [],
+        tests: [{ command: "x".repeat(MAX_TEST_COMMAND_CHARS + 1) }],
+      })
+    ).toThrow("command is too long");
+    expect(() =>
+      validateAcceptance({
+        files: [],
+        tests: Array.from({ length: MAX_ACCEPTANCE_TESTS + 1 }, () => ({
+          command: "true",
+        })),
+      })
+    ).toThrow("at most");
+  });
+});
+
+describe("verifyAcceptanceTests", () => {
+  it("passes when every command succeeds", async () => {
+    const seen: string[] = [];
+    const result = await verifyAcceptanceTests(
+      [{ command: "pytest" }, { command: "node --check app.js" }],
+      async (command) => {
+        seen.push(command);
+        return { ok: true, output: "ok" };
+      }
+    );
+
+    expect(result).toEqual({ passed: true, failures: [] });
+    expect(seen).toEqual(["pytest", "node --check app.js"]);
+  });
+
+  it("fails closed on command failure or runner error", async () => {
+    const failed = await verifyAcceptanceTests([{ command: "pytest" }], async () => ({
+      ok: false,
+      output: "1 failed, 2 passed",
+    }));
+    expect(failed.passed).toBe(false);
+    expect(failed.failures.join(";")).toContain("expected test failed: pytest");
+
+    const errored = await verifyAcceptanceTests(
+      [{ command: "pytest" }],
+      async () => {
+        throw new Error("boom");
+      }
+    );
+    expect(errored.passed).toBe(false);
+    expect(errored.failures.join(";")).toContain("expected test errored");
   });
 });
 

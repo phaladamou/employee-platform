@@ -23,7 +23,7 @@ export type ParsedStep = ParsedAction | ParsedFinal | ParsedInvalid;
 
 export const ACTION_MARKER = "ACTION:";
 export const FINAL_MARKER = "FINAL:";
-export const OBSERVATION_MAX_CHARS = 8000;
+export const OBSERVATION_MAX_CHARS = 50_000;
 
 /**
  * Consigne systeme de la boucle ReAct : identite de l'employe, protocole

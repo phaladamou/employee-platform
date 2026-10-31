@@ -1,4 +1,4 @@
-import { chmod, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -51,6 +51,29 @@ describe("run_shell tool", () => {
 
     expect(result.ok).toBe(true);
     expect(await realpath(result.output)).toBe(await realpath(dir));
+  });
+
+  it("starts a fresh shell per call (cd does not persist)", async () => {
+    const ctx = await sandbox();
+    const tool = createRunShellTool();
+    const sub = join(dir, "sub");
+    await mkdir(sub, { recursive: true });
+
+    const moved = await tool.execute(
+      {
+        command: `cd ${JSON.stringify(sub)} && ${NODE} -e "process.stdout.write(process.cwd())"`,
+      },
+      ctx
+    );
+    expect(moved.ok).toBe(true);
+    expect(await realpath(moved.output)).toBe(await realpath(sub));
+
+    const again = await tool.execute(
+      { command: `${NODE} -e "process.stdout.write(process.cwd())"` },
+      ctx
+    );
+    expect(again.ok).toBe(true);
+    expect(await realpath(again.output)).toBe(await realpath(dir));
   });
 
   it("never inherits the host environment", async () => {
