@@ -87,13 +87,14 @@ export interface AcceptanceResult {
 }
 
 /**
- * Verifie les criteres contre le sandbox REEL (contournement confine
- * via resolveWithinRoot, symlinks inclus). Fail closed : tout doute
- * (fichier absent, illisible, echappement) est un echec de verification,
- * jamais une exception.
+ * Verifie les criteres contre la racine effective REELLE (workspace
+ * dedie si pose, sinon sandbox partage — l'appelant resout via
+ * toolRoot). Contournement confine via resolveWithinRoot, symlinks
+ * inclus. Fail closed : tout doute (fichier absent, illisible,
+ * echappement) est un echec de verification, jamais une exception.
  */
 export async function verifyAcceptance(
-  sandboxRoot: string,
+  root: string,
   acceptance: MissionAcceptance
 ): Promise<AcceptanceResult> {
   const failures: string[] = [];
@@ -101,7 +102,7 @@ export async function verifyAcceptance(
   for (const expected of acceptance.files) {
     let resolved: string;
     try {
-      resolved = await resolveWithinRoot(sandboxRoot, expected.path);
+      resolved = await resolveWithinRoot(root, expected.path);
     } catch {
       failures.push(`expected file escapes the workspace: ${expected.path}`);
       continue;

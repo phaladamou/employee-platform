@@ -21,7 +21,7 @@ import {
 } from "../missions/mission-claims";
 import type { ProfileRegistry } from "../profiles/profile-registry";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
-import { createCoreTools } from "../tools/tool";
+import { createCoreTools, toolRoot } from "../tools/tool";
 import type { EmployeeMemory } from "../memory/employee-memory";
 import {
   LOCAL_EMPLOYER_ID,
@@ -257,12 +257,13 @@ export class EmployeeRuntime {
       content: loop.reportContent,
     };
 
-    // 1. Criteres declares : verification deterministe contre le sandbox.
-    //    Un Final qui ne les satisfait pas est un echec, pas un succes.
+    // 1. Criteres declares : verification deterministe contre la
+    //    racine effective (workspace dedie si pose). Un Final qui ne
+    //    les satisfait pas est un echec, pas un succes.
     if (running.acceptance.files.length > 0) {
-      const sandboxRoot =
-        this.options.toolContext?.sandboxRoot ?? resolve(DEFAULT_SANDBOX_DIR);
-      const check = await verifyAcceptance(sandboxRoot, running.acceptance);
+      const context = this.options.toolContext;
+      const root = context ? toolRoot(context) : resolve(DEFAULT_SANDBOX_DIR);
+      const check = await verifyAcceptance(root, running.acceptance);
 
       if (!check.passed) {
         const failed = failEmployeeMission(

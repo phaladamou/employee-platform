@@ -5,6 +5,7 @@ import type { JobRunSignal } from "../jobs/job-signal";
 import type { EmployeeProfile } from "../profile/employee-profile";
 import {
   createCoreTools,
+  toolRoot,
   type EmployeeTool,
   type ToolContext,
 } from "../tools/tool";
@@ -72,7 +73,9 @@ export async function runReasoningLoop(
     options.toolContext ?? { sandboxRoot: resolve(DEFAULT_SANDBOX_DIR) };
   const maxSteps = options.maxSteps ?? DEFAULT_MAX_STEPS;
 
-  await mkdir(ctx.sandboxRoot, { recursive: true });
+  // Racine effective (workspace dedie si pose) : meme point de
+  // decision que les outils, jamais sandboxRoot en direct.
+  await mkdir(toolRoot(ctx), { recursive: true });
 
   const messages: EmployeeLLMMessage[] = [
     {
