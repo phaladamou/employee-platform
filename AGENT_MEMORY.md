@@ -423,9 +423,10 @@ Leçons dures :
   DECISIONS (ADR-001→015), ERROR_HANDLING, OPERATIONS (§3 backup
   workspaces/archive, §7 Docker, §8 strict backend), ROADMAP,
   ARCHITECTURE, READMEs (`core/employee` en FR, `rust/` en EN).
-- **État 2026-10-31 (main @ aa61120) : 371 tests Vitest (46 fichiers)
+- **État 2026-10-31 : code @ 59aed5f — 371 tests Vitest (46 fichiers)
   + 27 cargo (17 lib + 3 bin + 7 Landlock), `tsc` propre, WASM OK.**
-  (aa61120 = commit mémoire uniquement, zéro changement de code.)
+  (Convention : cette ligne suit le dernier commit de CODE ; les
+  commits mémoire seuls ne la font pas bouger.)
 - Résiduels assumés : workspaces par employé pas par employeur
   (durcissement `<employerId>/` = 3 lignes, documenté), TOCTOU
   outils fichiers accepté (supervisé local, pas multi-tenant
