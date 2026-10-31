@@ -43,6 +43,13 @@
       "when": 1793290000000,
       "tag": "0005_user_onboarding",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1793464982347,
+      "tag": "0006_tenant_accounts",
+      "breakpoints": true
     }
   ]
 }
