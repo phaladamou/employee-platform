@@ -38,6 +38,16 @@ the **same `EmployeeClient` interface**: recruiting and assigning code
 neither knows nor should know whether it talks to local objects or a
 remote server.
 
+## Persistence seam (cloud-ready)
+
+The same idea applies to storage. Each domain owns a `*Store` interface
+(`JobStore`, `MissionStore`, …), and `core/employee/stores/` bundles
+them into one **`EmployeeStores`** interface with a single factory per
+backend: `openFileStores(dataDir)` today, `openPostgresStores()` as an
+explicit TODO stub. Server, worker and CLI consume only the bundle —
+swapping backends touches one call site, never business logic. See
+`stores/postgres-stores.ts` for the ordered implementation checklist.
+
 ## Employee vs Employment: don't confuse them
 
 This is the most important distinction in the model.

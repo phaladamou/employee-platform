@@ -32,6 +32,11 @@ emp serve --port 8000
 # listening: http://127.0.0.1:8000
 ```
 
+- Port: `--port` flag wins, then the `PORT` env var (Cloud Run
+  convention), then 8000. An invalid `PORT` fails `serve` with a clear
+  error but leaves `keys`/`status` working.
+- In containers/cloud, bind `--host 0.0.0.0` (the `127.0.0.1` default
+  is unreachable from outside — the Dockerfile already does this).
 - Boot verifies the profile lockfile: a tampered profile refuses to load
   and the server exits instead of running unknown behavior.
 - `serve` starts **one embedded worker** by default. No provider key →

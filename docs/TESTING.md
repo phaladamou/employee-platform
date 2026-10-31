@@ -21,7 +21,7 @@ adversarial cases, and honest coverage notes.
 | Crypto backend | `missions/mission-proof.test.ts` | WASM-first proofs, Node fallback (missing/corrupt module) |
 | Shell bridge | `tools/run-shell.test.ts` | Fake-binary protocol tests, ENOENT-only fallback, fail-closed errors |
 
-Current state: **43 files, 344 tests, all green** (Vitest) **+ 15 Rust tests** (`cargo test --locked`).
+Current state: **44 files, 349 tests, all green** (Vitest) **+ 15 Rust tests** (`cargo test --locked`).
 
 ## 2. Commands
 

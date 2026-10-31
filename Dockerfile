@@ -6,7 +6,7 @@
 #            -v emp-data:/data -v emp-sandbox:/sandbox \
 #            -m 512m --cpus=1.0 -p 8000:8000 \
 #            -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
-#            employee-core serve --port 8000
+#            employee-core serve --port 8000 --host 0.0.0.0
 # Extra worker (same data dir):
 #          docker run -d --name emp-w2 --read-only --tmpfs /tmp \
 #            -v emp-data:/data -v emp-sandbox:/sandbox \
@@ -63,4 +63,7 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8000/v1/employees').then(r=>process.exit(r.status===401?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["node", "--experimental-transform-types", "--no-warnings", "/app/emp/cli.ts"]
-CMD ["serve", "--port", "8000"]
+# Bind 0.0.0.0: with the 127.0.0.1 default the port mapping would stay
+# unreachable from outside the container (cloud health checks fail).
+# --port wins over PORT; without either, serve listens on 8000.
+CMD ["serve", "--port", "8000", "--host", "0.0.0.0"]
