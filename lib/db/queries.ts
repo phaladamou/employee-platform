@@ -19,7 +19,7 @@ import {
 import type { ArtifactKind } from "@/components/workspace/artifact";
 import type { VisibilityType } from "@/components/workspace/visibility-selector";
 import { ChatbotError } from "../errors";
-import type { TalentSeed } from "../employees/talents";
+import type { RichTalentProfile, TalentSeed } from "../employees/talents";
 import {
   account,
   type Chat,
@@ -1401,6 +1401,33 @@ export async function getTalentBySpec(
   } catch (_error) {
     console.error("getTalentBySpec DB Error:", _error);
     throw new ChatbotError("bad_request:database", "Failed to get talent");
+  }
+}
+
+// Ecriture fiche riche : patch partiel deja valide (outils inclus).
+// La base est la source de verite : le migrate ne reecrit jamais ces
+// cles, seule cette fonction (route PUT) les modifie.
+export async function updateTalentRichProfile({
+  spec,
+  patch,
+}: {
+  spec: string;
+  patch: Partial<RichTalentProfile>;
+}): Promise<TalentProfile | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .update(talentProfile)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(talentProfile.spec, spec))
+      .returning();
+    return row ?? null;
+  } catch (_error) {
+    console.error("updateTalentRichProfile DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to update talent profile"
+    );
   }
 }
 
