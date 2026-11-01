@@ -34,6 +34,56 @@ export interface EmployeeProfileSpec {
    * premier appel LLM ; manquant = mission refusee.
    */
   readonly environment?: readonly string[];
+  /**
+   * Mini-Ordinateur declare (disque + binaires + plafonds + reseau).
+   * Absent = mode historique sans restriction shell. Present =
+   * construit au demarrage du run, applique a chaque run_shell.
+   */
+  readonly computer?: ComputerDecl;
+}
+
+/**
+ * Bloc "computer" d'une spec : politique d'execution du
+ * Mini-Ordinateur. `binaries` vide = shell reduit aux builtins purs.
+ * Memoire et delai optionnels (defauts noyau sinon) ; delai plafonne
+ * au maximum shell, controle a la construction du Mini-Ordinateur.
+ */
+export interface ComputerDecl {
+  readonly binaries: readonly string[];
+  readonly networkAccess: boolean;
+  readonly maxMemoryMb?: number;
+  readonly maxExecutionTimeMs?: number;
+}
+
+function isBareBinaryName(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.trim() === value &&
+    !value.includes("/") &&
+    !value.includes("\\")
+  );
+}
+
+function isPositiveInteger(value: unknown): value is number {
+  return (
+    typeof value === "number" && Number.isInteger(value) && value > 0
+  );
+}
+
+export function isComputerDecl(value: unknown): value is ComputerDecl {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+  const decl = value as Record<string, unknown>;
+  return (
+    Array.isArray(decl.binaries) &&
+    decl.binaries.every(isBareBinaryName) &&
+    typeof decl.networkAccess === "boolean" &&
+    (decl.maxMemoryMb === undefined || isPositiveInteger(decl.maxMemoryMb)) &&
+    (decl.maxExecutionTimeMs === undefined ||
+      isPositiveInteger(decl.maxExecutionTimeMs))
+  );
 }
 
 const NAME_PATTERN = /^[a-z0-9-]+$/;
@@ -95,6 +145,7 @@ export function isEmployeeProfileSpec(
             entry.trim() === entry &&
             !entry.includes("/") &&
             !entry.includes("\\")
-        )))
+        ))) &&
+    (spec.computer === undefined || isComputerDecl(spec.computer))
   );
 }

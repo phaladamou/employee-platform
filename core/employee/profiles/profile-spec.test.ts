@@ -62,6 +62,74 @@ describe("isEmployeeProfileSpec", () => {
     expect(isEmployeeProfileSpec([])).toBe(false);
   });
 
+  it("accepts an optional computer block, empty binaries included", () => {
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({
+          computer: {
+            binaries: ["python3", "pip"],
+            networkAccess: false,
+            maxMemoryMb: 512,
+            maxExecutionTimeMs: 60_000,
+          },
+        })
+      )
+    ).toBe(true);
+    expect(
+      isEmployeeProfileSpec(makeSpec({ computer: undefined }))
+    ).toBe(true);
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({ computer: { binaries: [], networkAccess: false } })
+      )
+    ).toBe(true);
+  });
+
+  it("rejects malformed computer blocks", () => {
+    expect(
+      isEmployeeProfileSpec(makeSpec({ computer: null }))
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({ computer: { binaries: ["ok"], networkAccess: "no" } })
+      )
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({ computer: { binaries: [""], networkAccess: false } })
+      )
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({
+          computer: { binaries: ["bin/tool"], networkAccess: false },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({
+          computer: {
+            binaries: [],
+            networkAccess: false,
+            maxMemoryMb: 0,
+          },
+        })
+      )
+    ).toBe(false);
+    expect(
+      isEmployeeProfileSpec(
+        makeSpec({
+          computer: {
+            binaries: [],
+            networkAccess: false,
+            maxExecutionTimeMs: 1.5,
+          },
+        })
+      )
+    ).toBe(false);
+  });
+
   it("accepts an optional environment prerequisite list", () => {
     expect(
       isEmployeeProfileSpec(makeSpec({ environment: ["python3", "pytest"] }))
