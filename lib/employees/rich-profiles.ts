@@ -1,8 +1,11 @@
 // lib/employees/rich-profiles.ts
-// Fiches riches du Talent Network : copie de presentation par talent,
-// synchronisee en base par talent-sync. Les talents absents de la map
-// gardent la fiche standard. Enrichissement progressif : Atlas d'abord,
-// les autres un par un avec la meme methode.
+// Fiches riches du Talent Network : la BASE est la source de verite
+// (modifiable sans toucher au code, sans migration). Ci-dessous vit
+// uniquement la GRAINE initiale (bases neuves) : talent-sync ne remplit
+// les cles riches qu'a l'insertion, jamais en ecrasement.
+// La coherence noyau est garantie par validateRichProfileInput(),
+// applique a la graine (migrate, echec bruyant) comme aux modifications
+// (route PUT, 400 explicite).
 // Comportement verrouille par rich-profiles.test.ts :
 // `node --test lib/employees/rich-profiles.test.ts`.
 
@@ -305,4 +308,102 @@ export const RICH_PROFILES: Record<string, RichTalentProfile> = {
 
 export function getRichProfile(spec: string): RichTalentProfile | null {
   return RICH_PROFILES[spec] ?? null;
+}
+
+const RICH_KEYS = [
+  "overview",
+  "responsibilities",
+  "capabilities",
+  "tools",
+  "executionEnvironment",
+  "boundaries",
+  "deliverables",
+  "verification",
+] as const;
+
+type RichKey = (typeof RICH_KEYS)[number];
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function asValidatedList(value: unknown, key: string): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(`Invalid rich profile: ${key} must be a non-empty list`);
+  }
+  for (const item of value) {
+    if (!isNonEmptyString(item)) {
+      throw new Error(`Invalid rich profile: ${key} must hold non-empty text`);
+    }
+  }
+  return [...value];
+}
+
+// Valide une fiche (complete ou partielle) contre les outils noyau
+// reels. Partiel accepte : changer un mot = n'envoyer qu'un champ.
+// Leve une Error explicite (route -> 400, migrate -> echec bruyant).
+export function validateRichProfileInput(
+  allowedTools: string[],
+  input: unknown
+): Partial<RichTalentProfile> {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new Error("Invalid rich profile: body must be an object");
+  }
+  const patch: Partial<RichTalentProfile> = {};
+  for (const [key, value] of Object.entries(input)) {
+    if (!(RICH_KEYS as readonly string[]).includes(key)) {
+      throw new Error(`Invalid rich profile: unknown field "${key}"`);
+    }
+    switch (key as RichKey) {
+      case "overview":
+      case "verification":
+        if (!isNonEmptyString(value)) {
+          throw new Error(`Invalid rich profile: ${key} must be non-empty text`);
+        }
+        patch[key] = value;
+        break;
+      case "responsibilities":
+      case "capabilities":
+      case "boundaries":
+      case "deliverables":
+        patch[key] = asValidatedList(value, key);
+        break;
+      case "tools": {
+        if (!Array.isArray(value) || value.length === 0) {
+          throw new Error("Invalid rich profile: tools must be a non-empty list");
+        }
+        patch.tools = value.map((tool) => {
+          if (
+            typeof tool !== "object" ||
+            tool === null ||
+            !isNonEmptyString((tool as Record<string, unknown>).name) ||
+            !isNonEmptyString((tool as Record<string, unknown>).description)
+          ) {
+            throw new Error(
+              "Invalid rich profile: each tool needs a name and description"
+            );
+          }
+          const name = (tool as Record<string, unknown>).name as string;
+          if (!allowedTools.includes(name)) {
+            throw new Error(
+              `Invalid rich profile: tool "${name}" is not implemented by the kernel`
+            );
+          }
+          return {
+            name,
+            description: (tool as Record<string, unknown>).description as string,
+          };
+        });
+        break;
+      }
+      case "executionEnvironment":
+        if (isNonEmptyString(value)) {
+          patch.executionEnvironment = value;
+        } else {
+          patch.executionEnvironment = asValidatedList(value, key);
+        }
+        break;
+    }
+  }
+  return patch;
 }

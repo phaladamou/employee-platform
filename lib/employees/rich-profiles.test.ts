@@ -6,7 +6,11 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
 
-import { RICH_PROFILES, getRichProfile } from "./rich-profiles.ts";
+import {
+  RICH_PROFILES,
+  getRichProfile,
+  validateRichProfileInput,
+} from "./rich-profiles.ts";
 import {
   TALENT_CATALOG,
   isCatalogSpec,
@@ -99,6 +103,52 @@ describe("rich talent profiles", () => {
     for (const spec of Object.keys(RICH_PROFILES)) {
       assert.equal(isCatalogSpec(spec), true);
     }
+  });
+
+  it("validates partial writes (one word = one field)", () => {
+    assert.deepEqual(
+      validateRichProfileInput(["read_file"], { overview: "New intro." }),
+      { overview: "New intro." }
+    );
+    assert.deepEqual(
+      validateRichProfileInput(["read_file", "write_file"], {
+        boundaries: ["Stay in scope."],
+        executionEnvironment: ["A lab.", "A shell."],
+      }),
+      {
+        boundaries: ["Stay in scope."],
+        executionEnvironment: ["A lab.", "A shell."],
+      }
+    );
+  });
+
+  it("rejects writes the kernel cannot honor", () => {
+    // Outil non implemente.
+    assert.throws(() =>
+      validateRichProfileInput(["run_shell", "read_file"], {
+        tools: [{ name: "write_file", description: "Write things." }],
+      })
+    );
+    // Outil sans description.
+    assert.throws(() =>
+      validateRichProfileInput(["read_file"], {
+        tools: [{ name: "read_file", description: "  " }],
+      })
+    );
+    // Champ inconnu (typo) : echec bruyant, jamais silencieux.
+    assert.throws(() =>
+      validateRichProfileInput(["read_file"], { overveiw: "Typo." })
+    );
+    // Contenu vide.
+    assert.throws(() =>
+      validateRichProfileInput(["read_file"], { overview: "   " })
+    );
+    assert.throws(() =>
+      validateRichProfileInput(["read_file"], { capabilities: [] })
+    );
+    // Corps invalide.
+    assert.throws(() => validateRichProfileInput(["read_file"], null));
+    assert.throws(() => validateRichProfileInput(["read_file"], ["x"]));
   });
 
   it("only claims tools the kernel actually implements", () => {
