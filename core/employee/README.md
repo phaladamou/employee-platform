@@ -60,6 +60,10 @@ Demo locale sans serveur : `emp run "Relis briefing.txt et resume-le"`.
 - **Profils verrouilles** : `profiles.lock.json` (SHA-256) verifie au
   chargement ; spec absente/modifiee = refus franc. `verify: false`
   reserve au dev, jamais en prod.
+- **Mini-Ordinateur** : spec avec bloc `computer` = shell restreint aux
+  binaires listes (+ builtins purs), delai et memoire plafonnes,
+  disque = workspace dedie. Binaire hors liste = refus franc avant
+  execution ; spec sans bloc = mode historique sans restriction.
 
 ## REST (`/v1`, `Authorization: Bearer emo_...`)
 
@@ -93,6 +97,7 @@ core/employee/
   jobs/           jobs + FileJobStore (claim atomique) + signaux
   runtime/        EmployeeRuntime + boucle ReAct + providers LLM
   tools/          read_file / write_file / run_shell (sandboxes)
+  computer/       Mini-Ordinateur (politique shell + disque + plafonds)
   workspaces/     dossiers par employe (acquire/archive, ADR-014)
   sdk/            EmployeeClient / EmployeeCreator, in-process + HTTP/SSE,
                   runJobOnce / runClaimedJob (worker partage)
