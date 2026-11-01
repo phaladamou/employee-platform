@@ -3,8 +3,11 @@
 How the independent worker infrastructure is tested: suites, commands,
 adversarial cases, and honest coverage notes.
 
-> Scope: `core/employee/` only (the pure core). The web app (`app/`) has its
-> own Playwright suite (`pnpm test`) and is out of scope here.
+> Scope: `core/employee/` (the pure core) + the talent bridge
+> (`lib/db/talent-sync.test.ts` runs in the same Vitest scope;
+> `lib/employees/*.test.ts` runs under `node --test`). The web app
+> (`app/`) has its own Playwright suite (`pnpm test`) and is out of
+> scope here.
 
 ## 1. Test suites
 
@@ -20,10 +23,14 @@ adversarial cases, and honest coverage notes.
 | Landlock confinement | `rust/tests/fs_confinement.rs` | Real `emp-sandbox`: inside R/W, `..`/absolute/symlink escapes denied, system RO, `TMPDIR` inside |
 | WASM interop | `core/employee/wasm/wrapper.test.ts` | Rust↔Node signatures byte-identical both directions |
 | Crypto backend | `missions/mission-proof.test.ts` | WASM-first proofs, Node fallback (missing/corrupt module) |
-| Shell bridge | `tools/run-shell.test.ts` | Fake-binary protocol tests, ENOENT-only fallback, fail-closed errors |
+| Shell bridge | `tools/run-shell.test.ts` | Fake-binary protocol tests, ENOENT-only fallback, fail-closed errors, per-profile binary allowlist (`computer.binaries`) |
 | Workspace isolation | `tools/workspace-confinement.test.ts` | `toolRoot` decision, cross-employee read/write blocked, shell cwd + `--work-dir` routing, full-chain escape via the real binary (Linux) |
+| Profile catalog | `profiles/catalog.test.ts` | The 6 shipped profiles load, identities are unique, `environment` + `computer` blocks match the spec |
+| EmployeeComputer | `computer/command-policy.test.ts`, `computer/employee-computer.test.ts` | First-level invocation control (per-segment binaries, `eval`/`.`/`source` denied, pure builtins always allowed), builder defaults + 300 s timeout ceiling |
+| Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
+| Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **46 files, 371 tests, all green** (Vitest) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **51 files, 447 tests, all green** (Vitest) **+ 30 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -36,6 +43,9 @@ cd core/employee && ../../node_modules/.bin/vitest run
 
 # One file (fast iteration)
 cd core/employee && ../../node_modules/.bin/vitest run missions/mission-proof.test.ts
+
+# Talent library (outside the Vitest scope — plain node:test)
+node --test lib/employees/*.test.ts
 
 # Type gate — must be clean before any commit
 ./node_modules/.bin/tsc --noEmit --incremental false
@@ -138,6 +148,19 @@ Each case below is a committed regression test, not a one-off script:
   heartbeats serialize through the bounded `.lock` retry instead of
   failing — the heartbeat-vs-finish race that flaked the suite is
   pinned shut.
+- **Blocked binary** (`computer/command-policy.test.ts`,
+  `tools/run-shell.test.ts`): a command whose first-level binary is
+  not in the profile's `computer.binaries` is refused before any
+  execution, with an error naming the allowed binaries. Every
+  `&&`/`;`/`|` segment is checked, not just the first.
+- **`eval` / `.` / `source` denial** (`computer/command-policy.test.ts`):
+  shell constructs that would re-interpret an arbitrary string as
+  code are denied even when they look like builtins — they would
+  bypass the first-level binary check.
+- **Inspection base** (`profiles/catalog.test.ts`): `ls`, `cat` and
+  `echo` are pinned present in all 6 profiles — removing them from
+  any profile breaks the suite, so no employee can silently lose the
+  ability to inspect its own workspace.
 
 ## 5. Coverage — what is tested and what is not
 
@@ -154,6 +177,10 @@ Tested automatically (CI gate = `tsc` + `pnpm test:employee`):
 - Workspace isolation: per-employee directories (acquire on hire/job
   start, archive on terminate), `toolRoot` as the single decision
   point, kernel-level shell confinement on Linux.
+- EmployeeComputer: per-profile shell allowlist enforced in
+  `run_shell` (first-level invocation only), fail-closed on unknown
+  profiles, timeout capped at the 300 s ceiling, memory capped via
+  `ulimit -v`, `rootPath` = the employee workspace.
 
 Deliberately not covered yet (see [ROADMAP.md](ROADMAP.md)):
 
@@ -174,3 +201,11 @@ Deliberately not covered yet (see [ROADMAP.md](ROADMAP.md)):
 - **Per-(employer, employee) workspaces**: two employers sharing one
   employee share its directory (ADR-014); the `<employerId>/`
   hardening is a documented 3-line change with no test yet.
+- **Sub-process escape from an allowed binary**: the allowlist checks
+  the first-level invocation only — `python3 -c "import os; …"` is
+  in scope for Atlas by design. True isolation needs a container /
+  seccomp layer on top (documented, not tested).
+- **`networkAccess` is declared, not enforced**: no netns/seccomp
+  backs the flag yet — a profile can state `networkAccess: false`
+  while its binaries still reach the network. Tested as data, not
+  as a guarantee.

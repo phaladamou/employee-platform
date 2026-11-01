@@ -443,7 +443,66 @@ Leçons dures :
   hostile), pas d'isolation réseau (TCP V4 inutilisé), node-in-
   shell non testé sous Landlock, `.data/` scratch non-tracké.
 
-## 9. Conventions et environnement (rappel)
+## 9. Catalogue 6 employés → Mini-Ordinateur (2026-10-31)
+
+- Catalogue initial : 6 profils `core/employee/profiles/` (Atlas,
+  Nova, Aria, Newton, Milo, Sana), lockfile SHA-256, `createdBy:
+  'Cofoundator'`, identités uniques (+tests chargement/unicité).
+  3 profils legacy (data-analyst, researcher, software-engineer)
+  restent dans le dossier + lockfile (9 entrées) pour compat.
+- Validation réelle Muse (12 missions, 2/employé) : rapports livrés,
+  rien corrigé pendant le test (consigne). Puis 4 tests limites :
+  persistance, erreur d'exécution, isolation cross-employé, mission
+  impossible (Nova sans write_file) — rapports seuls.
+- Durcissement Atlas : `environment` (prérequis PATH vérifiés
+  pré-LLM, fail-closed — seul Atlas le déclare), shell stateless
+  DOCUMENTÉ comme limite (chaîner avec `&&`), observation 50 k
+  caractères, timeout shell max 300 s (défaut 30 s), vérification
+  obligatoire (`--expect-file`/`--expect-test`, détecteur
+  d'intention FR+EN).
+- CI Docker `atlas-docker.yml` : build + mission Atlas E2E
+  (`--expect-test`). 3 runs rouges avant vert : secret
+  `MUSE_API_KEY` manquant, Landlock ABI v8 vs max v4 (fix v8 +
+  bit IOCTL_DEV 15), pytest `Permission denied: /dev/null` (règle
+  single-file). Reorg `docker/` (Dockerfile + Dockerfile.dockerignore
+  adjacent, workflow repointé). `gh secret/dispatch/rerun` = 403
+  (token codespace) → retrigger par micro-commit.
+- Web multi-tenant (noyau untouched) : `accountId` partout, requêtes
+  filtrées, employé spécial « Chef » auto-créé à l'inscription,
+  Talent Network sur vraie DB, PUT fiches riches (tout connecté
+  peut PUT — pas de rôle admin, à restreindre).
+- Fiches riches ×6 en DB (Atlas→Sana, contenus ChatGPT) : DB source
+  de vérité, sync seed-only (insert remplit, jamais d'écrasement),
+  PUT validé contre `allowedTools` noyau. `talent-sync.ts` sans
+  `server-only` (injecter DB, sinon `db:migrate` crash sous tsx).
+  Migrations 0006 (tenant) + 0007 (rich profiles). UI : filtre
+  All par défaut, bouton Recruit sticky, skeleton de chargement,
+  deep-link `?talent=` dans l'URL. `pnpm db:migrate` exige une DB
+  joignable (sandbox : EAI_AGAIN — faire tourner ailleurs).
+- Mini-Ordinateur `core/employee/computer/` : `command-policy.ts`
+  (contrôle invocation 1er niveau, fail-closed, builtins purs
+  toujours OK, `eval`/`.`/`source` refusés) + `employee-computer.ts`
+  (builder : timeout ≤300 s, `ulimit -v`, rootPath = workspace),
+  câblé dans `run_shell` + runtime, 6 blocs `computer` JSON.
+  Limites assumées : `python3 -c` échappe au contrôle (1er niveau
+  seul), `networkAccess` déclaré non appliqué (pas de netns).
+- Socle d'inspection (b2c4167) : `ls,cat,echo` ajoutés aux 6
+  profils (Atlas/Nova/Aria gardent métier+socle, les 3 autres socle
+  seul), lockfile régénéré, catalog/command-policy/run-shell tests
+  mis à jour.
+- Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
+  lib/employees + 27 cargo, cas adversarial computer, limites
+  honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
+  README noyau documente computer/.
+- **État 2026-11-01 : code @ b2c4167 — 447/447 vitest (51
+  fichiers) + 30/30 node lib/employees, `tsc` propre.**
+  (Convention : cette ligne suit le dernier commit de CODE ; les
+  commits mémoire/docs seuls ne la font pas bouger.)
+- Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant
+  (drift Biome/Ultracite, config untouched), catalogue Talent
+  global sans admin, `.env.local` à recopier à chaque déménagement.
+
+## 10. Conventions et environnement (rappel)
 
 - Micro-commits par petits blocs (`feat(web):` / `fix(web):` / `test(web):`),
   push et tags uniquement sur approbation explicite. Ne jamais `localhost:3000`
