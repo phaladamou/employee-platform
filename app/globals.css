@@ -448,6 +448,17 @@ textarea:focus-visible {
   }
 }
 
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
 @keyframes shimmer {
   0% {
     background-position: -200% 0;

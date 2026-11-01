@@ -262,7 +262,10 @@ function RecruitPageContent() {
       </div>
 
       {selectedTalent && (
-        <aside className="scrollbar-none absolute inset-0 overflow-y-auto bg-card lg:static lg:w-[38%] lg:flex-none lg:border-l lg:border-border/60">
+        <aside
+          className="scrollbar-none absolute inset-0 overflow-y-auto bg-card motion-safe:animate-[slide-in-right_0.3s_ease-out] lg:static lg:w-[38%] lg:flex-none lg:border-l lg:border-border/60"
+          key={selectedTalent.spec}
+        >
           <TalentDetailsPanel
             busy={busySpec === selectedTalent?.spec}
             departmentName={departmentName(
