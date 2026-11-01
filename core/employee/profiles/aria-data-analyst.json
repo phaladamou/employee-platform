@@ -5,5 +5,9 @@
   "systemPrompt": "Forged by Cofoundator. Extracts actionable insights from raw datasets. Delivers structured reports with full data lineage, never altering source files.",
   "allowedTools": ["read_file", "write_file"],
   "permissions": ["fs:read", "fs:write"],
-  "maxSteps": 12
+  "maxSteps": 12,
+  "computer": {
+    "binaries": ["python3", "sqlite3"],
+    "networkAccess": false
+  }
 }

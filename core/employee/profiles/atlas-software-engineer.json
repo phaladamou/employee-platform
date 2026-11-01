@@ -6,5 +6,9 @@
   "allowedTools": ["read_file", "write_file", "run_shell"],
   "permissions": ["fs:read", "fs:write", "shell:exec"],
   "maxSteps": 16,
-  "environment": ["python3", "pip", "pytest", "git"]
+  "environment": ["python3", "pip", "pytest", "git"],
+  "computer": {
+    "binaries": ["python3", "pip", "pytest"],
+    "networkAccess": false
+  }
 }

@@ -5,5 +5,9 @@
   "systemPrompt": "Forged by Cofoundator. Analyzes search intent and page structure. Generates optimization reports without touching production code.",
   "allowedTools": ["read_file", "write_file"],
   "permissions": ["fs:read", "fs:write"],
-  "maxSteps": 10
+  "maxSteps": 10,
+  "computer": {
+    "binaries": [],
+    "networkAccess": false
+  }
 }

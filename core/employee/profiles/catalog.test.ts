@@ -28,36 +28,45 @@ const CATALOG = [
     spec: "atlas-software-engineer",
     role: "Software Engineer",
     tools: ["read_file", "write_file", "run_shell"],
+    computer: {
+      binaries: ["python3", "pip", "pytest"],
+      networkAccess: false,
+    },
   },
   {
     employee: "Nova",
     spec: "nova-devops-engineer",
     role: "DevOps Engineer",
     tools: ["run_shell", "read_file"],
+    computer: { binaries: ["docker", "git"], networkAccess: true },
   },
   {
     employee: "Aria",
     spec: "aria-data-analyst",
     role: "Data Analyst",
     tools: ["read_file", "write_file"],
+    computer: { binaries: ["python3", "sqlite3"], networkAccess: false },
   },
   {
     employee: "Newton",
     spec: "newton-researcher",
     role: "Researcher",
     tools: ["read_file", "write_file"],
+    computer: { binaries: [], networkAccess: false },
   },
   {
     employee: "Milo",
     spec: "milo-content-strategist",
     role: "Content Strategist",
     tools: ["read_file", "write_file"],
+    computer: { binaries: [], networkAccess: false },
   },
   {
     employee: "Sana",
     spec: "sana-seo-analyst",
     role: "SEO Analyst",
     tools: ["read_file", "write_file"],
+    computer: { binaries: [], networkAccess: false },
   },
 ] as const;
 
@@ -85,6 +94,13 @@ describe("initial AI employee catalog", () => {
       expect(() =>
         resolveToolsForProfile(spec!, createCoreTools())
       ).not.toThrow();
+      // Mini-Ordinateur declare : binaires + reseau epingles.
+      expect(spec?.computer?.binaries).toEqual([
+        ...entry.computer.binaries,
+      ]);
+      expect(spec?.computer?.networkAccess).toBe(
+        entry.computer.networkAccess
+      );
     }
     // Atlas declare sa chaine Python : refusable si absente.
     expect(

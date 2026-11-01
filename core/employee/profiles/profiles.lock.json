@@ -1,14 +1,14 @@
 {
   "version": 1,
   "profiles": {
-    "aria-data-analyst@1.0.0": "311eec7534053b4024bbd336bf62da4aba171591748766ef5ed5618ff9229768",
-    "atlas-software-engineer@1.0.0": "f8877dbf00859f2f09893405067ff843b5de291db5d97e4cf9cf0b1c3b3d7522",
+    "aria-data-analyst@1.0.0": "c0f299a4d30b70f1ca91068f49c1e5fe78b69525601dd3414b3fded8017e7e90",
+    "atlas-software-engineer@1.0.0": "dca90bb61155bd28f3f755bcaf81397f5b1df99fe00fe844d8ec3b59b4b2f5bb",
     "data-analyst@1.0.0": "7e61df8e3cc49829d594e889ecf37a9615b8dfd43d991c5995d2f42b5486b23c",
-    "milo-content-strategist@1.0.0": "c161871c01808282557c32b24f4abdec653ce63edaee50289711fa693c80f4a8",
-    "newton-researcher@1.0.0": "568a368d57b26a1893089d4c876f22b4b8d1095ee31080dc7b33f01afe947393",
-    "nova-devops-engineer@1.0.0": "753cd199b00fb726cbed27e0950d2634ff8454550587b304aa560f1b3adc7e1d",
+    "milo-content-strategist@1.0.0": "45c0a8850b1e5db4b1c5a92aa815916bd6db2b79dad872ce9886bccd2aafb809",
+    "newton-researcher@1.0.0": "4413db7661effc71a1187882b37d6d8289db0686caae365ffae766d60becb802",
+    "nova-devops-engineer@1.0.0": "01700e2a545bb2dbecc7d3fd7278ad467c3ddaea6204a2808ed732a10faa260e",
     "researcher@1.0.0": "507918317cbf6f84865090203e00b9846e31db7b9a96e15da03532cae4e31afe",
-    "sana-seo-analyst@1.0.0": "54d2246564b54a4bf379e13812afd7f7bb06521f7a830b480c6f15f148962d96",
+    "sana-seo-analyst@1.0.0": "df8d28fccf25e16f76f323711e3f7a347f89febb1ccf2a82e2e0cfaeb9785feb",
     "software-engineer@1.0.0": "d926d0bd2af3172667971c06005bde739cec3c84e2dc54d4437d344685f0504a"
   }
 }

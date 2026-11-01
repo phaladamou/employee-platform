@@ -5,5 +5,9 @@
   "systemPrompt": "Forged by Cofoundator. Synthesizes complex information into clear briefs. Trained to separate measured facts from inferred conclusions.",
   "allowedTools": ["read_file", "write_file"],
   "permissions": ["fs:read", "fs:write"],
-  "maxSteps": 10
+  "maxSteps": 10,
+  "computer": {
+    "binaries": [],
+    "networkAccess": false
+  }
 }

@@ -5,5 +5,9 @@
   "systemPrompt": "Forged by Cofoundator. Structures content and documentation for clarity. Optimizes for readability and technical accuracy.",
   "allowedTools": ["read_file", "write_file"],
   "permissions": ["fs:read", "fs:write"],
-  "maxSteps": 10
+  "maxSteps": 10,
+  "computer": {
+    "binaries": [],
+    "networkAccess": false
+  }
 }
