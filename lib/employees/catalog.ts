@@ -162,6 +162,68 @@ export function asOptionalStringList(value: unknown): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+// Ligne TalentProfile minimale (structurelle : pas d'import du schema
+// DB, ce module reste importable cote client).
+export interface TalentProfileRow {
+  spec: string;
+  version: string;
+  name: string;
+  role: string;
+  departmentId: string;
+  background: string;
+  allowedTools: unknown;
+  technologies: unknown;
+  tools: unknown;
+  overview: string | null;
+  responsibilities: unknown;
+  capabilities: unknown;
+  executionEnvironment: unknown;
+  boundaries: unknown;
+  deliverables: unknown;
+  verification: string | null;
+  createdBy: string;
+}
+
+function optionalList(
+  key: "responsibilities" | "capabilities" | "boundaries" | "deliverables",
+  value: unknown
+): Partial<TalentProfile> {
+  const items = asOptionalStringList(value);
+  return items ? { [key]: items } : {};
+}
+
+// Projection unique DB -> API (GET et PUT partagent le meme format).
+export function formatTalentProfile(
+  row: TalentProfileRow,
+  hired: boolean
+): TalentProfile {
+  const toolDetails = asToolDetails(row.tools);
+  const environment = asRichText(row.executionEnvironment);
+  return {
+    spec: row.spec,
+    version: row.version,
+    name: row.name,
+    role: row.role,
+    departmentId: row.departmentId,
+    background: row.background,
+    technologies: asStringList(row.technologies),
+    tools:
+      toolDetails.length > 0
+        ? toolDetails.map((tool) => tool.name)
+        : asStringList(row.allowedTools),
+    createdBy: row.createdBy,
+    hired,
+    ...(row.overview ? { overview: row.overview } : {}),
+    ...optionalList("responsibilities", row.responsibilities),
+    ...optionalList("capabilities", row.capabilities),
+    ...(toolDetails.length > 0 ? { toolDetails } : {}),
+    ...(environment ? { executionEnvironment: environment } : {}),
+    ...optionalList("boundaries", row.boundaries),
+    ...optionalList("deliverables", row.deliverables),
+    ...(row.verification ? { verification: row.verification } : {}),
+  };
+}
+
 // Filtre du Talent Network : departement exact + recherche plein texte
 // insensible a la casse (chaque mot doit matcher quelque part).
 export function filterTalents(

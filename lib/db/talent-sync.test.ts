@@ -6,6 +6,8 @@
 // standard : toute chaine `server-only` reintroduite le fait echouer
 // des l'import. Il verifie aussi la logique de synchro sur DB stub.
 // Execution : pnpm exec vitest run lib/db/talent-sync.test.ts
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -86,10 +88,8 @@ describe("talent catalog sync", () => {
     expect(String(values.verification)).toContain(
       "traceable engineering outcome"
     );
-    // Meme contenu dans la clause de conflit (update).
-    const set = (atlas?.set ?? {}) as Record<string, any>;
-    expect(set.overview).toBe(values.overview);
-    expect(set.tools).toBe(values.tools);
+    // Pas de cles riches dans la clause de conflit (graine seulement).
+    expect("overview" in (atlas?.set ?? {})).toBe(false);
 
     // Nova : fiche riche synchronisee, sans write_file.
     const nova = calls.find(
@@ -141,7 +141,8 @@ describe("talent catalog sync", () => {
     expect(sanaValues.responsibilities).toHaveLength(5);
     expect(sanaValues.tools).toHaveLength(2);
 
-    // Catalogue complet : les 6 talents portent les 8 cles riches.
+    // Graine seulement : les 8 cles riches partent a l'insertion,
+    // jamais dans la clause de conflit (la base garde ses contenus).
     const updates = calls.filter((c) => c.op === "update");
     expect(updates).toHaveLength(6);
     for (const update of updates) {
@@ -157,9 +158,30 @@ describe("talent catalog sync", () => {
       ]) {
         expect(key in update.values, `${update.values.spec}.${key}`).toBe(true);
         expect(key in (update.set ?? {}), `${update.values.spec}.set.${key}`).toBe(
-          true
+          false
         );
       }
+      // Les champs miroir du noyau, eux, se resynchronisent.
+      expect("version" in (update.set ?? {})).toBe(true);
+      expect(update.set?.updatedAt).toBeInstanceOf(Date);
     }
+  });
+
+  it("fails loudly when the seed claims an unimplemented tool", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kernel-weak-"));
+    writeFileSync(
+      join(dir, "atlas-software-engineer.json"),
+      JSON.stringify({
+        name: "atlas-software-engineer",
+        version: "1.0.0",
+        role: "Software Engineer",
+        systemPrompt: "Build.",
+        allowedTools: ["read_file"],
+      })
+    );
+    const calls: RecordedCall[] = [];
+    await expect(syncTalentCatalog(stubDb(calls) as any, dir)).rejects.toThrow(
+      /not implemented by the kernel/
+    );
   });
 });

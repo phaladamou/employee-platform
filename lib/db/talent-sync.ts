@@ -9,7 +9,10 @@ import { join } from "node:path";
 
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
-import { getRichProfile } from "../employees/rich-profiles";
+import {
+  getRichProfile,
+  validateRichProfileInput,
+} from "../employees/rich-profiles";
 import {
   loadCatalogSpecs,
   toTalentSeed,
@@ -27,19 +30,12 @@ async function ensureDepartments(db: SyncDb, ids: string[]): Promise<void> {
 
 async function upsertTalents(db: SyncDb, seeds: TalentSeed[]): Promise<void> {
   for (const seed of seeds) {
-    // Fiche riche : uniquement les cles fournies (jamais d'ecrasement
-    // par NULL : les enrichissements gardent leur valeur en base).
+    // La base est la source de verite : la graine riche ne remplit
+    // qu'a l'insertion (bases neuves), jamais en conflit (les
+    // modifications en base survivent aux migrates). La graine est
+    // validee comme une ecriture : incoherence = migrate en echec.
     const rich = seed.richProfile
-      ? {
-          overview: seed.richProfile.overview,
-          responsibilities: seed.richProfile.responsibilities,
-          capabilities: seed.richProfile.capabilities,
-          tools: seed.richProfile.tools,
-          executionEnvironment: seed.richProfile.executionEnvironment,
-          boundaries: seed.richProfile.boundaries,
-          deliverables: seed.richProfile.deliverables,
-          verification: seed.richProfile.verification,
-        }
+      ? validateRichProfileInput(seed.allowedTools, seed.richProfile)
       : {};
     await db
       .insert(talentProfile)
@@ -67,7 +63,6 @@ async function upsertTalents(db: SyncDb, seeds: TalentSeed[]): Promise<void> {
           technologies: seed.technologies,
           createdBy: seed.createdBy,
           updatedAt: new Date(),
-          ...rich,
         },
       });
   }

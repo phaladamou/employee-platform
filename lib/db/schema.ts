@@ -302,8 +302,9 @@ export const talentProfile = pgTable("TalentProfile", {
   background: text("background").notNull(),
   allowedTools: json("allowedTools").notNull().default([]),
   technologies: json("technologies").notNull().default([]),
-  // Fiche riche (NULL tant que le talent n'est pas enrichi) :
-  // copie de presentation, synchronisee depuis rich-profiles.ts.
+  // Fiche riche : la base est la source de verite (modifications via
+  // PUT /api/talents/[spec], sans migration). Graine initiale depuis
+  // rich-profiles.ts, a l'insertion uniquement (jamais d'ecrasement).
   overview: text("overview"),
   responsibilities: json("responsibilities"),
   capabilities: json("capabilities"),

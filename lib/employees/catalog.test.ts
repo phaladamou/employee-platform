@@ -13,6 +13,7 @@ import {
   asToolDetails,
   countByStatus,
   filterTalents,
+  formatTalentProfile,
   getEmployeesByDepartment,
   isEmployeeKind,
   isEmployeeStatus,
@@ -145,6 +146,66 @@ describe("employee catalog", () => {
     assert.equal(asOptionalStringList(undefined), undefined);
     assert.equal(asOptionalStringList([]), undefined);
     assert.deepEqual(asOptionalStringList(["a", 1]), ["a"]);
+  });
+
+  it("formats a rich talent row", () => {
+    const formatted = formatTalentProfile(
+      {
+        spec: "atlas-software-engineer",
+        version: "1.0.0",
+        name: "Atlas",
+        role: "Software Engineer",
+        departmentId: "engineering",
+        background: "Builds.",
+        allowedTools: ["read_file"],
+        technologies: ["Python"],
+        tools: [{ name: "read_file", description: "Read." }],
+        overview: "Intro.",
+        responsibilities: ["Ship."],
+        capabilities: ["Coding"],
+        executionEnvironment: "A lab.",
+        boundaries: ["No prod."],
+        deliverables: ["Code."],
+        verification: "Done.",
+        createdBy: "Cofoundator",
+      },
+      true
+    );
+    assert.equal(formatted.overview, "Intro.");
+    assert.deepEqual(formatted.tools, ["read_file"]);
+    assert.deepEqual(formatted.toolDetails, [
+      { name: "read_file", description: "Read." },
+    ]);
+    assert.equal(formatted.hired, true);
+  });
+
+  it("formats a bare talent row with fallbacks", () => {
+    const formatted = formatTalentProfile(
+      {
+        spec: "x",
+        version: "1.0.0",
+        name: "X",
+        role: "R",
+        departmentId: "engineering",
+        background: "Builds.",
+        allowedTools: ["read_file", "write_file"],
+        technologies: ["SQL"],
+        tools: null,
+        overview: null,
+        responsibilities: null,
+        capabilities: null,
+        executionEnvironment: null,
+        boundaries: null,
+        deliverables: null,
+        verification: null,
+        createdBy: "Cofoundator",
+      },
+      false
+    );
+    assert.equal(formatted.overview, undefined);
+    assert.deepEqual(formatted.tools, ["read_file", "write_file"]);
+    assert.equal(formatted.toolDetails, undefined);
+    assert.equal(formatted.hired, false);
   });
 
   it("filters talents by department", () => {
