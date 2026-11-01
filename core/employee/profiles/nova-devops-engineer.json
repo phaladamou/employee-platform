@@ -7,7 +7,7 @@
   "permissions": ["fs:read", "shell:exec"],
   "maxSteps": 12,
   "computer": {
-    "binaries": ["docker", "git"],
+    "binaries": ["docker", "git", "ls", "cat", "echo"],
     "networkAccess": true
   }
 }

@@ -29,7 +29,7 @@ const CATALOG = [
     role: "Software Engineer",
     tools: ["read_file", "write_file", "run_shell"],
     computer: {
-      binaries: ["python3", "pip", "pytest"],
+      binaries: ["python3", "pip", "pytest", "ls", "cat", "echo"],
       networkAccess: false,
     },
   },
@@ -38,35 +38,41 @@ const CATALOG = [
     spec: "nova-devops-engineer",
     role: "DevOps Engineer",
     tools: ["run_shell", "read_file"],
-    computer: { binaries: ["docker", "git"], networkAccess: true },
+    computer: {
+      binaries: ["docker", "git", "ls", "cat", "echo"],
+      networkAccess: true,
+    },
   },
   {
     employee: "Aria",
     spec: "aria-data-analyst",
     role: "Data Analyst",
     tools: ["read_file", "write_file"],
-    computer: { binaries: ["python3", "sqlite3"], networkAccess: false },
+    computer: {
+      binaries: ["python3", "sqlite3", "ls", "cat", "echo"],
+      networkAccess: false,
+    },
   },
   {
     employee: "Newton",
     spec: "newton-researcher",
     role: "Researcher",
     tools: ["read_file", "write_file"],
-    computer: { binaries: [], networkAccess: false },
+    computer: { binaries: ["ls", "cat", "echo"], networkAccess: false },
   },
   {
     employee: "Milo",
     spec: "milo-content-strategist",
     role: "Content Strategist",
     tools: ["read_file", "write_file"],
-    computer: { binaries: [], networkAccess: false },
+    computer: { binaries: ["ls", "cat", "echo"], networkAccess: false },
   },
   {
     employee: "Sana",
     spec: "sana-seo-analyst",
     role: "SEO Analyst",
     tools: ["read_file", "write_file"],
-    computer: { binaries: [], networkAccess: false },
+    computer: { binaries: ["ls", "cat", "echo"], networkAccess: false },
   },
 ] as const;
 

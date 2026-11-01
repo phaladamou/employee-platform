@@ -308,7 +308,9 @@ describe("run_shell with a Mini-Ordinateur", () => {
 
     expect(result.ok).toBe(false);
     expect(result.output).toContain('binary "docker" is not allowed');
-    expect(result.output).toContain("(allowed binaries: python3, pip, pytest)");
+    expect(result.output).toContain(
+      "(allowed binaries: python3, pip, pytest, ls, cat, echo)"
+    );
   });
 
   it("Nova allows docker (shipped spec)", async () => {

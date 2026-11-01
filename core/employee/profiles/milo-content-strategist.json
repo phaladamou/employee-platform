@@ -7,7 +7,7 @@
   "permissions": ["fs:read", "fs:write"],
   "maxSteps": 10,
   "computer": {
-    "binaries": [],
+    "binaries": ["ls", "cat", "echo"],
     "networkAccess": false
   }
 }

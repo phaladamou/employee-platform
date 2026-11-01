@@ -7,7 +7,7 @@
   "permissions": ["fs:read", "fs:write"],
   "maxSteps": 12,
   "computer": {
-    "binaries": ["python3", "sqlite3"],
+    "binaries": ["python3", "sqlite3", "ls", "cat", "echo"],
     "networkAccess": false
   }
 }

@@ -8,8 +8,8 @@ import {
   withMemoryLimit,
 } from "./command-policy";
 
-const ATLAS = ["python3", "pip", "pytest"] as const;
-const NOVA = ["docker", "git"] as const;
+const ATLAS = ["python3", "pip", "pytest", "ls", "cat", "echo"] as const;
+const NOVA = ["docker", "git", "ls", "cat", "echo"] as const;
 
 describe("splitShellSegments", () => {
   it("splits on shell operators", () => {
@@ -107,7 +107,7 @@ describe("assertBinariesAllowed", () => {
 
   it("denies Atlas running docker with a clear message", () => {
     expect(() => assertBinariesAllowed("docker ps", [...ATLAS])).toThrow(
-      'command blocked: binary "docker" is not allowed (allowed binaries: python3, pip, pytest)'
+      'command blocked: binary "docker" is not allowed (allowed binaries: python3, pip, pytest, ls, cat, echo)'
     );
   });
 

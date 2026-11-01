@@ -8,7 +8,7 @@
   "maxSteps": 16,
   "environment": ["python3", "pip", "pytest", "git"],
   "computer": {
-    "binaries": ["python3", "pip", "pytest"],
+    "binaries": ["python3", "pip", "pytest", "ls", "cat", "echo"],
     "networkAccess": false
   }
 }
