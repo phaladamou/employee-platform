@@ -2,6 +2,10 @@ import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 
 import {
+  assertBinariesAllowed,
+  withMemoryLimit,
+} from "../computer/command-policy";
+import {
   toolFail,
   toolOk,
   toolRoot,
@@ -79,7 +83,8 @@ function combineOutput(stdout: string, stderr: string): string {
 async function runViaSandbox(
   command: string,
   timeout: number,
-  ctx: ToolContext
+  ctx: ToolContext,
+  displayCommand: string = command
 ): Promise<{ ok: boolean; output: string } | null> {
   const bin = ctx.sandboxBin as string;
   const argv = [
@@ -148,11 +153,11 @@ async function runViaSandbox(
   }
   if (report.exit_code === null) {
     return toolFail(
-      `command killed: ${command}\n${combineOutput(report.stdout, report.stderr)}`
+      `command killed: ${displayCommand}\n${combineOutput(report.stdout, report.stderr)}`
     );
   }
   return toolFail(
-    `exit code ${report.exit_code}: ${command}\n${combineOutput(report.stdout, report.stderr)}`
+    `exit code ${report.exit_code}: ${displayCommand}\n${combineOutput(report.stdout, report.stderr)}`
   );
 }
 
@@ -170,6 +175,15 @@ async function runViaSandbox(
  * chemins absolus, `cd ..`, acces reseau et appels systeme restent
  * possibles depuis le shell. Ne jamais exposer a des prompts non
  * fiables sans supervision ; un vrai isolement exigerait un conteneur.
+ *
+ * Mini-Ordinateur (ctx.computer) : chaque commande est controlee AVANT
+ * execution (binaires listes ou builtins purs, sinon refus franc),
+ * bornee au delai du Mini-Ordinateur, et plafonnee en memoire via
+ * `ulimit -v` (espace d'adressage). Sans Mini-Ordinateur : comportement
+ * historique inchange. Limites honnetes : le controle porte sur
+ * l'invocation de premier niveau (un binaire autorise peut lancer des
+ * sous-processus, ex. `python3 -c "import os; ..."`), et `networkAccess`
+ * reste une politique DECLAREE (pas de netns ici).
  */
 export function createRunShellTool(): EmployeeTool {
   return {
@@ -191,6 +205,17 @@ export function createRunShellTool(): EmployeeTool {
         return toolFail('run_shell requires a "command" string argument');
       }
 
+      const computer = ctx.computer ?? null;
+      if (computer !== null) {
+        try {
+          assertBinariesAllowed(args.command, computer.allowedBinaries);
+        } catch (error) {
+          return toolFail(
+            error instanceof Error ? error.message : String(error)
+          );
+        }
+      }
+
       let timeout = RUN_SHELL_DEFAULT_TIMEOUT_MS;
 
       if (args.timeoutMs !== undefined) {
@@ -203,16 +228,29 @@ export function createRunShellTool(): EmployeeTool {
         }
         timeout = Math.min(args.timeoutMs, RUN_SHELL_MAX_TIMEOUT_MS);
       }
+      if (computer !== null) {
+        timeout = Math.min(timeout, computer.maxExecutionTimeMs);
+      }
+
+      const execCommand =
+        computer !== null
+          ? withMemoryLimit(args.command, computer.maxMemoryMb)
+          : args.command;
 
       if (ctx.sandboxBin) {
-        const bridged = await runViaSandbox(args.command, timeout, ctx);
+        const bridged = await runViaSandbox(
+          execCommand,
+          timeout,
+          ctx,
+          args.command
+        );
         if (bridged !== null) {
           return bridged;
         }
       }
 
       try {
-        const { stdout, stderr } = await execAsync(args.command, {
+        const { stdout, stderr } = await execAsync(execCommand, {
           cwd: toolRoot(ctx),
           timeout,
           maxBuffer: RUN_SHELL_MAX_BUFFER,

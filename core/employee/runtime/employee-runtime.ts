@@ -24,6 +24,7 @@ import {
   detectUnsupportedClaims,
 } from "../missions/mission-claims";
 import type { ProfileRegistry } from "../profiles/profile-registry";
+import { buildEmployeeComputer } from "../computer/employee-computer";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
 import { createCoreTools, toolRoot } from "../tools/tool";
 import type { EmployeeMemory } from "../memory/employee-memory";
@@ -191,6 +192,7 @@ export class EmployeeRuntime {
     let tools = this.options.tools;
     let maxSteps = this.options.maxSteps;
     let systemPrompt: string | undefined;
+    let toolContext = this.options.toolContext;
 
     if (binding !== null) {
       const registry = this.options.profiles;
@@ -214,6 +216,15 @@ export class EmployeeRuntime {
         this.options.tools ?? createCoreTools()
       );
       await assertSpecEnvironment(spec, this.options.toolContext?.env);
+      if (toolContext) {
+        const computer = buildEmployeeComputer(
+          spec,
+          toolRoot(toolContext)
+        );
+        if (computer !== null) {
+          toolContext = { ...toolContext, computer };
+        }
+      }
       systemPrompt = formatSpecializationBlock(spec);
 
       if (maxSteps === undefined) {
@@ -230,7 +241,7 @@ export class EmployeeRuntime {
       profile: working,
       missionPrompt: running.prompt,
       tools,
-      toolContext: this.options.toolContext,
+      toolContext,
       maxSteps,
       pastExperience,
       systemPrompt,
@@ -267,7 +278,7 @@ export class EmployeeRuntime {
     //    Un Final qui ne les satisfait pas est un echec, pas un succes.
     const acceptanceTests = running.acceptance.tests ?? [];
     if (running.acceptance.files.length > 0 || acceptanceTests.length > 0) {
-      const context = this.options.toolContext;
+      const context = toolContext;
       const root = context ? toolRoot(context) : resolve(DEFAULT_SANDBOX_DIR);
       const check = await verifyAcceptance(root, running.acceptance);
       const failures = [...check.failures];

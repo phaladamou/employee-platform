@@ -1,6 +1,7 @@
 import { realpath } from "node:fs/promises";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 
+import type { EmployeeComputer } from "../computer/employee-computer";
 import { createReadFileTool } from "./read-file";
 import { createWriteFileTool } from "./write-file";
 import { createRunShellTool } from "./run-shell";
@@ -27,6 +28,12 @@ export interface ToolContext {
    * silencieux sur Node `exec` (memes messages, meme contrat).
    */
   readonly sandboxBin?: string;
+  /**
+   * Mini-Ordinateur de l'employe, construit au demarrage du run depuis
+   * le bloc "computer" de sa spec. Absent = mode historique : run_shell
+   * sans restriction de binaires, memoire ni delai dedies.
+   */
+  readonly computer?: EmployeeComputer;
 }
 
 export type ToolArgs = {

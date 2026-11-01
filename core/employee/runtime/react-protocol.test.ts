@@ -82,6 +82,26 @@ describe("formatSpecializationBlock", () => {
       block.indexOf("[END SPECIALIZATION]")
     );
   });
+
+  it("adds the computer limits line when the spec declares one", () => {
+    const block = formatSpecializationBlock({
+      name: "atlas-software-engineer",
+      version: "1.0.0",
+      role: "Software Engineer",
+      systemPrompt: "You build.",
+      allowedTools: ["run_shell"],
+      permissions: ["shell:exec"],
+      maxSteps: 16,
+      computer: { binaries: ["python3"], networkAccess: false },
+    });
+
+    expect(block).toContain(
+      "Computer: allowed shell binaries [python3]; network access: no;"
+    );
+    expect(block.indexOf("Computer:")).toBeLessThan(
+      block.indexOf("[END SPECIALIZATION]")
+    );
+  });
 });
 
 describe("parseStepOutput", () => {

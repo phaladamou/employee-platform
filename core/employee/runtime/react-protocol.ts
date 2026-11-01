@@ -1,6 +1,7 @@
 import type { EmployeeProfile } from "../profile/employee-profile";
 import type { EmployeeProfileSpec } from "../profiles/profile-spec";
 import type { EmployeeTool } from "../tools/tool";
+import { describeComputerDecl } from "../computer/employee-computer";
 
 export interface ParsedAction {
   readonly type: "action";
@@ -38,9 +39,12 @@ export const PAST_EXPERIENCE_MAX_CHARS = 300;
  * rappelees apres, avec preseance).
  */
 export function formatSpecializationBlock(spec: EmployeeProfileSpec): string {
+  const computer =
+    spec.computer !== undefined ? describeComputerDecl(spec.computer) : null;
   return [
     `[SPECIALIZATION ${spec.name} v${spec.version} - role context, the runtime rules below always apply]`,
     spec.systemPrompt,
+    ...(computer !== null ? [computer] : []),
     "[END SPECIALIZATION]",
   ].join("\n");
 }

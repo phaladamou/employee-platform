@@ -1,8 +1,14 @@
 import { chmod, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { buildEmployeeComputer } from "../computer/employee-computer";
+import {
+  isEmployeeProfileSpec,
+  type EmployeeProfileSpec,
+} from "../profiles/profile-spec";
 import { createRunShellTool } from "./run-shell";
 import type { ToolContext } from "./tool";
 
@@ -249,5 +255,124 @@ describe("run_shell tool", () => {
     );
     expect(corrupted.ok).toBe(false);
     expect(corrupted.output).toContain("invalid JSON");
+  });
+});
+
+describe("run_shell with a Mini-Ordinateur", () => {
+  let dir = "";
+
+  afterEach(async () => {
+    if (dir) {
+      await rm(dir, { recursive: true, force: true });
+      dir = "";
+    }
+  });
+
+  async function shippedSpec(name: string): Promise<EmployeeProfileSpec> {
+    const raw = await readFile(
+      fileURLToPath(new URL(`../profiles/${name}.json`, import.meta.url)),
+      "utf8"
+    );
+    const parsed: unknown = JSON.parse(raw);
+    expect(isEmployeeProfileSpec(parsed)).toBe(true);
+    return parsed as EmployeeProfileSpec;
+  }
+
+  function fixtureSpec(computer: unknown): EmployeeProfileSpec {
+    return {
+      name: "fixture",
+      version: "1.0.0",
+      role: "Fixture",
+      systemPrompt: "Test.",
+      allowedTools: ["run_shell"],
+      permissions: ["shell:exec"],
+      maxSteps: 10,
+      computer: computer as EmployeeProfileSpec["computer"],
+    };
+  }
+
+  async function computerCtx(spec: EmployeeProfileSpec): Promise<ToolContext> {
+    dir = await mkdtemp(join(tmpdir(), "emp-computer-"));
+    const computer = buildEmployeeComputer(spec, dir);
+    expect(computer).not.toBe(null);
+    return { sandboxRoot: dir, workspaceRoot: dir, env: {}, computer: computer! };
+  }
+
+  it("Atlas refuses docker (shipped spec)", async () => {
+    const ctx = await computerCtx(await shippedSpec("atlas-software-engineer"));
+
+    const result = await createRunShellTool().execute(
+      { command: "docker ps" },
+      ctx
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('binary "docker" is not allowed');
+    expect(result.output).toContain("(allowed binaries: python3, pip, pytest)");
+  });
+
+  it("Nova allows docker (shipped spec)", async () => {
+    const ctx = await computerCtx(await shippedSpec("nova-devops-engineer"));
+
+    const result = await createRunShellTool().execute(
+      { command: "docker --version" },
+      ctx
+    );
+
+    // docker present ou non : l'important est l'absence de refus.
+    expect(result.output).not.toContain("not allowed");
+  });
+
+  it("leaves commands unrestricted without a computer (legacy)", async () => {
+    dir = await mkdtemp(join(tmpdir(), "emp-computer-"));
+    const ctx: ToolContext = { sandboxRoot: dir, env: {} };
+
+    const result = await createRunShellTool().execute(
+      { command: "docker --version" },
+      ctx
+    );
+
+    expect(result.output).not.toContain("not allowed");
+  });
+
+  it("enforces the memory cap on the command", async () => {
+    const ctx = await computerCtx(
+      fixtureSpec({ binaries: [], networkAccess: false, maxMemoryMb: 512 })
+    );
+
+    const result = await createRunShellTool().execute(
+      { command: "ulimit -v" },
+      ctx
+    );
+
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe("524288");
+  });
+
+  it("honors the computer timeout ceiling", async () => {
+    const ctx = await computerCtx(
+      fixtureSpec({
+        binaries: ["sleep"],
+        networkAccess: false,
+        maxExecutionTimeMs: 200,
+      })
+    );
+
+    const result = await createRunShellTool().execute(
+      { command: "sleep 5" },
+      ctx
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("command timed out after 200 ms");
+  });
+
+  it("runs rooted at the computer disk", async () => {
+    const ctx = await computerCtx(await shippedSpec("atlas-software-engineer"));
+
+    const result = await createRunShellTool().execute({ command: "pwd -P" }, ctx);
+
+    expect(result.ok).toBe(true);
+    expect(result.output).toBe(await realpath(dir));
   });
 });
