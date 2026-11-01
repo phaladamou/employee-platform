@@ -80,7 +80,6 @@
   "recruit": {
     "title": "Talent Network",
     "subtitle": "Discover and hire AI employees for your departments.",
-    "back": "Employees",
     "searchPlaceholder": "Search talents, roles, skills…",
     "allDepartments": "All",
     "noResults": "No talents match your search.",

@@ -80,7 +80,6 @@
   "recruit": {
     "title": "Réseau de talents",
     "subtitle": "Découvrez et recrutez des employés IA pour vos départements.",
-    "back": "Employés",
     "searchPlaceholder": "Rechercher talents, rôles, compétences…",
     "allDepartments": "Tous",
     "noResults": "Aucun talent ne correspond à votre recherche.",

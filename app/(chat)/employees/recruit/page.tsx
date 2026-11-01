@@ -1,7 +1,7 @@
 // app/(chat)/employees/recruit/page.tsx
 "use client";
 
-import { ArrowLeftIcon, SearchIcon } from "lucide-react";
+import { SearchIcon } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -145,14 +145,6 @@ function RecruitPageContent() {
     <div className="theme-light relative flex h-dvh w-full flex-col overflow-hidden bg-background lg:flex-row">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <div className="mx-auto w-full max-w-7xl shrink-0 px-8 pt-10 pb-8">
-          <button
-            className="mb-5 flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => router.push("/employees")}
-            type="button"
-          >
-            <ArrowLeftIcon className="size-4" />
-            {t("back")}
-          </button>
           <h1 className="text-2xl font-semibold tracking-tight text-foreground">
             {t("title")}
           </h1>
