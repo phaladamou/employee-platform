@@ -543,8 +543,9 @@ Leçons dures :
   i18n en/fr/zh. Tests : seed exact ×6, validation, garde,
   backfill scopé (sinon UPDATE nu refusé).
 - Consommation mesurée (d9e8914 + web) : provider usage OpenAI →
-  cumul boucle → JobConsumption {tokensUsed|null, cpuSeconds
-  (murale), maxMemoryMb|null (pic RSS debut/fin)} posé à la
+  cumul boucle → JobConsumption {tokensUsed|null, elapsedSeconds
+  (murale, ex-cpuSeconds : temps CPU pur NON mesuré),
+  maxMemoryMb|null (pic RSS debut/fin)} posé à la
   clôture (succès/échec/revue ; annulations = rien) ; parse
   tolérant (legacy/malforme → null). Fiches : 0011 NULL les
   estimations inventées, seed Atlas = mesure N=1 (2130 tok,
@@ -552,6 +553,22 @@ Leçons dures :
   yet" ; panneau Average vs No-data-yet + i18n. Trou pré-existant
   signalé : intent-refus → 500 au lieu de 400 (toHttpError,
   non touché).
+- Consolidation : intent-refus → 400 (`Mission looks like` dans
+  toHttpError + régression serveur, vérifié live) ; rename
+  cpuSeconds→elapsedSeconds partout (job, graine, garde, UI
+  "elapsed"/"écoulées"/"耗时", CPU pur NON mesuré documenté) ;
+  runs Atlas M1/M2/M3 ; graine Atlas = moyenne N=4 {1987, 4.9s,
+  128Mo, 1Mo}. Flaky : `file-job-store` race heartbeats (2/3 vert
+  solo, 474/474 en suite ; verrous non touchés). DB EAI_AGAIN :
+  migrate 0008→0011 à faire côté user (procédure transmise).
+- Verdict impuissance corroborée : `detectUnaccomplishedGoal()`
+  (formulation générale + dossier : appel échoué ou zéro appel ;
+  dossier tout-succès = mise en garde, passe) + étape 7 runtime
+  après blocage sécu → `needs_review` "corroborated by the run
+  record". Régression Final M3 verbatim + 2 préservations
+  (mise en garde, récupération) + 7 garde-fous (impersonnel,
+  vantardise, négations, have-spéculation). Raisons existantes
+  inchangées (ordre). M3 rejoué → needs_review.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),

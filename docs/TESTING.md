@@ -30,7 +30,7 @@ adversarial cases, and honest coverage notes.
 | Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
 | Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **52 files, 473 tests, all green** (Vitest) **+ 33 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **52 files, 481 tests, all green** (Vitest) **+ 33 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -108,12 +108,15 @@ missions, poll `status` to a terminal state, and check the workspace on
 disk. Clean `.tmp/emp` and the driver afterwards.
 
 Atlas calibration (2026-11-02, same harness + `--expect-file`):
-one real mission (hello.py + `ls`, `succeeded`) measured
-`{tokensUsed: 2130, cpuSeconds: 5.103, maxMemoryMb: 125.19}` on the
-finished job — these values seed the Atlas fiche (N=1 average).
-Incidental finding (pre-existing, untouched): a submit refused by
-the mission-intent detector returns 500 instead of 400 because
-`toHttpError` doesn't match its message.
+`{tokensUsed: 2130, elapsedSeconds: 5.103, maxMemoryMb: 125.19}`
+(hello.py + `ls`, `succeeded`). Consolidation runs (same day):
+refused submit now returns a clean 400; M1 tools success
+`{1954, 4.617s, 127.2MB}`, M2 tool-less success `{936, 2.729s,
+129.7MB}`, M3 honest-failure report (`{2926, 7.032s, 129.82MB}` — was
+`succeeded` because refusal patterns don't cover "Impossible de
+recopier"; now `needs_review` via the corroborated-inability
+detector, pinned by regression tests on the verbatim Final). The
+fiche seed holds the N=4 average `{1987, 4.9s, 128MB, 1MB disk}`.
 
 Example — replaying the success-semantics check:
 
@@ -206,6 +209,13 @@ Each case below is a committed regression test, not a one-off script:
   `sdk/job-worker.test.ts`): absent provider usage stays absent
   (never a 0 that would read as "proven free"); legacy or
   malformed job consumption parses to null without quarantine.
+- **Corroborated inability** (`missions/mission-claims.test.ts`,
+  `runtime/employee-runtime.test.ts`, live M3): an inability
+  admission ("Impossible de recopier…") moves to `needs_review`
+  only when the run record corroborates (failed call, or zero
+  calls) — a clean record overrules caveat wording, and impersonal
+  ("il est impossible de…"), boastful ("impossible de faire
+  mieux") or negated forms never match.
 
 ## 5. Coverage — what is tested and what is not
 
