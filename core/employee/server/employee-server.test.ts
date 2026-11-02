@@ -396,6 +396,38 @@ describe("createEmployeeHandler", () => {
     }
   });
 
+  it("rejects intent-detected missions without criteria as 400, not 500", async () => {
+    const { handle, tokens } = await makeWorld();
+    await call(handle, "POST", "/v1/employees", {
+      token: tokens.admin,
+      body: { name: "Aria", role: "Dev" },
+    });
+    const catalog = (await call(handle, "GET", "/v1/employees", {
+      token: tokens.employer,
+    })).json as { id: string }[];
+    const employeeId = catalog[0].id;
+    await call(handle, "POST", "/v1/hires", {
+      token: tokens.employer,
+      body: { employeeId },
+    });
+
+    // Creation de fichier sans --expect-file : faute du donneur
+    // d'ordre, pas erreur interne (trou constate en calibration).
+    const creation = await call(handle, "POST", "/v1/jobs", {
+      token: tokens.employer,
+      body: { employeeId, prompt: "Create the file hello.py please." },
+    });
+    expect(creation.status).toBe(400);
+    expect(JSON.stringify(creation.json)).toContain("Mission looks like");
+
+    const bugfix = await call(handle, "POST", "/v1/jobs", {
+      token: tokens.employer,
+      body: { employeeId, prompt: "Fix the login bug now." },
+    });
+    expect(bugfix.status).toBe(400);
+    expect(JSON.stringify(bugfix.json)).toContain("Mission looks like");
+  });
+
   it("isolates tenants on every scoped route", async () => {
     const { handle, tokens } = await makeWorld();
     await call(handle, "POST", "/v1/employees", {

@@ -116,7 +116,7 @@ function toHttpError(error: unknown): EmployeeHttpResponse {
     return apiError(403, "not_hired", message);
   }
   if (
-    /cannot be empty|requires |Unknown profile|Invalid |must be |is invalid|escapes the workspace|Acceptance /.test(
+    /cannot be empty|requires |Unknown profile|Invalid |must be |is invalid|escapes the workspace|Acceptance |Mission looks like/.test(
       message
     )
   ) {
