@@ -569,13 +569,21 @@ Leçons dures :
   (mise en garde, récupération) + 7 garde-fous (impersonnel,
   vantardise, négations, have-spéculation). Raisons existantes
   inchangées (ordre). M3 rejoué → needs_review.
+- Parcours Chef : `chef-manager.json` (Manager, lecture seule,
+  prompt chaleureux/pro, jamais de missions techniques) + lockfile
+  10 entrees ; moteur pur `lib/chef/onboarding.ts` (script exact
+  FR, nom, besoin -> persona, oui -> guide /employees/recruit,
+  marqueur presentation) + `resolve.ts` (1er chat + que le Chef,
+  repli flux normal sur erreur) ; branche route chat (sans outils,
+  streaming natif) ; graine message au provisioning. Tests 8/8
+  node, 481/481 vitest, 44/44 node elargi, tsc vert.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 4df4320 (noyau d9e8914) —
-  473/473 vitest (52 fichiers) + 33/33 node lib/employees,
-  `tsc` propre, drizzle check OK, migrations 0008→0011 à appliquer
+- **État 2026-11-02 : code @ c417e8f (parcours Chef) —
+  481/481 vitest (52 fichiers) + 44/44 node (employees/chef/sidebar),
+  `tsc` propre, migrations 0008→0011 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
