@@ -13,6 +13,7 @@ import {
   inArray,
   isNull,
   lt,
+  ne,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -1279,7 +1280,12 @@ export async function getEmployeesByAccount(
     return await db
       .select()
       .from(employee)
-      .where(eq(employee.accountId, accountId))
+      .where(
+        and(
+          eq(employee.accountId, accountId),
+          ne(employee.status, "released")
+        )
+      )
       .orderBy(asc(employee.hiredAt), asc(employee.createdAt));
   } catch (_error) {
     console.error("getEmployeesByAccount DB Error:", _error);
@@ -1311,6 +1317,46 @@ export async function getEmployeeById(
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get employee"
+    );
+  }
+}
+
+// Licenciement : statut -> "released" + releasedAt (ligne conservee,
+// audit). Id d'un autre compte -> null (404). Idempotent. Le Chef est
+// protege (400) : son existence est garantie par ensureChefForAccount.
+export async function releaseEmployeeByAccount(
+  accountId: string,
+  employeeId: string
+): Promise<Employee | null> {
+  try {
+    const existing = await getEmployeeById(accountId, employeeId);
+    if (!existing) {
+      return null;
+    }
+    if (existing.kind === "chef") {
+      throw new ChatbotError(
+        "bad_request:database",
+        "Cannot release the Chef"
+      );
+    }
+    if (existing.status === "released") {
+      return existing;
+    }
+    const db = await getDb();
+    const [released] = await db
+      .update(employee)
+      .set({ status: "released", releasedAt: new Date() })
+      .where(
+        and(eq(employee.id, employeeId), eq(employee.accountId, accountId))
+      )
+      .returning();
+    return released ?? null;
+  } catch (_error) {
+    if (_error instanceof ChatbotError) throw _error;
+    console.error("releaseEmployeeByAccount DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to release employee"
     );
   }
 }

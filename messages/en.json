@@ -43,6 +43,15 @@
       "currentTask": "Current task",
       "chef": "Manager"
     },
+    "release": {
+      "button": "Release",
+      "confirmTitle": "Release {name}?",
+      "confirmDescription": "Are you sure you want to release {name}? His workspace will be archived and he will lose access to your data.",
+      "cancel": "Cancel",
+      "confirm": "Release",
+      "success": "{name} has been released.",
+      "error": "Failed to release {name}."
+    },
     "recruit": {
       "title": "Recruit an employee",
       "description": "Pick an available agent and assign them to a department.",

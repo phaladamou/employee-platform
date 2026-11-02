@@ -340,7 +340,7 @@ export const employee = pgTable(
     kernelEmployeeId: uuid("kernelEmployeeId"),
     name: varchar("name", { length: 120 }).notNull(),
     role: varchar("role", { length: 120 }).notNull(),
-    // Statut metier : idle | working | completed (valide cote API).
+    // Statut metier : idle | working | completed | released (valide cote API).
     status: varchar("status", { length: 20 }).notNull().default("idle"),
     departmentId: text("departmentId")
       .notNull()
@@ -349,6 +349,8 @@ export const employee = pgTable(
     createdBy: varchar("createdBy", { length: 120 }),
     technologies: json("technologies").notNull().default([]),
     hiredAt: timestamp("hiredAt").notNull().defaultNow(),
+    // Licenciement : statut -> "released" + horodatage (ligne conservee, audit).
+    releasedAt: timestamp("releasedAt"),
     currentTask: text("currentTask"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },

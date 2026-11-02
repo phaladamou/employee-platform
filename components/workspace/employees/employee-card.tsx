@@ -1,10 +1,23 @@
 // components/workspace/employees/employee-card.tsx
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Employee, EmployeeStatus } from "@/lib/employees/catalog";
+import { toast } from "@/components/workspace/toast";
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -33,9 +46,38 @@ const STATUS_STYLES: Record<
 
 const VISIBLE_TECHNOLOGIES = 3;
 
-export function EmployeeCard({ employee }: { employee: Employee }) {
+export function EmployeeCard({
+  employee,
+  onReleased,
+}: {
+  employee: Employee;
+  onReleased?: () => void;
+}) {
   const t = useTranslations("employees");
   const styles = STATUS_STYLES[employee.status];
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  const release = async () => {
+    try {
+      const response = await fetch(
+        `/api/employees/${encodeURIComponent(employee.id)}/release`,
+        { method: "POST" }
+      );
+      if (!response.ok) {
+        throw new Error(`release failed: ${response.status}`);
+      }
+      toast({
+        type: "success",
+        description: t("release.success", { name: employee.name }),
+      });
+      onReleased?.();
+    } catch {
+      toast({
+        type: "error",
+        description: t("release.error", { name: employee.name }),
+      });
+    }
+  };
   const statusLabel =
     employee.status === "idle"
       ? t("status.idle")
@@ -46,7 +88,10 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
   const extraTechnologies = technologies.length - VISIBLE_TECHNOLOGIES;
 
   return (
-    <div className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-6 shadow-[var(--shadow-card)]">
+    <div
+      className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card p-6 shadow-[var(--shadow-card)]"
+      data-testid="employee-card"
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div
@@ -111,6 +156,45 @@ export function EmployeeCard({ employee }: { employee: Employee }) {
           </span>
           {employee.currentTask}
         </p>
+      )}
+
+      {employee.kind !== "chef" && (
+        <div className="mt-auto flex justify-end border-t border-border/60 pt-3">
+          <AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
+            <Button
+              data-testid="release-button"
+              onClick={() => setConfirmOpen(true)}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              {t("release.button")}
+            </Button>
+            <AlertDialogContent data-testid="release-dialog">
+              <AlertDialogHeader>
+                <AlertDialogTitle>
+                  {t("release.confirmTitle", { name: employee.name })}
+                </AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("release.confirmDescription", { name: employee.name })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel data-testid="release-cancel">
+                  {t("release.cancel")}
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  data-testid="release-confirm"
+                  onClick={() => {
+                    void release();
+                  }}
+                >
+                  {t("release.confirm")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       )}
     </div>
   );

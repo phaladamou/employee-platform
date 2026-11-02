@@ -43,6 +43,15 @@
       "currentTask": "当前任务",
       "chef": "经理"
     },
+    "release": {
+      "button": "解雇",
+      "confirmTitle": "解雇 {name}？",
+      "confirmDescription": "确定要解雇 {name} 吗？他的工作区将被存档，他将失去对您数据的访问权限。",
+      "cancel": "取消",
+      "confirm": "解雇",
+      "success": "{name} 已被解雇。",
+      "error": "解雇 {name} 失败。"
+    },
     "recruit": {
       "title": "招聘员工",
       "description": "选择一位可用智能体并分配到部门。",

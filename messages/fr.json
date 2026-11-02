@@ -43,6 +43,15 @@
       "currentTask": "Tâche en cours",
       "chef": "Manager"
     },
+    "release": {
+      "button": "Libérer",
+      "confirmTitle": "Libérer {name} ?",
+      "confirmDescription": "Voulez-vous vraiment libérer {name} ? Son espace de travail sera archivé et il perdra l'accès à vos données.",
+      "cancel": "Annuler",
+      "confirm": "Libérer",
+      "success": "{name} a été libéré.",
+      "error": "Échec de la libération de {name}."
+    },
     "recruit": {
       "title": "Recruter un employé",
       "description": "Choisissez un agent disponible et assignez-le à un département.",
