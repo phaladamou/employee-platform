@@ -188,6 +188,7 @@ export function EmployeeCard({
                   onClick={() => {
                     void terminate();
                   }}
+                  variant="brand"
                 >
                   {t("terminate.confirm")}
                 </AlertDialogAction>
