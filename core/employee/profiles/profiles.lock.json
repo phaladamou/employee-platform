@@ -3,6 +3,7 @@
   "profiles": {
     "aria-data-analyst@1.0.0": "5a5d67663637272a5e5ad0e7bdbbc0f579523b0b52f3e11f2dcb085fa86c558c",
     "atlas-software-engineer@1.0.0": "1ba7b49255537dd07da7467056f8e0c73fd590aec83e233334a2276031378be0",
+    "chef-manager@1.0.0": "a4a424c248c6ab046f6aa7e5d4ecca54e943e751aab47453122ef32cc2addf01",
     "data-analyst@1.0.0": "7e61df8e3cc49829d594e889ecf37a9615b8dfd43d991c5995d2f42b5486b23c",
     "milo-content-strategist@1.0.0": "b6d377c873302ed4450bdfef94d10d9f5fe213eb305e710125b210407b666679",
     "newton-researcher@1.0.0": "1632c52be4bad642dae5fd1ecf8f4af34e7f5d47229fb955c5a66b6e499b1da3",

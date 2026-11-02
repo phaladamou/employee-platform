@@ -12,6 +12,7 @@ describe("bundled profiles", () => {
     expect(registry.list().map((spec) => spec.name).sort()).toEqual([
       "aria-data-analyst",
       "atlas-software-engineer",
+      "chef-manager",
       "data-analyst",
       "milo-content-strategist",
       "newton-researcher",
@@ -29,5 +30,15 @@ describe("bundled profiles", () => {
     expect(registry.get("software-engineer")?.permissions).toContain(
       "shell:exec"
     );
+    // Le Manager accueille et guide : lecture seule, jamais de shell
+    // ni d'ecriture (moindre privilege + prompt qui interdit les
+    // missions techniques).
+    expect(registry.get("chef-manager")?.role).toBe("Manager");
+    expect(registry.get("chef-manager")?.allowedTools).toEqual([
+      "read_file",
+    ]);
+    expect(registry.get("chef-manager")?.permissions).toEqual([
+      "fs:read",
+    ]);
   });
 });
