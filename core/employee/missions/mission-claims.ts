@@ -391,6 +391,78 @@ export function detectSecurityBlock(
 }
 
 /**
+ * Aveu d'impuissance du rapport CORROBORE par le dossier du run.
+ * Contrairement aux refus textuels (motifs figes ci-dessus), ce
+ * detecteur croise deux sources : une formulation d'impuissance
+ * generale ("Impossible de recopier...") ET un dossier qui ne
+ * montre aucun succes net (appel echoue, ou zero appel). Un aveu
+ * contredit par un dossier tout-succes passe : c'est une mise en
+ * garde, pas un aveu (ex : "Lu et resume. Impossible de recuperer
+ * les archives 2020 (non demandees).").
+ *
+ * Frontiere assumee : l'impuissance doit etre celle de l'agent
+ * (debut de phrase ou sujet je/il m'est), pas un constat
+ * impersonnel ("il est impossible de..."), ni une vantardise
+ * ("impossible de faire mieux"), ni une double negation. Cas live
+ * M3 (2026-11-02) : echec honnete passe a travers les refus car
+ * "recopier" n'etait pas liste. Ne pas elargir sans garde-fous.
+ */
+export interface UnaccomplishedGoalSignal {
+  /** Extrait du rapport (motive le reviewReason, borne a 120 car.). */
+  readonly excerpt: string;
+}
+
+const INABILITY_PATTERNS: ReadonlyArray<RegExp> = [
+  // FR : "Impossible de X" en tete de phrase (aveu agent).
+  new RegExp(
+    String.raw`(?:^|[.!?]\s+)impossible\s+de\s+(?!ne\s+pas\b|faire\s+mieux\b|mieux\b)\p{L}+`,
+    "imu"
+  ),
+  // FR : sujet agent + impossible de.
+  new RegExp(
+    String.raw`\b(je|j'|il m'est|il nous est)\b[^.!?\n]{0,30}?\bimpossible\s+de\b`,
+    "imu"
+  ),
+  // FR : je/tu ne peux pas (forme verbale = sujet agent).
+  new RegExp(String.raw`\bne\s+peux\s+pas\b`, "imu"),
+  // EN : sentence-start "Impossible to X".
+  new RegExp(
+    String.raw`(?:^|[.!?]\s+)impossible\s+to\s+(?!not\b|do\s+better\b|better\b)\w+`,
+    "imu"
+  ),
+  // EN : I + impossible to.
+  new RegExp(
+    String.raw`\bi\b[^.!?\n]{0,30}?\bimpossible\s+to\b`,
+    "imu"
+  ),
+  // EN : could not / couldn't (hors speculation "have").
+  new RegExp(String.raw`\bcould\s+not\s+(?!have\b)\w+`, "imu"),
+  new RegExp(String.raw`\bcouldn'?t\s+(?!have\b)\w+`, "imu"),
+  // EN : unable to.
+  new RegExp(String.raw`\bunable\s+to\b`, "imu"),
+];
+
+/**
+ * Aveu d'impuissance corroboré, ou null. Fail-soft comme les refus :
+ * doute (needs_review), jamais d'echec auto. L'appelant decide.
+ */
+export function detectUnaccomplishedGoal(
+  reportContent: string,
+  toolCalls: readonly { readonly ok: boolean }[]
+): UnaccomplishedGoalSignal | null {
+  if (toolCalls.length > 0 && toolCalls.every((call) => call.ok)) {
+    return null;
+  }
+  for (const pattern of INABILITY_PATTERNS) {
+    const match = pattern.exec(reportContent);
+    if (match) {
+      return { excerpt: excerptOf(match[0].replace(/^[.!?\s]+/, "")) };
+    }
+  }
+  return null;
+}
+
+/**
  * Premier aveu de non-accomplissement du rapport, ou null.
  * Deterministe (ordre des motifs). L'appelant decide du verdict.
  */

@@ -22,6 +22,7 @@ import {
   CLAIM_SUPPORT_LABEL,
   detectRefusalAdmission,
   detectSecurityBlock,
+  detectUnaccomplishedGoal,
   detectUnsupportedClaims,
 } from "../missions/mission-claims";
 import type { ProfileRegistry } from "../profiles/profile-registry";
@@ -451,6 +452,35 @@ export class EmployeeRuntime {
       const reason =
         `report signals a security block (${securityBlock.signal}): ` +
         `"${securityBlock.excerpt}"`;
+      await this.persistMemory(profile, flagged);
+
+      return {
+        profile: setEmployeeStatus(working, "idle"),
+        mission: flagged,
+        report: flagged.report,
+        error: null,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
+        usage: loop.usage,
+        cancelled: false,
+        needsReview: true,
+        reviewReason: reason,
+      };
+    }
+
+    // 7. Sans criteres : le Final avoue-t-il une impuissance que le
+    //    dossier corrobore (appel echoue, ou zero appel) ? Un aveu
+    //    contredit par un dossier tout-succes passe (mise en garde).
+    //    Capacite, pas formulation figee : la preuve decide (live M3).
+    const unaccomplished = detectUnaccomplishedGoal(
+      loop.reportContent,
+      loop.toolCalls
+    );
+    if (unaccomplished !== null) {
+      const flagged = flagMissionForReview(running, report);
+      const reason =
+        "report admits the goal was not accomplished, corroborated " +
+        `by the run record: "${unaccomplished.excerpt}"`;
       await this.persistMemory(profile, flagged);
 
       return {

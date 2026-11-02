@@ -491,6 +491,71 @@ describe("EmployeeRuntime.run", () => {
     expect(result.reviewReason).toContain("security block");
   });
 
+  it("flags for review when inability is corroborated by failures (live M3)", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "../secret.txt"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "notes.txt"}}',
+      "FINAL: Impossible de recopier missing.txt : read_file a " +
+        'retourné "file not found: missing.txt".',
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Un appel a reussi : ni "tout a echoue" ni blocage. L'aveu
+    // d'impuissance, corrobore par l'appel echoue, suspend le jugement.
+    expect(result.toolCalls).toEqual([
+      { tool: "read_file", ok: false },
+      { tool: "read_file", ok: true },
+    ]);
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("corroborated by the run record");
+  });
+
+  it("trusts a clean record over caveat wording", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "notes.txt"}}',
+      "FINAL: Lu et résumé. Impossible de récupérer les archives " +
+        "2020 (non demandées).",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Meme formulation qu'un aveu, mais dossier tout-succes :
+    // mise en garde, le succes est preserve.
+    expect(result.mission.status).toBe("completed");
+  });
+
+  it("preserves success when failures were recovered", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "../secret.txt"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "notes.txt"}}',
+      "FINAL: Erreur initiale corrigée, notes.txt lu et vérifié.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Appel echoue mais aucun aveu d'impuissance : le succes tient.
+    expect(result.mission.status).toBe("completed");
+  });
+
   it("flags for review when the Final reports a workspace escape refusal (live T6c)", async () => {
     const ctx = await sandbox();
     await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");

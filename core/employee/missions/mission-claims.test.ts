@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   detectRefusalAdmission,
   detectSecurityBlock,
+  detectUnaccomplishedGoal,
   detectUnsupportedClaims,
 } from "./mission-claims";
 
@@ -267,5 +268,74 @@ describe("detectSecurityBlock", () => {
     expect(block?.signal).toBe("binary not allowed");
     expect(block?.excerpt).toContain('binary "docker" is not allowed');
     expect(block?.excerpt.length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe("detectUnaccomplishedGoal", () => {
+  // Final live M3 (2026-11-02) : echec honnete clos `succeeded`
+  // car "recopier" n'etait dans aucun motif de refus.
+  const M3 =
+    "Impossible de recopier missing.txt : read_file a retourné " +
+    '"file not found: missing.txt" et `ls` montre que le workspace ' +
+    "ne contient que notes.txt.";
+  const FAILED = [{ tool: "read_file", ok: false }];
+  const MIXED = [
+    { tool: "read_file", ok: false },
+    { tool: "run_shell", ok: true },
+  ];
+  const CLEAN = [{ tool: "read_file", ok: true }];
+
+  it("flags corroborated inability, whatever the verb", () => {
+    for (const report of [
+      M3,
+      "Lu le workspace. Impossible de retrouver les archives 2020.",
+      "Je constate qu'il m'est impossible de lire ce fichier.",
+      "Je ne peux pas ouvrir ce repertoire.",
+      "Impossible to copy missing.txt: file not found.",
+      "I found it impossible to reach the target.",
+      "I could not read the file.",
+      "Couldn't parse the response.",
+      "Unable to locate the dataset.",
+    ]) {
+      expect(detectUnaccomplishedGoal(report, MIXED)).not.toBeNull();
+      expect(detectUnaccomplishedGoal(report, FAILED)).not.toBeNull();
+      expect(detectUnaccomplishedGoal(report, [])).not.toBeNull();
+    }
+  });
+
+  it("trusts a clean run record over caveat wording", () => {
+    // Meme formulation, dossier tout-succes : mise en garde, pas aveu.
+    for (const report of [
+      M3,
+      "Lu et résumé. Impossible de récupérer les archives 2020 (non demandées).",
+      "Done. I could not have asked for a clearer dataset.",
+    ]) {
+      expect(detectUnaccomplishedGoal(report, CLEAN)).toBeNull();
+    }
+  });
+
+  it("ignores impersonal, boastful and negated inability", () => {
+    for (const report of [
+      "Il est impossible de s'en passer en production.",
+      "It is impossible to overstate the importance of tests.",
+      "Terminé et vérifié. Impossible de faire mieux.",
+      "Done and verified. Impossible to do better.",
+      "Il est impossible de ne pas conclure au succès.",
+      "The service could not have started earlier.",
+      "Analyse livrée : le problème est impossible à résoudre en général.",
+    ]) {
+      expect(detectUnaccomplishedGoal(report, MIXED)).toBeNull();
+      expect(detectUnaccomplishedGoal(report, [])).toBeNull();
+    }
+  });
+
+  it("returns a bounded excerpt without leading punctuation", () => {
+    const signal = detectUnaccomplishedGoal(
+      "Lu le workspace. Impossible de retrouver les archives.",
+      FAILED
+    );
+    expect(signal?.excerpt).toContain("Impossible de retrouver");
+    expect(signal?.excerpt.startsWith(".")).toBe(false);
+    expect(signal?.excerpt.length).toBeLessThanOrEqual(120);
   });
 });
