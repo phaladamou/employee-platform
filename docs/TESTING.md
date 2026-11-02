@@ -30,7 +30,7 @@ adversarial cases, and honest coverage notes.
 | Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
 | Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **51 files, 447 tests, all green** (Vitest) **+ 30 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **51 files, 453 tests, all green** (Vitest) **+ 30 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -90,12 +90,14 @@ Scripted tests use a fake provider. The live runs below used Meta Muse
 Notes on T6a/b/c: no `EMPLOYEE_SANDBOX_BIN` in that codespace, so the
 Node fallback backend (`cwd`-only, no Landlock) applied — both refusals
 came from the TS policy layers (`computer.binaries`, `toolRoot`), not
-from the kernel. The honest-refusal → `needs_review` heuristic did not
-trigger on either Final (wording + at least one successful supporting
-call), hence the `succeeded` verdicts with "cannot do" reports. Open
-question, deliberately not fixed during the run: whether a Final that
-truthfully reports its own mission as unfeasible should keep
-`succeeded` or move to `needs_review`.
+from the kernel. At the time, the honest-refusal → `needs_review`
+heuristic did not trigger on either Final (wording + at least one
+successful supporting call), hence the `succeeded` verdicts with
+"cannot do" reports. Resolved after the run: a dedicated security-block
+detector (`detectSecurityBlock`, trigger (e)) now moves such Finals to
+`needs_review` — replaying T6b/T6c today yields `needs_review` with a
+`report signals a security block (…)` reason (pinned by regression
+tests on the verbatim Finals).
 
 Replay recipe (throwaway harness, kept out of the repo): copy
 `core/employee` to `.tmp/emp`, rewrite relative imports with a `.ts`
@@ -182,6 +184,11 @@ Each case below is a committed regression test, not a one-off script:
   `echo` are pinned present in all 6 profiles — removing them from
   any profile breaks the suite, so no employee can silently lose the
   ability to inspect its own workspace.
+- **Honest security block** (`missions/mission-claims.test.ts`,
+  `runtime/employee-runtime.test.ts`, live T6b/T6c): a Final quoting
+  a refused binary or a workspace escape goes to `needs_review`
+  ("security block"), even when other calls succeeded — an honestly
+  blocked agent is not a successful one.
 
 ## 5. Coverage — what is tested and what is not
 

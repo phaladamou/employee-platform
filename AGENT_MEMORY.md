@@ -501,11 +501,18 @@ Leçons dures :
   (`.tmp/live-computer.ts` + `.tmp/emp`), log + scratch
   `/tmp/live-computer.log` + `/tmp/emp-live-computer/` (éphémères).
   Recette de rejeu dans TESTING.md §3.
+- Verdict blocage sécu (54d80cb) : `detectSecurityBlock()`
+  (chaînes machine exactes + paraphrases FR+EN but-scopées,
+  fail-soft) + étape 6 runtime après les refus → `needs_review`
+  `report signals a security block (…)`. Régression : Finals T6b/T6c
+  verbatim (unit + runtime) + 8 garde-fous FP. Docs triggers (e)
+  (ERROR_HANDLING, TESTING §4 + T6 résolus). Flaky connu : 1 échec
+  `worker-loop` orphelins sous charge, vert en solo + au re-run.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-01 : code @ b2c4167 — 447/447 vitest (51
+- **État 2026-11-02 : code @ 54d80cb — 453/453 vitest (51
   fichiers) + 30/30 node lib/employees, `tsc` propre.**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
