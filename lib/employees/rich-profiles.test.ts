@@ -151,62 +151,32 @@ describe("rich talent profiles", () => {
     assert.throws(() => validateRichProfileInput(["read_file"], ["x"]));
   });
 
-  it("seeds a consumption profile for all 6 talents", () => {
-    const expected: Record<string, unknown> = {
-      "atlas-software-engineer": {
-        estimatedTokensPerMission: 5000,
-        estimatedCpuSecondsPerMission: 30,
-        minMemoryMb: 512,
-        minDiskMb: 100,
-        networkRequired: false,
-      },
-      "nova-devops-engineer": {
-        estimatedTokensPerMission: 3000,
-        estimatedCpuSecondsPerMission: 60,
-        minMemoryMb: 1024,
-        minDiskMb: 500,
-        networkRequired: true,
-      },
-      "aria-data-analyst": {
-        estimatedTokensPerMission: 2000,
-        estimatedCpuSecondsPerMission: 20,
-        minMemoryMb: 512,
-        minDiskMb: 200,
-        networkRequired: false,
-      },
-      "newton-researcher": {
-        estimatedTokensPerMission: 3000,
-        estimatedCpuSecondsPerMission: 15,
-        minMemoryMb: 256,
-        minDiskMb: 50,
-        networkRequired: false,
-      },
-      "milo-content-strategist": {
-        estimatedTokensPerMission: 1500,
-        estimatedCpuSecondsPerMission: 10,
-        minMemoryMb: 256,
-        minDiskMb: 50,
-        networkRequired: false,
-      },
-      "sana-seo-analyst": {
-        estimatedTokensPerMission: 1500,
-        estimatedCpuSecondsPerMission: 10,
-        minMemoryMb: 256,
-        minDiskMb: 50,
-        networkRequired: false,
-      },
+  it("seeds measured consumption for Atlas, none elsewhere", () => {
+    // Atlas : calibration mesuree N=1 (job succeeded, tokens et temps
+    // reels). Les autres talents n'ont pas de chiffres : mesure,
+    // pas invention (l'UI affiche "No data yet").
+    const measured = {
+      estimatedTokensPerMission: 2130,
+      estimatedCpuSecondsPerMission: 5.1,
+      minMemoryMb: 125,
+      minDiskMb: 1,
+      networkRequired: false,
     };
-    assert.deepEqual(Object.keys(RICH_PROFILES).sort(), Object.keys(expected).sort());
+    assert.deepEqual(
+      RICH_PROFILES["atlas-software-engineer"].consumptionProfile,
+      measured
+    );
     for (const [spec, profile] of Object.entries(RICH_PROFILES)) {
-      assert.deepEqual(profile.consumptionProfile, expected[spec]);
-      // La graine passe sa propre validation (migrate bruyant sinon).
-      assert.deepEqual(
-        validateRichProfileInput(["read_file"], {
-          consumptionProfile: profile.consumptionProfile,
-        }),
-        { consumptionProfile: expected[spec] }
-      );
+      if (spec === "atlas-software-engineer") continue;
+      assert.equal(profile.consumptionProfile, undefined);
     }
+    // La graine passe sa propre validation (migrate bruyant sinon).
+    assert.deepEqual(
+      validateRichProfileInput(["read_file"], {
+        consumptionProfile: measured,
+      }),
+      { consumptionProfile: measured }
+    );
   });
 
   it("rejects malformed consumption profiles", () => {

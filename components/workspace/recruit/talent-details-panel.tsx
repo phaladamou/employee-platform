@@ -233,40 +233,47 @@ export function TalentDetailsPanel({
         </div>
       )}
 
-      {talent.consumption && (
-        <div>
-          <SectionTitle
-            icon={<ZapIcon aria-hidden="true" className="size-3.5" />}
-          >
-            {t("details.consumption")}
-          </SectionTitle>
+      <div>
+        <SectionTitle
+          icon={<ZapIcon aria-hidden="true" className="size-3.5" />}
+        >
+          {t("details.consumption")}
+        </SectionTitle>
+        {talent.consumption ? (
+          <>
+            <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+              {t("details.consumptionCost", {
+                tokens:
+                  talent.consumption.estimatedTokensPerMission.toLocaleString(
+                    "en-US"
+                  ),
+                cpu: talent.consumption.estimatedCpuSecondsPerMission,
+              })}
+            </p>
+            <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-[13.5px] leading-relaxed text-muted-foreground">
+              <li>
+                {t("details.consumptionMemory", {
+                  mb: talent.consumption.minMemoryMb,
+                })}
+              </li>
+              <li>
+                {t("details.consumptionDisk", {
+                  mb: talent.consumption.minDiskMb,
+                })}
+              </li>
+              <li>
+                {talent.consumption.networkRequired
+                  ? t("details.consumptionNetworkYes")
+                  : t("details.consumptionNetworkNo")}
+              </li>
+            </ul>
+          </>
+        ) : (
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-            {t("details.consumptionCost", {
-              tokens: talent.consumption.estimatedTokensPerMission.toLocaleString(
-                "en-US"
-              ),
-              cpu: talent.consumption.estimatedCpuSecondsPerMission,
-            })}
+            {t("details.consumptionNoData")}
           </p>
-          <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-[13.5px] leading-relaxed text-muted-foreground">
-            <li>
-              {t("details.consumptionMemory", {
-                mb: talent.consumption.minMemoryMb,
-              })}
-            </li>
-            <li>
-              {t("details.consumptionDisk", {
-                mb: talent.consumption.minDiskMb,
-              })}
-            </li>
-            <li>
-              {talent.consumption.networkRequired
-                ? t("details.consumptionNetworkYes")
-                : t("details.consumptionNetworkNo")}
-            </li>
-          </ul>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

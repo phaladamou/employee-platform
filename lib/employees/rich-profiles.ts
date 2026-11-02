@@ -62,11 +62,15 @@ const ATLAS_PROFILE: RichTalentProfile = {
   ],
   verification:
     "An assignment is considered successfully completed when the requested changes have been implemented within the authorized scope, the applicable verification checks have been performed, and the final report accurately describes the results. A successful execution is not merely a plausible code response. It is a traceable engineering outcome.",
+  // Calibration mesuree N=1 (2026-11-02, mission hello.py + ls,
+  // job succeeded) : tokens et temps reels, memoire = pic RSS
+  // worker, disque = workspace utilise (arrondi au Mo). Les autres
+  // talents n'ont pas de chiffres : mesure, pas invention.
   consumptionProfile: {
-    estimatedTokensPerMission: 5000,
-    estimatedCpuSecondsPerMission: 30,
-    minMemoryMb: 512,
-    minDiskMb: 100,
+    estimatedTokensPerMission: 2130,
+    estimatedCpuSecondsPerMission: 5.1,
+    minMemoryMb: 125,
+    minDiskMb: 1,
     networkRequired: false,
   },
 };
@@ -121,13 +125,6 @@ const NOVA_PROFILE: RichTalentProfile = {
   ],
   verification:
     "A reproducible and verifiable infrastructure improvement that stays within the authorized operational scope.",
-  consumptionProfile: {
-    estimatedTokensPerMission: 3000,
-    estimatedCpuSecondsPerMission: 60,
-    minMemoryMb: 1024,
-    minDiskMb: 500,
-    networkRequired: true,
-  },
 };
 
 const ARIA_PROFILE: RichTalentProfile = {
@@ -174,13 +171,6 @@ const ARIA_PROFILE: RichTalentProfile = {
   ],
   verification:
     "An analysis that answers the assigned question as accurately as the available data permits, with transparent methodology and clearly stated limitations.",
-  consumptionProfile: {
-    estimatedTokensPerMission: 2000,
-    estimatedCpuSecondsPerMission: 20,
-    minMemoryMb: 512,
-    minDiskMb: 200,
-    networkRequired: false,
-  },
 };
 
 const NEWTON_PROFILE: RichTalentProfile = {
@@ -226,13 +216,6 @@ const NEWTON_PROFILE: RichTalentProfile = {
   ],
   verification:
     "A traceable and balanced answer to the research question, with conclusions proportionate to the available evidence.",
-  consumptionProfile: {
-    estimatedTokensPerMission: 3000,
-    estimatedCpuSecondsPerMission: 15,
-    minMemoryMb: 256,
-    minDiskMb: 50,
-    networkRequired: false,
-  },
 };
 
 const MILO_PROFILE: RichTalentProfile = {
@@ -278,13 +261,6 @@ const MILO_PROFILE: RichTalentProfile = {
   ],
   verification:
     "Content that communicates the intended information accurately, clearly, and consistently with the organization's objectives.",
-  consumptionProfile: {
-    estimatedTokensPerMission: 1500,
-    estimatedCpuSecondsPerMission: 10,
-    minMemoryMb: 256,
-    minDiskMb: 50,
-    networkRequired: false,
-  },
 };
 
 const SANA_PROFILE: RichTalentProfile = {
@@ -330,13 +306,6 @@ const SANA_PROFILE: RichTalentProfile = {
   ],
   verification:
     "A clear, evidence-based set of SEO recommendations that the organization can evaluate, implement, and measure.",
-  consumptionProfile: {
-    estimatedTokensPerMission: 1500,
-    estimatedCpuSecondsPerMission: 10,
-    minMemoryMb: 256,
-    minDiskMb: 50,
-    networkRequired: false,
-  },
 };
 
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {

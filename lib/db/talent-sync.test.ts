@@ -77,7 +77,7 @@ describe("talent catalog sync", () => {
     }
   });
 
-  it("syncs every rich profile with its 9 keys", async () => {
+  it("syncs every rich profile with its keys", async () => {
     const calls: RecordedCall[] = [];
     await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
 
@@ -149,8 +149,9 @@ describe("talent catalog sync", () => {
     expect(sanaValues.responsibilities).toHaveLength(5);
     expect(sanaValues.tools).toHaveLength(2);
 
-    // Graine seulement : les 9 cles riches partent a l'insertion,
+    // Graine seulement : les cles riches partent a l'insertion,
     // jamais dans la clause de conflit (la base garde ses contenus).
+    // consumptionProfile n'existe qu'en graine Atlas (mesure N=1).
     const updates = calls.filter((c) => c.op === "update");
     expect(updates).toHaveLength(6);
     for (const update of updates) {
@@ -163,7 +164,6 @@ describe("talent catalog sync", () => {
         "boundaries",
         "deliverables",
         "verification",
-        "consumptionProfile",
       ]) {
         expect(key in update.values, `${update.values.spec}.${key}`).toBe(true);
         expect(key in (update.set ?? {}), `${update.values.spec}.set.${key}`).toBe(
@@ -176,33 +176,23 @@ describe("talent catalog sync", () => {
     }
   });
 
-  it("backfills consumption on existing rows, always scoped", async () => {
+  it("backfills measured consumption, always scoped", async () => {
     const calls: RecordedCall[] = [];
     await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
 
-    // Un rattrapage par talent, avec les valeurs de sa graine...
+    // Seul Atlas a une graine mesuree : un seul rattrapage, avec ses
+    // valeurs exactes, et toujours sous condition (jamais d'UPDATE nu
+    // qui ecraserait les contenus poses via PUT).
     const backfills = calls.filter((c) => c.op === "backfill");
-    expect(backfills).toHaveLength(6);
-    for (const backfill of backfills) {
-      const profile = backfill.set?.consumptionProfile as Record<string, any>;
-      expect(profile).toBeDefined();
-      expect(typeof profile.estimatedTokensPerMission).toBe("number");
-      expect(typeof profile.networkRequired).toBe("boolean");
-      // ... et toujours sous condition (jamais d'UPDATE nu qui
-      // ecraserait les contenus poses via PUT).
-      expect(backfill.where).toBeDefined();
-    }
-    // Valeurs exactes d'Atlas et Nova (seul reseau requis).
-    const profiles = backfills.map(
-      (c) => c.set?.consumptionProfile as Record<string, any>
-    );
-    expect(
-      profiles.find((p) => p.estimatedTokensPerMission === 5000)
-    ).toMatchObject({ minMemoryMb: 512, networkRequired: false });
-    expect(profiles.filter((p) => p.networkRequired)).toHaveLength(1);
-    expect(
-      profiles.find((p) => p.networkRequired === true)
-    ).toMatchObject({ estimatedCpuSecondsPerMission: 60, minDiskMb: 500 });
+    expect(backfills).toHaveLength(1);
+    expect(backfills[0].set?.consumptionProfile).toEqual({
+      estimatedTokensPerMission: 2130,
+      estimatedCpuSecondsPerMission: 5.1,
+      minMemoryMb: 125,
+      minDiskMb: 1,
+      networkRequired: false,
+    });
+    expect(backfills[0].where).toBeDefined();
   });
 
   it("fails loudly when the seed claims an unimplemented tool", async () => {

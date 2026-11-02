@@ -106,7 +106,12 @@ export interface RichTalentProfile {
   boundaries: string[];
   deliverables: string[];
   verification: string;
-  consumptionProfile: ConsumptionProfile;
+  /**
+   * Moyenne mesuree sur missions reelles (calibration). Absente =
+   * jamais mesure : l'UI affiche "No data yet", jamais un chiffre
+   * invente. Renseignee par runs de calibration (PUT ensuite).
+   */
+  consumptionProfile?: ConsumptionProfile;
 }
 
 // Cout estime d'une mission : tokens, CPU, plancher memoire/disque
