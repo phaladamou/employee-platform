@@ -16,6 +16,12 @@ export interface EmployeeClient {
   listHires(): Promise<readonly Employment[]>;
 
   /**
+   * Licencie un engagement (terminatedAt pose, workspace archive,
+   * idempotent). Null si inconnu ou etranger au tenant.
+   */
+  terminate(employmentId: string): Promise<Employment | null>;
+
+  /**
    * Soumet une mission a un employe recrute (engagement actif requis)
    * et retourne le job queued correspondant. `acceptance` (optionnel)
    * declare les effets machine-verifiables : le Final qui ne les

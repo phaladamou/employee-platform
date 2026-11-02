@@ -300,6 +300,57 @@ describe("createEmployeeHandler", () => {
     expect(mission.status).toBe(200);
   });
 
+  it("terminates engagements and blocks further submits", async () => {
+    const { handle, tokens } = await makeWorld();
+    await call(handle, "POST", "/v1/employees", {
+      token: tokens.admin,
+      body: { name: "Aria", role: "Dev" },
+    });
+    const catalog = (await call(handle, "GET", "/v1/employees", {
+      token: tokens.employer,
+    })).json as { id: string }[];
+    const employeeId = catalog[0].id;
+
+    const hired = (await call(handle, "POST", "/v1/hires", {
+      token: tokens.employer,
+      body: { employeeId },
+    })).json as { id: string; terminatedAt: string | null };
+    expect(hired.terminatedAt).toBeNull();
+
+    const terminated = await call(
+      handle,
+      "POST",
+      `/v1/hires/${hired.id}/terminate`,
+      { token: tokens.employer }
+    );
+    expect(terminated.status).toBe(200);
+    expect(
+      (terminated.json as { terminatedAt: string | null }).terminatedAt
+    ).not.toBeNull();
+
+    // Idempotent : relicencier renvoie le meme etat.
+    const again = await call(handle, "POST", `/v1/hires/${hired.id}/terminate`, {
+      token: tokens.employer,
+    });
+    expect(again.status).toBe(200);
+
+    // Plus d'engagement actif : missionnement refuse.
+    const refused = await call(handle, "POST", "/v1/jobs", {
+      token: tokens.employer,
+      body: { employeeId, prompt: "Work" },
+    });
+    expect(refused.status).toBe(403);
+
+    // Engagement inconnu : 404, pas de fuite.
+    const missing = await call(
+      handle,
+      "POST",
+      "/v1/hires/hire_missing/terminate",
+      { token: tokens.employer }
+    );
+    expect(missing.status).toBe(404);
+  });
+
   it("accepts valid acceptance criteria, rejects malformed ones", async () => {
     const { handle, tokens } = await makeWorld();
     await call(handle, "POST", "/v1/employees", {
@@ -355,10 +406,10 @@ describe("createEmployeeHandler", () => {
       token: tokens.employer,
     })).json as { id: string }[];
     const employeeId = catalog[0].id;
-    await call(handle, "POST", "/v1/hires", {
+    const hired = (await call(handle, "POST", "/v1/hires", {
       token: tokens.employer,
       body: { employeeId },
-    });
+    })).json as { id: string };
     const submitted = await call(handle, "POST", "/v1/jobs", {
       token: tokens.employer,
       body: { employeeId, prompt: "Secret" },
@@ -391,6 +442,20 @@ describe("createEmployeeHandler", () => {
         })
       ).status
     ).toBe(404);
+    // Le rival ne peut pas virer l'engagement d'autrui...
+    expect(
+      (
+        await call(handle, "POST", `/v1/hires/${hired.id}/terminate`, {
+          token: tokens.rival,
+        })
+      ).status
+    ).toBe(404);
+    // ... et l'engagement est toujours actif derriere.
+    const stillActive = await call(handle, "POST", "/v1/jobs", {
+      token: tokens.employer,
+      body: { employeeId, prompt: "Still hired" },
+    });
+    expect(stillActive.status).toBe(202);
     expect(
       (await call(handle, "GET", "/v1/jobs", { token: tokens.rival })).json
     ).toEqual([]);

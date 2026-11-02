@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   hirePath,
+  hireTerminatePath,
   jobCancelPath,
   jobEventsPath,
   jobPath,
@@ -13,6 +14,8 @@ import {
 describe("rest paths", () => {
   it("builds stable routes", () => {
     expect(hirePath()).toBe("/v1/hires");
+    expect(hireTerminatePath("hire_1")).toBe("/v1/hires/hire_1/terminate");
+    expect(hireTerminatePath("a/b")).toBe("/v1/hires/a%2Fb/terminate");
     expect(jobsPath()).toBe("/v1/jobs");
     expect(jobPath("job_1")).toBe("/v1/jobs/job_1");
     expect(jobPath("a/b")).toBe("/v1/jobs/a%2Fb");

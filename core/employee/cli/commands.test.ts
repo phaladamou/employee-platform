@@ -83,6 +83,7 @@ describe("runCommand", () => {
     const { ctx, lines } = await makeCtx({ token: "emo_x" });
 
     expect((await runCommand(["hire"], ctx)).exitCode).toBe(1);
+    expect((await runCommand(["terminate"], ctx)).exitCode).toBe(1);
     expect((await runCommand(["submit", "emp_1"], ctx)).exitCode).toBe(1);
     expect((await runCommand(["status"], ctx)).exitCode).toBe(1);
     expect((await runCommand(["cancel"], ctx)).exitCode).toBe(1);

@@ -100,6 +100,7 @@ describe("HttpEmployeeClient", () => {
 
     await client.hire("emp_1");
     await client.listHires();
+    await client.terminate("hire_1");
     await client.submit("emp_1", "Work");
     await client.status("job_1");
     await client.listJobs(["queued", "running"]);
@@ -113,6 +114,7 @@ describe("HttpEmployeeClient", () => {
     expect(simplified).toEqual([
       ["POST", "/v1/hires"],
       ["GET", "/v1/hires"],
+      ["POST", "/v1/hires/hire_1/terminate"],
       ["POST", "/v1/jobs"],
       ["GET", "/v1/jobs/job_1"],
       ["GET", "/v1/jobs?status=queued,running"],
@@ -124,12 +126,12 @@ describe("HttpEmployeeClient", () => {
       expect(call.headers.authorization).toBe("Bearer emo_secret");
     }
     expect(calls[0]?.body).toEqual({ employeeId: "emp_1" });
-    expect(calls[2]?.body).toEqual({ employeeId: "emp_1", prompt: "Work" });
+    expect(calls[3]?.body).toEqual({ employeeId: "emp_1", prompt: "Work" });
 
     await client.submit("emp_1", "Write", {
       acceptance: { files: [{ path: "a.txt" }] },
     });
-    expect(calls[7]?.body).toEqual({
+    expect(calls[8]?.body).toEqual({
       employeeId: "emp_1",
       prompt: "Write",
       acceptance: { files: [{ path: "a.txt" }] },
@@ -147,6 +149,7 @@ describe("HttpEmployeeClient", () => {
     expect(await client.status("job_x")).toBeNull();
     expect(await client.cancel("job_x")).toBeNull();
     expect(await client.mission("mis_x")).toBeNull();
+    expect(await client.terminate("hire_x")).toBeNull();
   });
 
   it("throws typed errors on API failures", async () => {

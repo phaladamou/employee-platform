@@ -348,6 +348,30 @@ async function cmdHire(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
   }
 }
 
+async function cmdTerminate(
+  args: ParsedArgs,
+  ctx: CliContext
+): Promise<CliResult> {
+  const [employmentId] = args.positionals;
+  if (!employmentId) {
+    ctx.output("Usage: terminate <employmentId>");
+    return { exitCode: 1 };
+  }
+  try {
+    const employment = await clientFor(ctx).terminate(employmentId);
+    if (!employment) {
+      ctx.output("Error: Employment not found");
+      return { exitCode: 1 };
+    }
+    ctx.output(
+      `terminated: ${employment.id} (employee ${employment.employeeId})`
+    );
+    return { exitCode: 0 };
+  } catch (error) {
+    return printError(ctx, error);
+  }
+}
+
 async function cmdSubmit(args: ParsedArgs, ctx: CliContext): Promise<CliResult> {
   const [employeeId, ...promptParts] = args.positionals;
   const prompt = promptParts.join(" ").trim();
@@ -775,6 +799,7 @@ function usage(ctx: CliContext): CliResult {
       "  recover [--stale-after-ms N]   requeue orphaned jobs",
       "  publish --name N --role R [--skills a,b] [--spec n@v] [--created-by C]   (admin)",
       "  hire <employeeId>",
+      "  terminate <employmentId>",
       "  submit <employeeId> \"<prompt>\" [--expect-file a,b] [--expect-contains a=text] [--expect-test \"cmd\"]",
       "  status <jobId>",
       "  cancel <jobId>",
@@ -818,6 +843,8 @@ export async function runCommand(
       return cmdPublish(args, ctx);
     case "hire":
       return cmdHire(args, ctx);
+    case "terminate":
+      return cmdTerminate(args, ctx);
     case "submit":
       return cmdSubmit(args, ctx);
     case "status":

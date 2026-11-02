@@ -526,4 +526,59 @@ describe("employee CLI adversarial", () => {
     expect(verifyReportDisclosure(proof, mission.report.content)).toBe(true);
     expect(verifyReportDisclosure(proof, "The eagle crashed.")).toBe(false);
   }, 60_000);
+
+  it("T6 terminates engagements with archival, rivals refused", async () => {
+    const { apiUrl, admin, alpha, beta } = await makeWorld(["FINAL: x."]);
+    const employeeId = await publish(apiUrl, admin);
+    const hired = await run(["hire", employeeId], { apiUrl, token: alpha });
+    expect(hired.exitCode).toBe(0);
+    const employmentId = value(hired.lines, "hired: ").split(" ")[0];
+
+    // Beta ne peut pas virer l'engagement d'alpha (CLI + HTTP).
+    const refused = await run(["terminate", employmentId], {
+      apiUrl,
+      token: beta,
+    });
+    expect(refused.exitCode).toBe(1);
+    expect(refused.lines.join("\n")).toContain("not found");
+    expect(
+      (
+        await fetchJson(
+          apiUrl,
+          beta,
+          "POST",
+          `/v1/hires/${employmentId}/terminate`
+        )
+      ).status
+    ).toBe(404);
+
+    // Preuve disque : le workspace existe avant, archive apres.
+    const live = join(dir, "workspaces", employeeId);
+    expect(await readdir(live)).toEqual([]);
+
+    const done = await run(["terminate", employmentId], {
+      apiUrl,
+      token: alpha,
+    });
+    expect(done.exitCode).toBe(0);
+    expect(done.lines.join("\n")).toContain(`terminated: ${employmentId}`);
+
+    await expect(readdir(live)).rejects.toThrow();
+    const archiveEntries = await readdir(join(dir, "workspaces", "archive"));
+    expect(archiveEntries.some((entry) => entry.startsWith(employeeId))).toBe(
+      true
+    );
+
+    // Engagement termine : missionnement refuse, relicenciement OK.
+    const noContract = await run(["submit", employeeId, "Work"], {
+      apiUrl,
+      token: alpha,
+    });
+    expect(noContract.exitCode).toBe(1);
+    const again = await run(["terminate", employmentId], {
+      apiUrl,
+      token: alpha,
+    });
+    expect(again.exitCode).toBe(0);
+  }, 60_000);
 });

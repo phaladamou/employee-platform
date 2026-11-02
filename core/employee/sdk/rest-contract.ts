@@ -11,6 +11,7 @@ import type { EmployeeProfile } from "../profile/employee-profile";
  * Routes client (tenant derive du token, jamais du body) :
  * - POST /v1/hires {employeeId} -> Employment (201, idempotent)
  * - GET /v1/hires -> Employment[]
+ * - POST /v1/hires/:id/terminate -> Employment (terminatedAt set)
  * - POST /v1/jobs {employeeId, prompt} -> EmployeeJob (202)
  * - GET /v1/jobs -> EmployeeJob[]
  * - GET /v1/jobs/:id -> EmployeeJob
@@ -61,6 +62,10 @@ export interface JobEvent {
 
 export function hirePath(): string {
   return `${EMPLOYEE_API_PREFIX}/hires`;
+}
+
+export function hireTerminatePath(employmentId: string): string {
+  return `${hirePath()}/${encodeURIComponent(employmentId)}/terminate`;
 }
 
 export function jobsPath(): string {

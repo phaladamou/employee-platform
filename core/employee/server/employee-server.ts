@@ -227,6 +227,25 @@ export function createEmployeeHandler(deps: EmployeeServerDeps) {
       return json(200, await clientFor(auth.employerId).listHires());
     }
 
+    const terminateMatch = /^\/v1\/hires\/([^/]+)\/terminate$/.exec(pathname);
+    if (method === "POST" && terminateMatch) {
+      const auth = await authenticate(req, "employments:write");
+      if (!auth) {
+        return apiError(401, "unauthorized", "Authentication required");
+      }
+      try {
+        const employment = await clientFor(auth.employerId).terminate(
+          decodeURIComponent(terminateMatch[1])
+        );
+        if (!employment) {
+          return apiError(404, "not_found", "Employment not found");
+        }
+        return json(200, employment);
+      } catch (error) {
+        return toHttpError(error);
+      }
+    }
+
     // --- Jobs ---
     if (method === "POST" && pathname === "/v1/jobs") {
       const auth = await authenticate(req, "missions:submit");

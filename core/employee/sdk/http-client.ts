@@ -4,6 +4,7 @@ import type { EmployeeMission } from "../missions/employee-mission";
 import type { EmployeeClient } from "./employee-client";
 import {
   hirePath,
+  hireTerminatePath,
   jobCancelPath,
   jobEventsPath,
   jobPath,
@@ -125,6 +126,13 @@ export class HttpEmployeeClient implements EmployeeClient {
 
   async listHires(): Promise<readonly Employment[]> {
     return this.request<readonly Employment[]>(hirePath());
+  }
+
+  async terminate(employmentId: string): Promise<Employment | null> {
+    return this.request<Employment | null>(
+      hireTerminatePath(employmentId),
+      { method: "POST" }
+    );
   }
 
   async submit(

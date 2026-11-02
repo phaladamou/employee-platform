@@ -77,6 +77,14 @@ export class InProcessEmployeeClient implements EmployeeClient {
     return this.employments.listByEmployer(this.employerId);
   }
 
+  async terminate(employmentId: string): Promise<Employment | null> {
+    const existing = await this.employments.get(employmentId);
+    if (!existing || existing.employerId !== this.employerId) {
+      return null;
+    }
+    return this.employments.terminate(employmentId);
+  }
+
   async submit(
     employeeId: string,
     prompt: string,

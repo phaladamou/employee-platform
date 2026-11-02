@@ -172,6 +172,26 @@ describe("InProcessEmployeeClient", () => {
     );
   });
 
+  it("terminates own engagements, never foreign ones", async () => {
+    const { client, creator } = await makeWorld("acme");
+    await creator.publishEmployee({ id: "emp_1", name: "Aria", role: "Dev" });
+    const hired = await client.hire("emp_1");
+
+    const terminated = await client.terminate(hired.id);
+    expect(terminated?.terminatedAt).not.toBeNull();
+    // Idempotent : relicencier retourne tel quel.
+    expect((await client.terminate(hired.id))?.id).toBe(hired.id);
+
+    // Engagement termine : plus de missionnement.
+    await expect(client.submit("emp_1", "Work")).rejects.toThrow(
+      "is not hired by this employer"
+    );
+
+    const rival = clientFor("rival");
+    expect(await rival.terminate(hired.id)).toBeNull();
+    expect(await client.terminate("hire_missing")).toBeNull();
+  });
+
   it("creates the employee workspace on hire", async () => {
     const { creator } = await makeWorld("acme");
     await creator.publishEmployee({ id: "emp_1", name: "Aria", role: "Dev" });
