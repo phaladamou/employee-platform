@@ -92,15 +92,24 @@ function HistoryTooltipContent() {
   const hasMore = data?.[data.length - 1]?.hasMore ?? false;
 
   return (
-    <div className="w-64 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
-      <div className="border-b border-border/60 px-3.5 py-3">
+    <div className="w-72 overflow-hidden rounded-lg border border-border/60 bg-card/95 shadow-md backdrop-blur-md">
+      <div className="flex items-center justify-between border-b border-border/60 py-2.5 pl-4 pr-3">
         <h3 className="text-xs font-semibold text-foreground">
           {t("history")}
         </h3>
+        <button
+          aria-label="Workspace"
+          className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+          onClick={() => router.push("/workspace")}
+          title="Workspace"
+          type="button"
+        >
+          <PenSquareIcon className="size-3.5" />
+        </button>
       </div>
 
       <div
-        className="max-h-64 overflow-y-auto"
+        className="max-h-72 overflow-y-auto"
         onScroll={(e) => {
           const el = e.currentTarget;
 
@@ -122,10 +131,10 @@ function HistoryTooltipContent() {
             {t("noChats")}
           </div>
         ) : (
-          <div className="space-y-0.5 p-1.5">
+          <div className="space-y-0.5 p-2">
             {chats.map((chat) => (
               <button
-                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12px] text-foreground/80 transition-colors hover:bg-muted/70 hover:text-foreground"
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12px] text-foreground/80 transition-colors hover:bg-muted/70 hover:text-foreground"
                 key={chat.id}
                 onClick={() => router.push(`/workspace/${chat.id}`)}
                 type="button"
