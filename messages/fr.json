@@ -43,14 +43,14 @@
       "currentTask": "Tâche en cours",
       "chef": "Manager"
     },
-    "release": {
-      "button": "Libérer",
-      "confirmTitle": "Libérer {name} ?",
-      "confirmDescription": "Voulez-vous vraiment libérer {name} ? Son espace de travail sera archivé et il perdra l'accès à vos données.",
+    "terminate": {
+      "button": "Licencier",
+      "confirmTitle": "Licencier {name} ?",
+      "confirmDescription": "Cela mettra fin à son contrat de travail. Il perdra l'accès à votre espace de travail et à vos données, mais son identité et son historique professionnel seront préservés. Il pourra être recruté par une autre organisation.",
       "cancel": "Annuler",
-      "confirm": "Libérer",
-      "success": "{name} a été libéré.",
-      "error": "Échec de la libération de {name}."
+      "confirm": "Licencier",
+      "success": "{name} a été licencié.",
+      "error": "Échec du licenciement de {name}."
     },
     "recruit": {
       "title": "Recruter un employé",

@@ -1,10 +1,10 @@
-// app/(chat)/api/employees/[id]/release/route.ts
+// app/(chat)/api/employees/[id]/terminate/route.ts
 import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
 import {
-  releaseEmployeeByAccount,
   requireAccountId,
+  terminateEmployeeByAccount,
 } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 
@@ -23,28 +23,28 @@ export async function POST(
       return NextResponse.json({ error: "Missing employee" }, { status: 400 });
     }
     const accountId = await requireAccountId(session.user.id);
-    const released = await releaseEmployeeByAccount(accountId, id);
-    if (!released) {
+    const terminated = await terminateEmployeeByAccount(accountId, id);
+    if (!terminated) {
       return NextResponse.json({ error: "Unknown employee" }, { status: 404 });
     }
     return NextResponse.json({
-      id: released.id,
-      status: released.status,
-      releasedAt: released.releasedAt?.toISOString() ?? null,
+      id: terminated.id,
+      status: terminated.status,
+      terminatedAt: terminated.terminatedAt?.toISOString() ?? null,
     });
   } catch (error) {
     if (
       error instanceof ChatbotError &&
-      error.cause === "Cannot release the Chef"
+      error.cause === "Cannot terminate the Chef"
     ) {
       return NextResponse.json(
-        { error: "Cannot release the Chef" },
+        { error: "Cannot terminate the Chef" },
         { status: 400 }
       );
     }
-    console.error("POST /api/employees/[id]/release DB Error:", error);
+    console.error("POST /api/employees/[id]/terminate DB Error:", error);
     return NextResponse.json(
-      { error: "Failed to release employee" },
+      { error: "Failed to terminate employee" },
       { status: 500 }
     );
   }

@@ -43,14 +43,14 @@
       "currentTask": "Current task",
       "chef": "Manager"
     },
-    "release": {
-      "button": "Release",
-      "confirmTitle": "Release {name}?",
-      "confirmDescription": "Are you sure you want to release {name}? His workspace will be archived and he will lose access to your data.",
+    "terminate": {
+      "button": "Terminate",
+      "confirmTitle": "Terminate {name}?",
+      "confirmDescription": "This will end his employment contract. He will lose access to your workspace and data, but his identity and professional history will be preserved. He can be recruited by another organization.",
       "cancel": "Cancel",
-      "confirm": "Release",
-      "success": "{name} has been released.",
-      "error": "Failed to release {name}."
+      "confirm": "Terminate",
+      "success": "{name} has been terminated.",
+      "error": "Failed to terminate {name}."
     },
     "recruit": {
       "title": "Recruit an employee",

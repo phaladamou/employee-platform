@@ -1283,7 +1283,7 @@ export async function getEmployeesByAccount(
       .where(
         and(
           eq(employee.accountId, accountId),
-          ne(employee.status, "released")
+          ne(employee.status, "terminated")
         )
       )
       .orderBy(asc(employee.hiredAt), asc(employee.createdAt));
@@ -1321,10 +1321,11 @@ export async function getEmployeeById(
   }
 }
 
-// Licenciement : statut -> "released" + releasedAt (ligne conservee,
-// audit). Id d'un autre compte -> null (404). Idempotent. Le Chef est
-// protege (400) : son existence est garantie par ensureChefForAccount.
-export async function releaseEmployeeByAccount(
+// Licenciement : statut -> "terminated" + terminatedAt (ligne
+// conservee, audit). Id d'un autre compte -> null (404). Idempotent.
+// Le Chef est protege (400) : son existence est garantie par
+// ensureChefForAccount.
+export async function terminateEmployeeByAccount(
   accountId: string,
   employeeId: string
 ): Promise<Employee | null> {
@@ -1336,27 +1337,27 @@ export async function releaseEmployeeByAccount(
     if (existing.kind === "chef") {
       throw new ChatbotError(
         "bad_request:database",
-        "Cannot release the Chef"
+        "Cannot terminate the Chef"
       );
     }
-    if (existing.status === "released") {
+    if (existing.status === "terminated") {
       return existing;
     }
     const db = await getDb();
-    const [released] = await db
+    const [terminated] = await db
       .update(employee)
-      .set({ status: "released", releasedAt: new Date() })
+      .set({ status: "terminated", terminatedAt: new Date() })
       .where(
         and(eq(employee.id, employeeId), eq(employee.accountId, accountId))
       )
       .returning();
-    return released ?? null;
+    return terminated ?? null;
   } catch (_error) {
     if (_error instanceof ChatbotError) throw _error;
-    console.error("releaseEmployeeByAccount DB Error:", _error);
+    console.error("terminateEmployeeByAccount DB Error:", _error);
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to release employee"
+      "Failed to terminate employee"
     );
   }
 }

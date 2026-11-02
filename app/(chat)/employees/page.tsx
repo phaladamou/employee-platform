@@ -168,7 +168,7 @@ export default function EmployeesPage() {
                         <EmployeeCard
                           employee={employee}
                           key={employee.id}
-                          onReleased={() => mutate()}
+                          onTerminated={() => mutate()}
                         />
                       ))}
                     </div>

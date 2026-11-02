@@ -43,10 +43,10 @@
       "currentTask": "当前任务",
       "chef": "经理"
     },
-    "release": {
+    "terminate": {
       "button": "解雇",
       "confirmTitle": "解雇 {name}？",
-      "confirmDescription": "确定要解雇 {name} 吗？他的工作区将被存档，他将失去对您数据的访问权限。",
+      "confirmDescription": "这将终止他的雇佣合同。他将失去对您的工作区和数据的访问权限，但他的身份和职业历史将被保留。他可以被其他组织招募。",
       "cancel": "取消",
       "confirm": "解雇",
       "success": "{name} 已被解雇。",

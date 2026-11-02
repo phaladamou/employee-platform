@@ -41,7 +41,7 @@ describe("EmployeeWorkspaces", () => {
     expect(path.endsWith(join("workspaces", "a_b_c"))).toBe(true);
   });
 
-  it("archives on release and preserves content for audit", async () => {
+  it("archives on terminate and preserves content for audit", async () => {
     const { store } = await workspaces();
     const path = await store.acquire("emp_9");
     await writeFile(join(path, "work.log"), "evidence");

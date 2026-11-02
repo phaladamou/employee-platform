@@ -48,33 +48,33 @@ const VISIBLE_TECHNOLOGIES = 3;
 
 export function EmployeeCard({
   employee,
-  onReleased,
+  onTerminated,
 }: {
   employee: Employee;
-  onReleased?: () => void;
+  onTerminated?: () => void;
 }) {
   const t = useTranslations("employees");
   const styles = STATUS_STYLES[employee.status];
   const [confirmOpen, setConfirmOpen] = useState(false);
 
-  const release = async () => {
+  const terminate = async () => {
     try {
       const response = await fetch(
-        `/api/employees/${encodeURIComponent(employee.id)}/release`,
+        `/api/employees/${encodeURIComponent(employee.id)}/terminate`,
         { method: "POST" }
       );
       if (!response.ok) {
-        throw new Error(`release failed: ${response.status}`);
+        throw new Error(`terminate failed: ${response.status}`);
       }
       toast({
         type: "success",
-        description: t("release.success", { name: employee.name }),
+        description: t("terminate.success", { name: employee.name }),
       });
-      onReleased?.();
+      onTerminated?.();
     } catch {
       toast({
         type: "error",
-        description: t("release.error", { name: employee.name }),
+        description: t("terminate.error", { name: employee.name }),
       });
     }
   };
@@ -162,34 +162,34 @@ export function EmployeeCard({
         <div className="mt-auto flex justify-end border-t border-border/60 pt-3">
           <AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
             <Button
-              data-testid="release-button"
+              data-testid="terminate-button"
               onClick={() => setConfirmOpen(true)}
               size="sm"
               type="button"
               variant="ghost"
             >
-              {t("release.button")}
+              {t("terminate.button")}
             </Button>
-            <AlertDialogContent data-testid="release-dialog">
+            <AlertDialogContent data-testid="terminate-dialog">
               <AlertDialogHeader>
                 <AlertDialogTitle>
-                  {t("release.confirmTitle", { name: employee.name })}
+                  {t("terminate.confirmTitle", { name: employee.name })}
                 </AlertDialogTitle>
                 <AlertDialogDescription>
-                  {t("release.confirmDescription", { name: employee.name })}
+                  {t("terminate.confirmDescription", { name: employee.name })}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
-                <AlertDialogCancel data-testid="release-cancel">
-                  {t("release.cancel")}
+                <AlertDialogCancel data-testid="terminate-cancel">
+                  {t("terminate.cancel")}
                 </AlertDialogCancel>
                 <AlertDialogAction
-                  data-testid="release-confirm"
+                  data-testid="terminate-confirm"
                   onClick={() => {
-                    void release();
+                    void terminate();
                   }}
                 >
-                  {t("release.confirm")}
+                  {t("terminate.confirm")}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
