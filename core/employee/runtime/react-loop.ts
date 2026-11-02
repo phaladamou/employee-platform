@@ -56,6 +56,15 @@ export interface ReactLoopResult {
    * Signal de moyens manquants pour la revue (needs_review).
    */
   readonly unknownTools: readonly string[];
+  /** Tokens cumules sur les appels LLM du run (0 = non mesures). */
+  readonly usage: LLMUsageTotal;
+}
+
+/** Compteurs cumules d'un run (sommes, jamais null ici). */
+export interface LLMUsageTotal {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly totalTokens: number;
 }
 
 /**
@@ -92,6 +101,16 @@ export async function runReasoningLoop(
   const toolCalls: ReactToolCall[] = [];
   const unknownTools: string[] = [];
   let steps = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let totalTokens = 0;
+  // Total prefere = somme des totaux declares ; repli = entrees +
+  // sorties quand le fournisseur ne renvoie que le detail.
+  const currentUsage = (): LLMUsageTotal => ({
+    inputTokens,
+    outputTokens,
+    totalTokens: totalTokens > 0 ? totalTokens : inputTokens + outputTokens,
+  });
 
   for (let step = 0; step < maxSteps; step += 1) {
     if (options.signal && (await options.signal.isCancelled())) {
@@ -103,6 +122,7 @@ export async function runReasoningLoop(
         error: "cancelled",
         cancelled: true,
         unknownTools: [...unknownTools],
+        usage: currentUsage(),
       };
     }
 
@@ -111,6 +131,9 @@ export async function runReasoningLoop(
     try {
       const response = await options.provider.generate({ messages });
       content = response.content;
+      inputTokens += response.usage?.inputTokens ?? 0;
+      outputTokens += response.usage?.outputTokens ?? 0;
+      totalTokens += response.usage?.totalTokens ?? 0;
     } catch (error) {
       return {
         completed: false,
@@ -120,6 +143,7 @@ export async function runReasoningLoop(
         error: error instanceof Error ? error.message : String(error),
         cancelled: false,
         unknownTools: [...unknownTools],
+        usage: currentUsage(),
       };
     }
 
@@ -137,6 +161,7 @@ export async function runReasoningLoop(
         error: null,
         cancelled: false,
         unknownTools: [...unknownTools],
+        usage: currentUsage(),
       };
     }
 
@@ -196,5 +221,6 @@ export async function runReasoningLoop(
     error: `mission not finished after ${maxSteps} steps`,
     cancelled: false,
     unknownTools: [...unknownTools],
+    usage: currentUsage(),
   };
 }

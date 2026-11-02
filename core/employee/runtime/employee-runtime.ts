@@ -41,6 +41,7 @@ import { formatSpecializationBlock } from "./react-protocol";
 import {
   DEFAULT_SANDBOX_DIR,
   runReasoningLoop,
+  type LLMUsageTotal,
   type ReactToolCall,
 } from "./react-loop";
 
@@ -64,6 +65,8 @@ export interface EmployeeRunResult {
   readonly steps: number;
   /** Outils executes, dans l'ordre. */
   readonly toolCalls: readonly ReactToolCall[];
+  /** Tokens cumules sur les appels LLM (0 = non mesures). */
+  readonly usage: LLMUsageTotal;
 }
 
 export interface EmployeeRuntimeOptions {
@@ -263,6 +266,7 @@ export class EmployeeRuntime {
         error: failed.error,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        usage: loop.usage,
         cancelled: loop.cancelled,
         needsReview: false,
         reviewReason: null,
@@ -319,6 +323,7 @@ export class EmployeeRuntime {
           error: failed.error,
           steps: loop.steps,
           toolCalls: loop.toolCalls,
+          usage: loop.usage,
           cancelled: false,
           needsReview: false,
           reviewReason: null,
@@ -344,6 +349,7 @@ export class EmployeeRuntime {
         error: null,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        usage: loop.usage,
         cancelled: false,
         needsReview: true,
         reviewReason: reason,
@@ -371,6 +377,7 @@ export class EmployeeRuntime {
         error: null,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        usage: loop.usage,
         cancelled: false,
         needsReview: true,
         reviewReason: reason,
@@ -404,6 +411,7 @@ export class EmployeeRuntime {
         error: null,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        usage: loop.usage,
         cancelled: false,
         needsReview: true,
         reviewReason: reason,
@@ -427,6 +435,7 @@ export class EmployeeRuntime {
         error: null,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        usage: loop.usage,
         cancelled: false,
         needsReview: true,
         reviewReason: reason,
@@ -451,6 +460,7 @@ export class EmployeeRuntime {
         error: null,
         steps: loop.steps,
         toolCalls: loop.toolCalls,
+        usage: loop.usage,
         cancelled: false,
         needsReview: true,
         reviewReason: reason,
@@ -467,6 +477,7 @@ export class EmployeeRuntime {
       error: null,
       steps: loop.steps,
       toolCalls: loop.toolCalls,
+      usage: loop.usage,
       cancelled: false,
       needsReview: false,
       reviewReason: null,

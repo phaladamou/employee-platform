@@ -57,6 +57,20 @@ class FailingProvider implements EmployeeLLMProvider {
   }
 }
 
+class MeteredProvider implements EmployeeLLMProvider {
+  readonly id = "metered";
+
+  constructor(private readonly replies: EmployeeLLMResponse[]) {}
+
+  async generate(_request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
+    const reply = this.replies.shift();
+    if (!reply) {
+      throw new Error("script exhausted");
+    }
+    return reply;
+  }
+}
+
 describe("EmployeeRuntime.run", () => {
   let dir = "";
 
@@ -71,6 +85,40 @@ describe("EmployeeRuntime.run", () => {
     dir = await mkdtemp(join(tmpdir(), "emp-runtime-"));
     return { sandboxRoot: dir };
   }
+
+  it("carries loop usage into the run result", async () => {
+    const provider = new MeteredProvider([
+      {
+        content: "FINAL: Done.",
+        model: "metered",
+        usage: { inputTokens: 50, outputTokens: 10, totalTokens: 60 },
+      },
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const result = await runtime.run(makeProfile(), makeMission());
+    expect(result.usage).toEqual({
+      inputTokens: 50,
+      outputTokens: 10,
+      totalTokens: 60,
+    });
+  });
+
+  it("reports zero usage when the provider counts nothing", async () => {
+    const provider = new ScriptedProvider(["FINAL: Done."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const result = await runtime.run(makeProfile(), makeMission());
+    expect(result.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    });
+  });
 
   it("runs a mission and produces a report", async () => {
     const provider = new ScriptedProvider(["FINAL: Churn is seasonal."]);

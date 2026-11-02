@@ -30,6 +30,50 @@ describe("FileJobStore", () => {
     return new FileJobStore({ directory: dir });
   }
 
+  it("persists and reloads consumption", async () => {
+    const store = await makeStore();
+    await store.enqueue(job("job_1"));
+    await store.claim("job_1", "worker-1");
+
+    const done = await store.markSucceeded("job_1", "worker-1", "Report", new Date(), {
+      tokensUsed: 150,
+      cpuSeconds: 1.5,
+      maxMemoryMb: 64,
+    });
+    expect(done.consumption).toEqual({
+      tokensUsed: 150,
+      cpuSeconds: 1.5,
+      maxMemoryMb: 64,
+    });
+    expect((await store.load("job_1"))?.consumption).toEqual({
+      tokensUsed: 150,
+      cpuSeconds: 1.5,
+      maxMemoryMb: 64,
+    });
+  });
+
+  it("reads legacy jobs without consumption as null", async () => {
+    const store = await makeStore();
+    const legacy = job("job_legacy") as unknown as Record<string, unknown>;
+    delete legacy.consumption;
+    await writeFile(join(dir, "job_job_legacy.json"), JSON.stringify(legacy), "utf8");
+
+    expect((await store.load("job_legacy"))?.consumption).toBeNull();
+  });
+
+  it("reads malformed consumption as null, never quarantined", async () => {
+    const store = await makeStore();
+    const broken = {
+      ...job("job_broken"),
+      consumption: { tokensUsed: "many", cpuSeconds: -1, maxMemoryMb: null },
+    };
+    await writeFile(join(dir, "job_job_broken.json"), JSON.stringify(broken), "utf8");
+
+    const loaded = await store.load("job_broken");
+    expect(loaded?.status).toBe("queued");
+    expect(loaded?.consumption).toBeNull();
+  });
+
   it("enqueues once and round-trips", async () => {
     const store = await makeStore();
 

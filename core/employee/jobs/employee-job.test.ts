@@ -128,6 +128,7 @@ describe("succeedEmployeeJob / failEmployeeJob", () => {
     expect(done.status).toBe("succeeded");
     expect(done.report).toBe("Report");
     expect(done.lockOwner).toBeNull();
+    expect(done.consumption).toBeNull();
 
     const failed = failEmployeeJob(
       claimEmployeeJob(queued(), "worker-1"),
@@ -150,6 +151,33 @@ describe("succeedEmployeeJob / failEmployeeJob", () => {
     expect(() => failEmployeeJob(queued(), "worker-1", "x")).toThrow(
       'Job job_1 cannot finish (status "queued")'
     );
+  });
+
+  it("records consumption once at finish, null by default", () => {
+    const consumption = { tokensUsed: 150, cpuSeconds: 1.5, maxMemoryMb: 64 };
+    const done = succeedEmployeeJob(
+      claimEmployeeJob(queued(), "worker-1"),
+      "worker-1",
+      "Report",
+      new Date(),
+      consumption
+    );
+    expect(done.consumption).toEqual(consumption);
+
+    const failed = failEmployeeJob(
+      claimEmployeeJob(queued(), "worker-1"),
+      "worker-1",
+      "boom",
+      new Date(),
+      consumption
+    );
+    expect(failed.consumption).toEqual(consumption);
+
+    // Omission = conservation (null pour les fins pre-mesure).
+    expect(
+      failEmployeeJob(claimEmployeeJob(queued(), "worker-1"), "worker-1", "x")
+        .consumption
+    ).toBeNull();
   });
 });
 

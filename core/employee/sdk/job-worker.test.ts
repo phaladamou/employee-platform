@@ -47,6 +47,20 @@ class FailingProvider implements EmployeeLLMProvider {
   }
 }
 
+class MeteredProvider implements EmployeeLLMProvider {
+  readonly id = "metered";
+
+  constructor(private readonly replies: EmployeeLLMResponse[]) {}
+
+  async generate(_request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
+    const reply = this.replies.shift();
+    if (!reply) {
+      throw new Error("script exhausted");
+    }
+    return reply;
+  }
+}
+
 describe("runJobOnce", () => {
   let dir = "";
 
@@ -118,6 +132,40 @@ describe("runJobOnce", () => {
     const mission = await deps.missions.load(job.missionId);
     expect(mission?.status).toBe("completed");
     expect((await deps.profiles.load("emp_1"))?.status).toBe("idle");
+  });
+
+  it("records measured consumption on the finished job", async () => {
+    const { deps } = await makeDeps(
+      new MeteredProvider([
+        {
+          content: "FINAL: Done.",
+          model: "metered",
+          usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
+        },
+      ])
+    );
+    const jobId = await seedPending(deps);
+
+    const finished = await runJobOnce(deps, jobId, "worker-1");
+
+    expect(finished?.consumption?.tokensUsed).toBe(120);
+    expect(typeof finished?.consumption?.cpuSeconds).toBe("number");
+    expect(finished?.consumption?.cpuSeconds).toBeGreaterThanOrEqual(0);
+    const memory = finished?.consumption?.maxMemoryMb;
+    expect(memory === null || typeof memory === "number").toBe(true);
+    // Persiste : rechargeable depuis le store.
+    expect((await deps.jobs.load(jobId))?.consumption?.tokensUsed).toBe(120);
+  });
+
+  it("records null tokens when the provider counts nothing", async () => {
+    const { deps } = await makeDeps(new ScriptedProvider(["FINAL: Done."]));
+    const jobId = await seedPending(deps);
+
+    const finished = await runJobOnce(deps, jobId, "worker-1");
+
+    // Non mesure, pas gratuit : null, jamais 0.
+    expect(finished?.consumption?.tokensUsed).toBeNull();
+    expect(typeof finished?.consumption?.cpuSeconds).toBe("number");
   });
 
   it("marks jobs failed on LLM outage", async () => {

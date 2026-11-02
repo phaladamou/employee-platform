@@ -1,5 +1,5 @@
 import { createPollingJobSignal } from "../jobs/job-signal";
-import type { EmployeeJob } from "../jobs/employee-job";
+import type { EmployeeJob, JobConsumption } from "../jobs/employee-job";
 import type { JobStore } from "../jobs/job-store";
 import type { EmployeeMemory } from "../memory/employee-memory";
 import type { EmployeeMemoryStore } from "../memory/memory-store";
@@ -10,6 +10,7 @@ import type { ProfileRegistry } from "../profiles/profile-registry";
 import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
 import { EmployeeRuntime } from "../runtime/employee-runtime";
 import type { EmployeeLLMProvider } from "../runtime/llm-provider";
+import type { LLMUsageTotal } from "../runtime/react-loop";
 import type { EmployeeTool, ToolContext } from "../tools/tool";
 
 export interface JobWorkerDeps {
@@ -37,6 +38,46 @@ export interface JobWorkerDeps {
 }
 
 export const DEFAULT_HEARTBEAT_INTERVAL_MS = 15_000;
+
+/** RSS worker en Mo, null hors Node (non mesurable, pas 0). */
+function sampleWorkerMemoryMb(): number | null {
+  if (
+    typeof process === "undefined" ||
+    typeof process.memoryUsage !== "function"
+  ) {
+    return null;
+  }
+  return process.memoryUsage().rss / (1024 * 1024);
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Consommation d'un run termine : tokens cumules (null si le
+ * fournisseur n'a rien compte), temps ecoule murale, pic RSS des
+ * echantillons debut/fin. Les annulations n'enregistrent rien.
+ */
+function buildRunConsumption(
+  usage: LLMUsageTotal,
+  startedAtMs: number,
+  memoryStartMb: number | null
+): JobConsumption {
+  const total =
+    usage.totalTokens > 0
+      ? usage.totalTokens
+      : usage.inputTokens + usage.outputTokens;
+  const memoryEndMb = sampleWorkerMemoryMb();
+  const samples = [memoryStartMb, memoryEndMb].filter(
+    (sample): sample is number => sample !== null
+  );
+  return {
+    tokensUsed: total > 0 ? total : null,
+    cpuSeconds: Math.round(Date.now() - startedAtMs) / 1000,
+    maxMemoryMb: samples.length > 0 ? round2(Math.max(...samples)) : null,
+  };
+}
 
 /**
  * Execute un job DEJA claimé par workerId : run du runtime avec
@@ -133,11 +174,19 @@ export async function runClaimedJob(
   heartbeatTimer?.unref?.();
 
   try {
+    const runStartedAtMs = Date.now();
+    const memoryStartMb = sampleWorkerMemoryMb();
     const result = await runtime.run(profile, mission);
+    const consumption = buildRunConsumption(
+      result.usage,
+      runStartedAtMs,
+      memoryStartMb
+    );
     await deps.missions.save(result.mission);
     await deps.profiles.save(result.profile);
 
     if (result.cancelled) {
+      // Annule : pas de facturation du partiel (documente).
       return deps.jobs.markCancelled(claimed.id, workerId);
     }
     if (result.needsReview && result.report) {
@@ -145,17 +194,27 @@ export async function runClaimedJob(
         claimed.id,
         workerId,
         result.report.content,
-        result.reviewReason ?? "flagged for review"
+        result.reviewReason ?? "flagged for review",
+        new Date(),
+        consumption
       );
     }
     if (result.error || !result.report) {
       return deps.jobs.markFailed(
         claimed.id,
         workerId,
-        result.error ?? "run produced no report"
+        result.error ?? "run produced no report",
+        new Date(),
+        consumption
       );
     }
-    return deps.jobs.markSucceeded(claimed.id, workerId, result.report.content);
+    return deps.jobs.markSucceeded(
+      claimed.id,
+      workerId,
+      result.report.content,
+      new Date(),
+      consumption
+    );
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     // Restauration best-effort : ne touche que le statut pose ici.

@@ -26,6 +26,12 @@ export interface EmployeeJob {
   readonly employeeId: string;
   readonly employerId: string;
   readonly status: JobStatus;
+  /**
+   * Consommation mesuree du run (worker), null quand rien n'a ete
+   * mesure (jobs legacy, annulations, fins pre-run). Posee une fois
+   * a la cloture, jamais recalculee ensuite.
+   */
+  readonly consumption: JobConsumption | null;
   /** Worker detenteur du verrou (claim), null hors running. */
   readonly lockOwner: string | null;
   /**
@@ -39,6 +45,21 @@ export interface EmployeeJob {
   readonly createdAt: string;
   readonly startedAt: string | null;
   readonly finishedAt: string | null;
+}
+
+/**
+ * Consommation mesuree d'un run (facturation / fiches) :
+ * - tokensUsed : total entrees + sorties, null si le fournisseur
+ *   n'a renvoye aucun compteur (non mesure, pas gratuit) ;
+ * - cpuSeconds : temps ecoule du run en secondes (horloge murale,
+ *   arrondi a la milliseconde) ;
+ * - maxMemoryMb : pic RSS du worker echantillonne en debut/fin de
+ *   run, null si non mesurable hors Node.
+ */
+export interface JobConsumption {
+  readonly tokensUsed: number | null;
+  readonly cpuSeconds: number;
+  readonly maxMemoryMb: number | null;
 }
 
 export function isTerminalJobStatus(status: JobStatus): boolean {
@@ -81,6 +102,7 @@ export function createEmployeeJob(input: {
     employeeId,
     employerId,
     status: "queued",
+    consumption: null,
     lockOwner: null,
     lastHeartbeatAt: null,
     report: null,
@@ -179,7 +201,8 @@ function finishJob(
   job: EmployeeJob,
   workerId: string,
   patch: Pick<EmployeeJob, "status" | "report" | "error">,
-  now: Date
+  now: Date,
+  consumption?: JobConsumption | null
 ): EmployeeJob {
   if (job.status !== "running" && job.status !== "cancellation_requested") {
     throw new Error(
@@ -193,6 +216,7 @@ function finishJob(
   return {
     ...job,
     ...patch,
+    consumption: consumption ?? job.consumption,
     lockOwner: null,
     finishedAt: now.toISOString(),
   };
@@ -202,7 +226,8 @@ export function succeedEmployeeJob(
   job: EmployeeJob,
   workerId: string,
   report: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  consumption?: JobConsumption | null
 ): EmployeeJob {
   if (!report.trim()) {
     throw new Error("Job report cannot be empty");
@@ -211,7 +236,8 @@ export function succeedEmployeeJob(
     job,
     workerId,
     { status: "succeeded", report, error: null },
-    now
+    now,
+    consumption
   );
 }
 
@@ -225,7 +251,8 @@ export function flagJobForReview(
   workerId: string,
   report: string,
   reason: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  consumption?: JobConsumption | null
 ): EmployeeJob {
   if (!report.trim()) {
     throw new Error("Job report cannot be empty");
@@ -237,7 +264,8 @@ export function flagJobForReview(
     job,
     workerId,
     { status: "needs_review", report, error: reason },
-    now
+    now,
+    consumption
   );
 }
 
@@ -245,7 +273,8 @@ export function failEmployeeJob(
   job: EmployeeJob,
   workerId: string,
   error: string,
-  now: Date = new Date()
+  now: Date = new Date(),
+  consumption?: JobConsumption | null
 ): EmployeeJob {
   if (!error.trim()) {
     throw new Error("Job error cannot be empty");
@@ -254,7 +283,8 @@ export function failEmployeeJob(
     job,
     workerId,
     { status: "failed", report: null, error },
-    now
+    now,
+    consumption
   );
 }
 

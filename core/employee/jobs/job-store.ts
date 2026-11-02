@@ -1,4 +1,8 @@
-import type { EmployeeJob, JobStatus } from "./employee-job";
+import type {
+  EmployeeJob,
+  JobConsumption,
+  JobStatus,
+} from "./employee-job";
 
 /**
  * Persistance des jobs. Contrat :
@@ -66,7 +70,8 @@ export interface JobStore {
     jobId: string,
     workerId: string,
     report: string,
-    now?: Date
+    now?: Date,
+    consumption?: JobConsumption | null
   ): Promise<EmployeeJob>;
 
   /** Echec worker (failEmployeeJob). */
@@ -74,7 +79,8 @@ export interface JobStore {
     jobId: string,
     workerId: string,
     error: string,
-    now?: Date
+    now?: Date,
+    consumption?: JobConsumption | null
   ): Promise<EmployeeJob>;
 
   /** Suspension pour revue (flagJobForReview). */
@@ -83,7 +89,8 @@ export interface JobStore {
     workerId: string,
     report: string,
     reason: string,
-    now?: Date
+    now?: Date,
+    consumption?: JobConsumption | null
   ): Promise<EmployeeJob>;
 
   /**

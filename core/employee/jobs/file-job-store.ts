@@ -10,6 +10,7 @@ import {
   flagJobForReview,
   heartbeatEmployeeJob,
   isJobStale,
+  type JobConsumption,
   type JobStatus,
   requestEmployeeJobCancellation,
   requeueStaleJob,
@@ -80,6 +81,35 @@ function asNullableString(value: unknown): string | null {
 }
 
 /** Reconstruit un job depuis JSON, null si invalide (jamais de throw). */
+function asConsumption(value: unknown): JobConsumption | null {
+  // Tolerant : jobs legacy (cle absente) et formes invalides ->
+  // null, jamais de quarantaine pour une mesure manquante.
+  if (!isRecord(value)) {
+    return null;
+  }
+  const tokensUsed = value.tokensUsed;
+  const cpuSeconds = value.cpuSeconds;
+  const maxMemoryMb = value.maxMemoryMb;
+  if (
+    (tokensUsed !== null && !isNonNegativeNumber(tokensUsed)) ||
+    !isNonNegativeNumber(cpuSeconds) ||
+    (maxMemoryMb !== null && !isNonNegativeNumber(maxMemoryMb))
+  ) {
+    return null;
+  }
+  return {
+    tokensUsed: tokensUsed as number | null,
+    cpuSeconds: cpuSeconds as number,
+    maxMemoryMb: maxMemoryMb as number | null,
+  };
+}
+
+function isNonNegativeNumber(value: unknown): value is number {
+  return (
+    typeof value === "number" && Number.isFinite(value) && value >= 0
+  );
+}
+
 function parseJob(raw: unknown): EmployeeJob | null {
   if (!isRecord(raw)) {
     return null;
@@ -106,6 +136,7 @@ function parseJob(raw: unknown): EmployeeJob | null {
     employeeId,
     employerId,
     status: status as JobStatus,
+    consumption: asConsumption(raw.consumption),
     lockOwner: asNullableString(raw.lockOwner),
     lastHeartbeatAt: asNullableString(raw.lastHeartbeatAt),
     report: asNullableString(raw.report),
@@ -465,10 +496,11 @@ export class FileJobStore implements JobStore {
     jobId: string,
     workerId: string,
     report: string,
-    now: Date = new Date()
+    now: Date = new Date(),
+    consumption?: JobConsumption | null
   ): Promise<EmployeeJob> {
     return this.finish(jobId, workerId, now, (current) =>
-      succeedEmployeeJob(current, workerId, report, now)
+      succeedEmployeeJob(current, workerId, report, now, consumption)
     );
   }
 
@@ -476,10 +508,11 @@ export class FileJobStore implements JobStore {
     jobId: string,
     workerId: string,
     error: string,
-    now: Date = new Date()
+    now: Date = new Date(),
+    consumption?: JobConsumption | null
   ): Promise<EmployeeJob> {
     return this.finish(jobId, workerId, now, (current) =>
-      failEmployeeJob(current, workerId, error, now)
+      failEmployeeJob(current, workerId, error, now, consumption)
     );
   }
 
@@ -488,10 +521,11 @@ export class FileJobStore implements JobStore {
     workerId: string,
     report: string,
     reason: string,
-    now: Date = new Date()
+    now: Date = new Date(),
+    consumption?: JobConsumption | null
   ): Promise<EmployeeJob> {
     return this.finish(jobId, workerId, now, (current) =>
-      flagJobForReview(current, workerId, report, reason, now)
+      flagJobForReview(current, workerId, report, reason, now, consumption)
     );
   }
 

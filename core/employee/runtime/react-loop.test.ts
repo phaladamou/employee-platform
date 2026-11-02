@@ -50,6 +50,20 @@ class FailingProvider implements EmployeeLLMProvider {
   }
 }
 
+class MeteredProvider implements EmployeeLLMProvider {
+  readonly id = "metered";
+
+  constructor(private readonly replies: EmployeeLLMResponse[]) {}
+
+  async generate(_request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
+    const reply = this.replies.shift();
+    if (!reply) {
+      throw new Error("script exhausted");
+    }
+    return reply;
+  }
+}
+
 function noisyTool(): EmployeeTool {
   return {
     name: "noise",
@@ -87,6 +101,97 @@ describe("runReasoningLoop", () => {
     dir = await mkdtemp(join(tmpdir(), "emp-loop-"));
     return { sandboxRoot: dir };
   }
+
+  it("accumulates provider usage across calls", async () => {
+    const provider = new MeteredProvider([
+      {
+        content: "FINAL: Done.",
+        model: "metered",
+        usage: { inputTokens: 100, outputTokens: 20, totalTokens: 120 },
+      },
+    ]);
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do it.",
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    expect(result.completed).toBe(true);
+    expect(result.usage).toEqual({
+      inputTokens: 100,
+      outputTokens: 20,
+      totalTokens: 120,
+    });
+  });
+
+  it("sums usage over several steps, total preferred", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "data.txt"), "42", "utf8");
+    const provider = new MeteredProvider([
+      {
+        content:
+          'ACTION: {"tool": "read_file", "args": {"path": "data.txt"}}',
+        model: "metered",
+        usage: { inputTokens: 100, outputTokens: 10, totalTokens: 110 },
+      },
+      {
+        content: "FINAL: 42.",
+        model: "metered",
+        usage: { inputTokens: 200, outputTokens: 5, totalTokens: 205 },
+      },
+    ]);
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Read.",
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+    expect(result.usage).toEqual({
+      inputTokens: 300,
+      outputTokens: 15,
+      totalTokens: 315,
+    });
+  });
+
+  it("falls back to inputs + outputs without declared totals", async () => {
+    const provider = new MeteredProvider([
+      {
+        content: "FINAL: Done.",
+        model: "metered",
+        usage: { inputTokens: 100, outputTokens: 20 },
+      },
+    ]);
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do it.",
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    expect(result.usage).toEqual({
+      inputTokens: 100,
+      outputTokens: 20,
+      totalTokens: 120,
+    });
+  });
+
+  it("reports zero usage when the provider counts nothing", async () => {
+    const provider = new ScriptedProvider(["FINAL: Done."]);
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do it.",
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    expect(result.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    });
+  });
 
   it("runs actions and finishes on FINAL", async () => {
     const ctx = await sandbox();

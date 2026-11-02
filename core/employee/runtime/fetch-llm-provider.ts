@@ -2,6 +2,7 @@ import type {
   EmployeeLLMProvider,
   EmployeeLLMRequest,
   EmployeeLLMResponse,
+  LLMCallUsage,
 } from "./llm-provider";
 
 export interface FetchLLMConfig {
@@ -65,6 +66,11 @@ export class FetchLLMProvider implements EmployeeLLMProvider {
     const data = (await response.json()) as {
       choices?: Array<{ message?: { content?: unknown } }>;
       model?: unknown;
+      usage?: {
+        prompt_tokens?: unknown;
+        completion_tokens?: unknown;
+        total_tokens?: unknown;
+      };
     };
     const content = data.choices?.[0]?.message?.content;
 
@@ -76,6 +82,53 @@ export class FetchLLMProvider implements EmployeeLLMProvider {
       content,
       model:
         typeof data.model === "string" ? data.model : this.config.model,
+      ...onlyUsage(data.usage),
     };
   }
+}
+
+function asTokenCount(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0
+    ? value
+    : undefined;
+}
+
+/**
+ * Traduit le compteur `usage` OpenAI (Meta Muse inclus) vers le
+ * format interne. Champs absents ou invalides = omis (jamais 0 :
+ * l'absence de mesure ne doit pas passer pour une mesure nulle).
+ */
+function onlyUsage(usage: {
+  prompt_tokens?: unknown;
+  completion_tokens?: unknown;
+  total_tokens?: unknown;
+} | null | undefined): { usage?: LLMCallUsage } {
+  if (typeof usage !== "object" || usage === null) {
+    return {};
+  }
+  const parsed: LLMCallUsage = {
+    inputTokens: asTokenCount(usage.prompt_tokens),
+    outputTokens: asTokenCount(usage.completion_tokens),
+    totalTokens: asTokenCount(usage.total_tokens),
+  };
+  if (
+    parsed.inputTokens === undefined &&
+    parsed.outputTokens === undefined &&
+    parsed.totalTokens === undefined
+  ) {
+    return {};
+  }
+  return {
+    usage: {
+      ...(parsed.inputTokens !== undefined
+        ? { inputTokens: parsed.inputTokens }
+        : {}),
+      ...(parsed.outputTokens !== undefined
+        ? { outputTokens: parsed.outputTokens }
+        : {}),
+      ...(parsed.totalTokens !== undefined
+        ? { totalTokens: parsed.totalTokens }
+        : {}),
+    },
+  };
 }
