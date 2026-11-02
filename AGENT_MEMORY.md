@@ -524,13 +524,21 @@ Leçons dures :
   Playwright gardes 401/redirect (parcours connecté non portable :
   OTP sans harnais — NOTE dans le spec). Flaky : 1 SSE
   `employee-server` sous charge, vert solo + re-run.
+- Sémantique Terminate (ex-Release) : tout emploi-lié renommé —
+  statuts/colonnes (`terminated`, `terminatedAt`, migration 0009 :
+  RENAME + UPDATE `released`→`terminated`, sûre que 0008 soit
+  appliquée ou non), route `[id]/terminate`, `terminateEmployeeByAccount`,
+  clés i18n `terminate.*`, testids, spec E2E. Libellés EN : bouton
+  "Terminate", dialogue "Terminate {name}? This will end his
+  employment contract…". Noyau déjà cohérent (`terminate` partout ;
+  `release()` restants = verrous/stream, sens différent).
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ d81a5a1 (noyau e0d5d1b) —
+- **État 2026-11-02 : code @ 5cc898a —
   456/456 vitest (51 fichiers) + 30/30 node lib/employees,
-  `tsc` propre, drizzle check OK, migration 0008 à appliquer
+  `tsc` propre, drizzle check OK, migrations 0008+0009 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
