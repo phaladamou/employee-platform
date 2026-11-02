@@ -65,6 +65,18 @@ export interface TalentProfile {
   boundaries?: string[];
   deliverables?: string[];
   verification?: string;
+  consumption?: ConsumptionProfile;
+}
+
+// Cout estime d'une mission (miroir UI de la colonne
+// TalentProfile.consumptionProfile, defini ici pour garder ce module
+// importable cote client).
+export interface ConsumptionProfile {
+  estimatedTokensPerMission: number;
+  estimatedCpuSecondsPerMission: number;
+  minMemoryMb: number;
+  minDiskMb: number;
+  networkRequired: boolean;
 }
 
 export const DEPARTMENTS: Department[] = [
@@ -162,6 +174,42 @@ export function asOptionalStringList(value: unknown): string[] | undefined {
   return items.length > 0 ? items : undefined;
 }
 
+// Garde-fou pour le JSON lu en base (colonne libre) : forme
+// invalide -> absent, l'UI masque la section.
+export function asConsumptionProfile(
+  value: unknown
+): ConsumptionProfile | null {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  const profile = value as Record<string, unknown>;
+  for (const key of [
+    "estimatedTokensPerMission",
+    "estimatedCpuSecondsPerMission",
+    "minMemoryMb",
+    "minDiskMb",
+  ]) {
+    const candidate = profile[key];
+    if (
+      typeof candidate !== "number" ||
+      !Number.isFinite(candidate) ||
+      candidate < 0
+    ) {
+      return null;
+    }
+  }
+  if (typeof profile.networkRequired !== "boolean") {
+    return null;
+  }
+  return {
+    estimatedTokensPerMission: profile.estimatedTokensPerMission as number,
+    estimatedCpuSecondsPerMission: profile.estimatedCpuSecondsPerMission as number,
+    minMemoryMb: profile.minMemoryMb as number,
+    minDiskMb: profile.minDiskMb as number,
+    networkRequired: profile.networkRequired,
+  };
+}
+
 // Ligne TalentProfile minimale (structurelle : pas d'import du schema
 // DB, ce module reste importable cote client).
 export interface TalentProfileRow {
@@ -181,6 +229,7 @@ export interface TalentProfileRow {
   boundaries: unknown;
   deliverables: unknown;
   verification: string | null;
+  consumptionProfile?: unknown;
   createdBy: string;
 }
 
@@ -199,6 +248,7 @@ export function formatTalentProfile(
 ): TalentProfile {
   const toolDetails = asToolDetails(row.tools);
   const environment = asRichText(row.executionEnvironment);
+  const consumption = asConsumptionProfile(row.consumptionProfile);
   return {
     spec: row.spec,
     version: row.version,
@@ -221,6 +271,7 @@ export function formatTalentProfile(
     ...optionalList("boundaries", row.boundaries),
     ...optionalList("deliverables", row.deliverables),
     ...(row.verification ? { verification: row.verification } : {}),
+    ...(consumption ? { consumption } : {}),
   };
 }
 

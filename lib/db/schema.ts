@@ -315,6 +315,8 @@ export const talentProfile = pgTable("TalentProfile", {
   boundaries: json("boundaries"),
   deliverables: json("deliverables"),
   verification: text("verification"),
+  // Profil de consommation estime (tokens, CPU, RAM, disque, reseau).
+  consumptionProfile: json("consumptionProfile"),
   createdBy: varchar("createdBy", { length: 120 })
     .notNull()
     .default("Cofoundator"),

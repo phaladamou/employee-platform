@@ -71,6 +71,13 @@
       "when": 1793579714517,
       "tag": "0009_employee_terminate",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793581748795,
+      "tag": "0010_talent_consumption",
+      "breakpoints": true
     }
   ]
 }

@@ -106,6 +106,18 @@ export interface RichTalentProfile {
   boundaries: string[];
   deliverables: string[];
   verification: string;
+  consumptionProfile: ConsumptionProfile;
+}
+
+// Cout estime d'une mission : tokens, CPU, plancher memoire/disque
+// et besoin reseau. Valeurs indicatives (graine), modifiables via
+// PUT comme le reste de la fiche riche.
+export interface ConsumptionProfile {
+  estimatedTokensPerMission: number;
+  estimatedCpuSecondsPerMission: number;
+  minMemoryMb: number;
+  minDiskMb: number;
+  networkRequired: boolean;
 }
 
 export interface TalentSeed {

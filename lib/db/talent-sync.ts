@@ -7,6 +7,7 @@
 // La connexion drizzle est injectee par l'appelant.
 import { join } from "node:path";
 
+import { and, eq, isNull } from "drizzle-orm";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
 
 import {
@@ -65,6 +66,20 @@ async function upsertTalents(db: SyncDb, seeds: TalentSeed[]): Promise<void> {
           updatedAt: new Date(),
         },
       });
+    // Rattrapage bases existantes : la graine ne remplit que les
+    // profils de consommation encore NULL (jamais d'ecrasement des
+    // contenus, y compris ceux poses via PUT).
+    if (rich.consumptionProfile) {
+      await db
+        .update(talentProfile)
+        .set({ consumptionProfile: rich.consumptionProfile })
+        .where(
+          and(
+            eq(talentProfile.spec, seed.spec),
+            isNull(talentProfile.consumptionProfile)
+          )
+        );
+    }
   }
 }
 

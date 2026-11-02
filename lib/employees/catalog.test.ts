@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 
 import {
   DEPARTMENTS,
+  asConsumptionProfile,
   asOptionalStringList,
   asRichText,
   asStringList,
@@ -148,6 +149,31 @@ describe("employee catalog", () => {
     assert.deepEqual(asOptionalStringList(["a", 1]), ["a"]);
   });
 
+  it("coerces consumption profiles (valid shape or absent)", () => {
+    const good = {
+      estimatedTokensPerMission: 5000,
+      estimatedCpuSecondsPerMission: 30,
+      minMemoryMb: 512,
+      minDiskMb: 100,
+      networkRequired: false,
+    };
+    assert.deepEqual(asConsumptionProfile(good), good);
+    assert.equal(asConsumptionProfile(null), null);
+    assert.equal(asConsumptionProfile(undefined), null);
+    assert.equal(asConsumptionProfile("cheap"), null);
+    assert.equal(asConsumptionProfile([]), null);
+    assert.equal(
+      asConsumptionProfile({ ...good, estimatedTokensPerMission: -1 }),
+      null
+    );
+    assert.equal(
+      asConsumptionProfile({ ...good, networkRequired: "yes" }),
+      null
+    );
+    const { minDiskMb: _dropped, ...missing } = good;
+    assert.equal(asConsumptionProfile(missing), null);
+  });
+
   it("formats a rich talent row", () => {
     const formatted = formatTalentProfile(
       {
@@ -167,11 +193,25 @@ describe("employee catalog", () => {
         boundaries: ["No prod."],
         deliverables: ["Code."],
         verification: "Done.",
+        consumptionProfile: {
+          estimatedTokensPerMission: 5000,
+          estimatedCpuSecondsPerMission: 30,
+          minMemoryMb: 512,
+          minDiskMb: 100,
+          networkRequired: false,
+        },
         createdBy: "Cofoundator",
       },
       true
     );
     assert.equal(formatted.overview, "Intro.");
+    assert.deepEqual(formatted.consumption, {
+      estimatedTokensPerMission: 5000,
+      estimatedCpuSecondsPerMission: 30,
+      minMemoryMb: 512,
+      minDiskMb: 100,
+      networkRequired: false,
+    });
     assert.deepEqual(formatted.tools, ["read_file"]);
     assert.deepEqual(formatted.toolDetails, [
       { name: "read_file", description: "Read." },

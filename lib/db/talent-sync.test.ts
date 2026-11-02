@@ -15,9 +15,10 @@ import { TALENT_CATALOG } from "../employees/talents";
 import { syncTalentCatalog } from "./talent-sync";
 
 interface RecordedCall {
-  op: "nothing" | "update";
+  op: "nothing" | "update" | "backfill";
   values: Record<string, unknown>;
   set?: Record<string, unknown>;
+  where?: unknown;
 }
 
 function stubDb(calls: RecordedCall[]) {
@@ -29,6 +30,13 @@ function stubDb(calls: RecordedCall[]) {
         },
         onConflictDoUpdate: async ({ set }: { set: Record<string, unknown> }) => {
           calls.push({ op: "update", values, set });
+        },
+      }),
+    }),
+    update: (_table: unknown) => ({
+      set: (set: Record<string, unknown>) => ({
+        where: async (where: unknown) => {
+          calls.push({ op: "backfill", values: {}, set, where });
         },
       }),
     }),
@@ -69,7 +77,7 @@ describe("talent catalog sync", () => {
     }
   });
 
-  it("syncs every rich profile with its 8 keys", async () => {
+  it("syncs every rich profile with its 9 keys", async () => {
     const calls: RecordedCall[] = [];
     await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
 
@@ -141,7 +149,7 @@ describe("talent catalog sync", () => {
     expect(sanaValues.responsibilities).toHaveLength(5);
     expect(sanaValues.tools).toHaveLength(2);
 
-    // Graine seulement : les 8 cles riches partent a l'insertion,
+    // Graine seulement : les 9 cles riches partent a l'insertion,
     // jamais dans la clause de conflit (la base garde ses contenus).
     const updates = calls.filter((c) => c.op === "update");
     expect(updates).toHaveLength(6);
@@ -155,6 +163,7 @@ describe("talent catalog sync", () => {
         "boundaries",
         "deliverables",
         "verification",
+        "consumptionProfile",
       ]) {
         expect(key in update.values, `${update.values.spec}.${key}`).toBe(true);
         expect(key in (update.set ?? {}), `${update.values.spec}.set.${key}`).toBe(
@@ -165,6 +174,35 @@ describe("talent catalog sync", () => {
       expect("version" in (update.set ?? {})).toBe(true);
       expect(update.set?.updatedAt).toBeInstanceOf(Date);
     }
+  });
+
+  it("backfills consumption on existing rows, always scoped", async () => {
+    const calls: RecordedCall[] = [];
+    await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
+
+    // Un rattrapage par talent, avec les valeurs de sa graine...
+    const backfills = calls.filter((c) => c.op === "backfill");
+    expect(backfills).toHaveLength(6);
+    for (const backfill of backfills) {
+      const profile = backfill.set?.consumptionProfile as Record<string, any>;
+      expect(profile).toBeDefined();
+      expect(typeof profile.estimatedTokensPerMission).toBe("number");
+      expect(typeof profile.networkRequired).toBe("boolean");
+      // ... et toujours sous condition (jamais d'UPDATE nu qui
+      // ecraserait les contenus poses via PUT).
+      expect(backfill.where).toBeDefined();
+    }
+    // Valeurs exactes d'Atlas et Nova (seul reseau requis).
+    const profiles = backfills.map(
+      (c) => c.set?.consumptionProfile as Record<string, any>
+    );
+    expect(
+      profiles.find((p) => p.estimatedTokensPerMission === 5000)
+    ).toMatchObject({ minMemoryMb: 512, networkRequired: false });
+    expect(profiles.filter((p) => p.networkRequired)).toHaveLength(1);
+    expect(
+      profiles.find((p) => p.networkRequired === true)
+    ).toMatchObject({ estimatedCpuSecondsPerMission: 60, minDiskMb: 500 });
   });
 
   it("fails loudly when the seed claims an unimplemented tool", async () => {

@@ -1,0 +1,1 @@
+ALTER TABLE "TalentProfile" ADD COLUMN "consumptionProfile" json;

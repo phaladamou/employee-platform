@@ -9,7 +9,7 @@
 // Comportement verrouille par rich-profiles.test.ts :
 // `node --test lib/employees/rich-profiles.test.ts`.
 
-import type { RichTalentProfile } from "./talents";
+import type { ConsumptionProfile, RichTalentProfile } from "./talents";
 
 const ATLAS_PROFILE: RichTalentProfile = {
   overview:
@@ -62,6 +62,13 @@ const ATLAS_PROFILE: RichTalentProfile = {
   ],
   verification:
     "An assignment is considered successfully completed when the requested changes have been implemented within the authorized scope, the applicable verification checks have been performed, and the final report accurately describes the results. A successful execution is not merely a plausible code response. It is a traceable engineering outcome.",
+  consumptionProfile: {
+    estimatedTokensPerMission: 5000,
+    estimatedCpuSecondsPerMission: 30,
+    minMemoryMb: 512,
+    minDiskMb: 100,
+    networkRequired: false,
+  },
 };
 
 const NOVA_PROFILE: RichTalentProfile = {
@@ -114,6 +121,13 @@ const NOVA_PROFILE: RichTalentProfile = {
   ],
   verification:
     "A reproducible and verifiable infrastructure improvement that stays within the authorized operational scope.",
+  consumptionProfile: {
+    estimatedTokensPerMission: 3000,
+    estimatedCpuSecondsPerMission: 60,
+    minMemoryMb: 1024,
+    minDiskMb: 500,
+    networkRequired: true,
+  },
 };
 
 const ARIA_PROFILE: RichTalentProfile = {
@@ -160,6 +174,13 @@ const ARIA_PROFILE: RichTalentProfile = {
   ],
   verification:
     "An analysis that answers the assigned question as accurately as the available data permits, with transparent methodology and clearly stated limitations.",
+  consumptionProfile: {
+    estimatedTokensPerMission: 2000,
+    estimatedCpuSecondsPerMission: 20,
+    minMemoryMb: 512,
+    minDiskMb: 200,
+    networkRequired: false,
+  },
 };
 
 const NEWTON_PROFILE: RichTalentProfile = {
@@ -205,6 +226,13 @@ const NEWTON_PROFILE: RichTalentProfile = {
   ],
   verification:
     "A traceable and balanced answer to the research question, with conclusions proportionate to the available evidence.",
+  consumptionProfile: {
+    estimatedTokensPerMission: 3000,
+    estimatedCpuSecondsPerMission: 15,
+    minMemoryMb: 256,
+    minDiskMb: 50,
+    networkRequired: false,
+  },
 };
 
 const MILO_PROFILE: RichTalentProfile = {
@@ -250,6 +278,13 @@ const MILO_PROFILE: RichTalentProfile = {
   ],
   verification:
     "Content that communicates the intended information accurately, clearly, and consistently with the organization's objectives.",
+  consumptionProfile: {
+    estimatedTokensPerMission: 1500,
+    estimatedCpuSecondsPerMission: 10,
+    minMemoryMb: 256,
+    minDiskMb: 50,
+    networkRequired: false,
+  },
 };
 
 const SANA_PROFILE: RichTalentProfile = {
@@ -295,6 +330,13 @@ const SANA_PROFILE: RichTalentProfile = {
   ],
   verification:
     "A clear, evidence-based set of SEO recommendations that the organization can evaluate, implement, and measure.",
+  consumptionProfile: {
+    estimatedTokensPerMission: 1500,
+    estimatedCpuSecondsPerMission: 10,
+    minMemoryMb: 256,
+    minDiskMb: 50,
+    networkRequired: false,
+  },
 };
 
 export const RICH_PROFILES: Record<string, RichTalentProfile> = {
@@ -319,12 +361,56 @@ const RICH_KEYS = [
   "boundaries",
   "deliverables",
   "verification",
+  "consumptionProfile",
 ] as const;
 
 type RichKey = (typeof RICH_KEYS)[number];
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function asNonNegativeNumber(value: unknown, key: string): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isFinite(value) ||
+    value < 0
+  ) {
+    throw new Error(
+      `Invalid rich profile: consumptionProfile.${key} must be a non-negative number`
+    );
+  }
+  return value;
+}
+
+function asValidatedConsumptionProfile(
+  value: unknown
+): ConsumptionProfile {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new Error(
+      "Invalid rich profile: consumptionProfile must be an object"
+    );
+  }
+  const profile = value as Record<string, unknown>;
+  const networkRequired = profile.networkRequired;
+  if (typeof networkRequired !== "boolean") {
+    throw new Error(
+      "Invalid rich profile: consumptionProfile.networkRequired must be a boolean"
+    );
+  }
+  return {
+    estimatedTokensPerMission: asNonNegativeNumber(
+      profile.estimatedTokensPerMission,
+      "estimatedTokensPerMission"
+    ),
+    estimatedCpuSecondsPerMission: asNonNegativeNumber(
+      profile.estimatedCpuSecondsPerMission,
+      "estimatedCpuSecondsPerMission"
+    ),
+    minMemoryMb: asNonNegativeNumber(profile.minMemoryMb, "minMemoryMb"),
+    minDiskMb: asNonNegativeNumber(profile.minDiskMb, "minDiskMb"),
+    networkRequired,
+  };
 }
 
 function asValidatedList(value: unknown, key: string): string[] {
@@ -402,6 +488,9 @@ export function validateRichProfileInput(
         } else {
           patch.executionEnvironment = asValidatedList(value, key);
         }
+        break;
+      case "consumptionProfile":
+        patch.consumptionProfile = asValidatedConsumptionProfile(value);
         break;
     }
   }
