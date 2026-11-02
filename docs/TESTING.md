@@ -30,7 +30,7 @@ adversarial cases, and honest coverage notes.
 | Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
 | Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **51 files, 453 tests, all green** (Vitest) **+ 30 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **51 files, 456 tests, all green** (Vitest) **+ 30 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -189,6 +189,11 @@ Each case below is a committed regression test, not a one-off script:
   a refused binary or a workspace escape goes to `needs_review`
   ("security block"), even when other calls succeeded — an honestly
   blocked agent is not a successful one.
+- **Cross-tenant terminate** (`server/employee-server.test.ts`,
+  `cli/adversarial.test.ts` T6): terminating another employer's
+  engagement returns 404 (CLI + HTTP) and the engagement stays
+  active; terminating your own archives the workspace on disk
+  (`archive/<id>-<timestamp>/`) and further submits get 403.
 
 ## 5. Coverage — what is tested and what is not
 

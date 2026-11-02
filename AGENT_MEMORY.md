@@ -508,12 +508,30 @@ Leçons dures :
   verbatim (unit + runtime) + 8 garde-fous FP. Docs triggers (e)
   (ERROR_HANDLING, TESTING §4 + T6 résolus). Flaky connu : 1 échec
   `worker-loop` orphelins sous charge, vert en solo + au re-run.
+- Licenciement bout-en-bout : noyau `terminate` exposé — CLI
+  `terminate <employmentId>`, REST `POST /v1/hires/:id/terminate`
+  (scope employments:write, 404 si étranger/inconnu, convention
+  `/v1/hires` + suffixe d'action comme cancel, PAS /v1/employments),
+  SDK in-process + HTTP, contrat `hireTerminatePath`. Isolation :
+  get + check employeur côté client (mirror cancel). Tests : flow
+  serveur (200 + terminatedAt, re-POST idempotent, submit→403),
+  T6 adversarial (beta refusé CLI+HTTP, archive disque prouvée).
+  Web : migration 0008 `releasedAt`, `releaseEmployeeByAccount`
+  (404 cross-compte, 400 Chef protégé — invariant ensureChef),
+  liste exclut released, route POST `[id]/release`, bouton Release
+  discret (ghost, bas de carte, masqué Chef) + AlertDialog + toast
+  sonner + mutate SWR, i18n en/fr/zh, testids pour E2E. Spec
+  Playwright gardes 401/redirect (parcours connecté non portable :
+  OTP sans harnais — NOTE dans le spec). Flaky : 1 SSE
+  `employee-server` sous charge, vert solo + re-run.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 54d80cb — 453/453 vitest (51
-  fichiers) + 30/30 node lib/employees, `tsc` propre.**
+- **État 2026-11-02 : code @ d81a5a1 (noyau e0d5d1b) —
+  456/456 vitest (51 fichiers) + 30/30 node lib/employees,
+  `tsc` propre, drizzle check OK, migration 0008 à appliquer
+  (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
 - Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant
