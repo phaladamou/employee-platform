@@ -74,7 +74,7 @@ function buildRunConsumption(
   );
   return {
     tokensUsed: total > 0 ? total : null,
-    cpuSeconds: Math.round(Date.now() - startedAtMs) / 1000,
+    elapsedSeconds: Math.round(Date.now() - startedAtMs) / 1000,
     maxMemoryMb: samples.length > 0 ? round2(Math.max(...samples)) : null,
   };
 }

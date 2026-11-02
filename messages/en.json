@@ -108,7 +108,7 @@
       "deliverables": "Deliverables",
       "verification": "Verification",
       "consumption": "Resources & Consumption",
-      "consumptionCost": "Average: ~{tokens} tokens/mission, {cpu}s CPU.",
+      "consumptionCost": "Average: ~{tokens} tokens/mission, {elapsed}s elapsed.",
       "consumptionNoData": "No data yet",
       "consumptionMemory": "Minimum memory: {mb} MB",
       "consumptionDisk": "Minimum disk: {mb} MB",

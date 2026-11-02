@@ -62,14 +62,15 @@ const ATLAS_PROFILE: RichTalentProfile = {
   ],
   verification:
     "An assignment is considered successfully completed when the requested changes have been implemented within the authorized scope, the applicable verification checks have been performed, and the final report accurately describes the results. A successful execution is not merely a plausible code response. It is a traceable engineering outcome.",
-  // Calibration mesuree N=1 (2026-11-02, mission hello.py + ls,
-  // job succeeded) : tokens et temps reels, memoire = pic RSS
-  // worker, disque = workspace utilise (arrondi au Mo). Les autres
-  // talents n'ont pas de chiffres : mesure, pas invention.
+  // Calibration mesuree N=4 (2026-11-02, 3 succes + 1 rapport
+  // d'echec honnete) : moyenne des jobs succeeded, tokens et temps
+  // reels, memoire = pic RSS worker, disque = workspace utilise
+  // (arrondi au Mo). Les autres talents n'ont pas de chiffres :
+  // mesure, pas invention.
   consumptionProfile: {
-    estimatedTokensPerMission: 2130,
-    estimatedCpuSecondsPerMission: 5.1,
-    minMemoryMb: 125,
+    estimatedTokensPerMission: 1987,
+    estimatedElapsedSecondsPerMission: 4.9,
+    minMemoryMb: 128,
     minDiskMb: 1,
     networkRequired: false,
   },
@@ -372,9 +373,9 @@ function asValidatedConsumptionProfile(
       profile.estimatedTokensPerMission,
       "estimatedTokensPerMission"
     ),
-    estimatedCpuSecondsPerMission: asNonNegativeNumber(
-      profile.estimatedCpuSecondsPerMission,
-      "estimatedCpuSecondsPerMission"
+    estimatedElapsedSecondsPerMission: asNonNegativeNumber(
+      profile.estimatedElapsedSecondsPerMission,
+      "estimatedElapsedSecondsPerMission"
     ),
     minMemoryMb: asNonNegativeNumber(profile.minMemoryMb, "minMemoryMb"),
     minDiskMb: asNonNegativeNumber(profile.minDiskMb, "minDiskMb"),

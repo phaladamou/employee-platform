@@ -51,14 +51,15 @@ export interface EmployeeJob {
  * Consommation mesuree d'un run (facturation / fiches) :
  * - tokensUsed : total entrees + sorties, null si le fournisseur
  *   n'a renvoye aucun compteur (non mesure, pas gratuit) ;
- * - cpuSeconds : temps ecoule du run en secondes (horloge murale,
- *   arrondi a la milliseconde) ;
+ * - elapsedSeconds : temps ECOULE du run en secondes (horloge
+ *   murale, arrondi a la milliseconde). Le temps CPU pur n'est
+ *   PAS mesure (les outils tournent en processus fils) ;
  * - maxMemoryMb : pic RSS du worker echantillonne en debut/fin de
  *   run, null si non mesurable hors Node.
  */
 export interface JobConsumption {
   readonly tokensUsed: number | null;
-  readonly cpuSeconds: number;
+  readonly elapsedSeconds: number;
   readonly maxMemoryMb: number | null;
 }
 

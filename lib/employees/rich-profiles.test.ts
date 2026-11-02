@@ -152,13 +152,13 @@ describe("rich talent profiles", () => {
   });
 
   it("seeds measured consumption for Atlas, none elsewhere", () => {
-    // Atlas : calibration mesuree N=1 (job succeeded, tokens et temps
-    // reels). Les autres talents n'ont pas de chiffres : mesure,
-    // pas invention (l'UI affiche "No data yet").
+    // Atlas : calibration mesuree N=4 (moyenne des jobs, tokens et
+    // temps reels). Les autres talents n'ont pas de chiffres :
+    // mesure, pas invention (l'UI affiche "No data yet").
     const measured = {
-      estimatedTokensPerMission: 2130,
-      estimatedCpuSecondsPerMission: 5.1,
-      minMemoryMb: 125,
+      estimatedTokensPerMission: 1987,
+      estimatedElapsedSecondsPerMission: 4.9,
+      minMemoryMb: 128,
       minDiskMb: 1,
       networkRequired: false,
     };
@@ -182,7 +182,7 @@ describe("rich talent profiles", () => {
   it("rejects malformed consumption profiles", () => {
     const good = {
       estimatedTokensPerMission: 100,
-      estimatedCpuSecondsPerMission: 5,
+      estimatedElapsedSecondsPerMission: 5,
       minMemoryMb: 256,
       minDiskMb: 50,
       networkRequired: false,

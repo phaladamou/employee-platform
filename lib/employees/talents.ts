@@ -114,12 +114,12 @@ export interface RichTalentProfile {
   consumptionProfile?: ConsumptionProfile;
 }
 
-// Cout estime d'une mission : tokens, CPU, plancher memoire/disque
-// et besoin reseau. Valeurs indicatives (graine), modifiables via
-// PUT comme le reste de la fiche riche.
+// Cout estime d'une mission : tokens, temps ecoule, plancher
+// memoire/disque et besoin reseau. Valeurs indicatives (graine),
+// modifiables via PUT comme le reste de la fiche riche.
 export interface ConsumptionProfile {
   estimatedTokensPerMission: number;
-  estimatedCpuSecondsPerMission: number;
+  estimatedElapsedSecondsPerMission: number;
   minMemoryMb: number;
   minDiskMb: number;
   networkRequired: boolean;

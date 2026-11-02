@@ -186,9 +186,9 @@ describe("talent catalog sync", () => {
     const backfills = calls.filter((c) => c.op === "backfill");
     expect(backfills).toHaveLength(1);
     expect(backfills[0].set?.consumptionProfile).toEqual({
-      estimatedTokensPerMission: 2130,
-      estimatedCpuSecondsPerMission: 5.1,
-      minMemoryMb: 125,
+      estimatedTokensPerMission: 1987,
+      estimatedElapsedSecondsPerMission: 4.9,
+      minMemoryMb: 128,
       minDiskMb: 1,
       networkRequired: false,
     });

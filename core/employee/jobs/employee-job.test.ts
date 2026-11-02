@@ -154,7 +154,7 @@ describe("succeedEmployeeJob / failEmployeeJob", () => {
   });
 
   it("records consumption once at finish, null by default", () => {
-    const consumption = { tokensUsed: 150, cpuSeconds: 1.5, maxMemoryMb: 64 };
+    const consumption = { tokensUsed: 150, elapsedSeconds: 1.5, maxMemoryMb: 64 };
     const done = succeedEmployeeJob(
       claimEmployeeJob(queued(), "worker-1"),
       "worker-1",

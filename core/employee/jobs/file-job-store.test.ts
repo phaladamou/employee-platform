@@ -37,17 +37,17 @@ describe("FileJobStore", () => {
 
     const done = await store.markSucceeded("job_1", "worker-1", "Report", new Date(), {
       tokensUsed: 150,
-      cpuSeconds: 1.5,
+      elapsedSeconds: 1.5,
       maxMemoryMb: 64,
     });
     expect(done.consumption).toEqual({
       tokensUsed: 150,
-      cpuSeconds: 1.5,
+      elapsedSeconds: 1.5,
       maxMemoryMb: 64,
     });
     expect((await store.load("job_1"))?.consumption).toEqual({
       tokensUsed: 150,
-      cpuSeconds: 1.5,
+      elapsedSeconds: 1.5,
       maxMemoryMb: 64,
     });
   });
@@ -65,7 +65,7 @@ describe("FileJobStore", () => {
     const store = await makeStore();
     const broken = {
       ...job("job_broken"),
-      consumption: { tokensUsed: "many", cpuSeconds: -1, maxMemoryMb: null },
+      consumption: { tokensUsed: "many", elapsedSeconds: -1, maxMemoryMb: null },
     };
     await writeFile(join(dir, "job_job_broken.json"), JSON.stringify(broken), "utf8");
 

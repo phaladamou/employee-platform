@@ -149,8 +149,8 @@ describe("runJobOnce", () => {
     const finished = await runJobOnce(deps, jobId, "worker-1");
 
     expect(finished?.consumption?.tokensUsed).toBe(120);
-    expect(typeof finished?.consumption?.cpuSeconds).toBe("number");
-    expect(finished?.consumption?.cpuSeconds).toBeGreaterThanOrEqual(0);
+    expect(typeof finished?.consumption?.elapsedSeconds).toBe("number");
+    expect(finished?.consumption?.elapsedSeconds).toBeGreaterThanOrEqual(0);
     const memory = finished?.consumption?.maxMemoryMb;
     expect(memory === null || typeof memory === "number").toBe(true);
     // Persiste : rechargeable depuis le store.
@@ -165,7 +165,7 @@ describe("runJobOnce", () => {
 
     // Non mesure, pas gratuit : null, jamais 0.
     expect(finished?.consumption?.tokensUsed).toBeNull();
-    expect(typeof finished?.consumption?.cpuSeconds).toBe("number");
+    expect(typeof finished?.consumption?.elapsedSeconds).toBe("number");
   });
 
   it("marks jobs failed on LLM outage", async () => {

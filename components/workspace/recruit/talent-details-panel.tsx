@@ -247,7 +247,7 @@ export function TalentDetailsPanel({
                   talent.consumption.estimatedTokensPerMission.toLocaleString(
                     "en-US"
                   ),
-                cpu: talent.consumption.estimatedCpuSecondsPerMission,
+                elapsed: talent.consumption.estimatedElapsedSecondsPerMission,
               })}
             </p>
             <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-[13.5px] leading-relaxed text-muted-foreground">

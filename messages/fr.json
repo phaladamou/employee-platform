@@ -108,7 +108,7 @@
       "deliverables": "Livrables",
       "verification": "Vérification",
       "consumption": "Ressources et consommation",
-      "consumptionCost": "Moyenne : ~{tokens} tokens/mission, {cpu}s CPU.",
+      "consumptionCost": "Moyenne : ~{tokens} tokens/mission, {elapsed}s écoulées.",
       "consumptionNoData": "Pas encore de données",
       "consumptionMemory": "Mémoire minimale : {mb} Mo",
       "consumptionDisk": "Disque minimal : {mb} Mo",

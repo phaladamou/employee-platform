@@ -73,7 +73,7 @@ export interface TalentProfile {
 // importable cote client).
 export interface ConsumptionProfile {
   estimatedTokensPerMission: number;
-  estimatedCpuSecondsPerMission: number;
+  estimatedElapsedSecondsPerMission: number;
   minMemoryMb: number;
   minDiskMb: number;
   networkRequired: boolean;
@@ -185,7 +185,7 @@ export function asConsumptionProfile(
   const profile = value as Record<string, unknown>;
   for (const key of [
     "estimatedTokensPerMission",
-    "estimatedCpuSecondsPerMission",
+    "estimatedElapsedSecondsPerMission",
     "minMemoryMb",
     "minDiskMb",
   ]) {
@@ -203,7 +203,7 @@ export function asConsumptionProfile(
   }
   return {
     estimatedTokensPerMission: profile.estimatedTokensPerMission as number,
-    estimatedCpuSecondsPerMission: profile.estimatedCpuSecondsPerMission as number,
+    estimatedElapsedSecondsPerMission: profile.estimatedElapsedSecondsPerMission as number,
     minMemoryMb: profile.minMemoryMb as number,
     minDiskMb: profile.minDiskMb as number,
     networkRequired: profile.networkRequired,

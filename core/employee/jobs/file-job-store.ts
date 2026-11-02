@@ -88,18 +88,18 @@ function asConsumption(value: unknown): JobConsumption | null {
     return null;
   }
   const tokensUsed = value.tokensUsed;
-  const cpuSeconds = value.cpuSeconds;
+  const elapsedSeconds = value.elapsedSeconds;
   const maxMemoryMb = value.maxMemoryMb;
   if (
     (tokensUsed !== null && !isNonNegativeNumber(tokensUsed)) ||
-    !isNonNegativeNumber(cpuSeconds) ||
+    !isNonNegativeNumber(elapsedSeconds) ||
     (maxMemoryMb !== null && !isNonNegativeNumber(maxMemoryMb))
   ) {
     return null;
   }
   return {
     tokensUsed: tokensUsed as number | null,
-    cpuSeconds: cpuSeconds as number,
+    elapsedSeconds: elapsedSeconds as number,
     maxMemoryMb: maxMemoryMb as number | null,
   };
 }

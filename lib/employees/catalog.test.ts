@@ -152,7 +152,7 @@ describe("employee catalog", () => {
   it("coerces consumption profiles (valid shape or absent)", () => {
     const good = {
       estimatedTokensPerMission: 5000,
-      estimatedCpuSecondsPerMission: 30,
+      estimatedElapsedSecondsPerMission: 30,
       minMemoryMb: 512,
       minDiskMb: 100,
       networkRequired: false,
@@ -195,7 +195,7 @@ describe("employee catalog", () => {
         verification: "Done.",
         consumptionProfile: {
           estimatedTokensPerMission: 5000,
-          estimatedCpuSecondsPerMission: 30,
+          estimatedElapsedSecondsPerMission: 30,
           minMemoryMb: 512,
           minDiskMb: 100,
           networkRequired: false,
@@ -207,7 +207,7 @@ describe("employee catalog", () => {
     assert.equal(formatted.overview, "Intro.");
     assert.deepEqual(formatted.consumption, {
       estimatedTokensPerMission: 5000,
-      estimatedCpuSecondsPerMission: 30,
+      estimatedElapsedSecondsPerMission: 30,
       minMemoryMb: 512,
       minDiskMb: 100,
       networkRequired: false,
