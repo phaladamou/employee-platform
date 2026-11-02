@@ -100,6 +100,25 @@ function RecruitPageContent() {
     );
   };
 
+  const pushDepartmentParam = (value: string | "all") => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (value === "all") {
+      params.delete("department");
+    } else {
+      params.set("department", value);
+    }
+    const query = params.toString();
+    router.push(
+      query ? `/employees/recruit?${query}` : "/employees/recruit",
+      { scroll: false }
+    );
+  };
+
+  const selectDepartment = (value: string | "all") => {
+    setDepartmentFilter(value);
+    pushDepartmentParam(value);
+  };
+
   const openTalent = (spec: string) => {
     setSelectedSpec(spec);
     pushTalentParam(spec);
@@ -138,7 +157,7 @@ function RecruitPageContent() {
 
   const clearFilters = () => {
     setQuery("");
-    setDepartmentFilter("all");
+    selectDepartment("all");
   };
 
   return (
@@ -172,7 +191,7 @@ function RecruitPageContent() {
                     ? "border-indigo-600 bg-indigo-600 text-white"
                     : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                 )}
-                onClick={() => setDepartmentFilter("all")}
+                onClick={() => selectDepartment("all")}
                 type="button"
               >
                 {t("allDepartments")}
@@ -186,7 +205,7 @@ function RecruitPageContent() {
                       : "border-border text-muted-foreground hover:border-foreground/30 hover:text-foreground"
                   )}
                   key={id}
-                  onClick={() => setDepartmentFilter(id)}
+                  onClick={() => selectDepartment(id)}
                   type="button"
                 >
                   {departmentName(tEmployees, id)}
