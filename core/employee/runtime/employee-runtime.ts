@@ -21,6 +21,7 @@ import { RUN_SHELL_MAX_TIMEOUT_MS } from "../tools/run-shell";
 import {
   CLAIM_SUPPORT_LABEL,
   detectRefusalAdmission,
+  detectSecurityBlock,
   detectUnsupportedClaims,
 } from "../missions/mission-claims";
 import type { ProfileRegistry } from "../profiles/profile-registry";
@@ -417,6 +418,30 @@ export class EmployeeRuntime {
       const flagged = flagMissionForReview(running, report);
       const reason =
         `report admits the goal was not accomplished: "${refusal.excerpt}"`;
+      await this.persistMemory(profile, flagged);
+
+      return {
+        profile: setEmployeeStatus(working, "idle"),
+        mission: flagged,
+        report: flagged.report,
+        error: null,
+        steps: loop.steps,
+        toolCalls: loop.toolCalls,
+        cancelled: false,
+        needsReview: true,
+        reviewReason: reason,
+      };
+    }
+
+    // 6. Sans criteres : le Final signale-t-il un blocage de securite
+    //    (binaire refuse, chemin hors workspace) ? Un agent honnetement
+    //    bloque n'a pas reussi : revue, pas succes (live T6b/T6c).
+    const securityBlock = detectSecurityBlock(loop.reportContent);
+    if (securityBlock !== null) {
+      const flagged = flagMissionForReview(running, report);
+      const reason =
+        `report signals a security block (${securityBlock.signal}): ` +
+        `"${securityBlock.excerpt}"`;
       await this.persistMemory(profile, flagged);
 
       return {

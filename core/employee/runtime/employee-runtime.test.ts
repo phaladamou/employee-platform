@@ -416,6 +416,53 @@ describe("EmployeeRuntime.run", () => {
     expect(result.needsReview).toBe(true);
   });
 
+  it("flags for review when the Final quotes a refused binary (live T6b)", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Impossible de lancer `docker ps` : bloqué par la sandbox " +
+        '(OBSERVATION run_shell error: binary "docker" is not allowed). ' +
+        "Mission non réalisable dans le respect des règles runtime.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool(), createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Un appel a reussi : ni "outils inconnus" ni "tout a echoue".
+    // Le blocage cite dans le Final suspend quand meme le jugement.
+    expect(result.toolCalls).toEqual([
+      { tool: "write_file", ok: false },
+      { tool: "read_file", ok: true },
+    ]);
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("security block");
+  });
+
+  it("flags for review when the Final reports a workspace escape refusal (live T6c)", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "../secret.txt"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Refus de lire ../autre_employe/secret.txt : chemin hors " +
+        "du workspace sandbox, accès interdit par les règles de confinement.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("security block");
+  });
+
   it("flags file claims unsupported by unrelated successful calls", async () => {
     const provider = new ScriptedProvider([
       'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',

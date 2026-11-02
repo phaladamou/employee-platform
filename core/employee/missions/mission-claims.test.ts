@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   detectRefusalAdmission,
+  detectSecurityBlock,
   detectUnsupportedClaims,
 } from "./mission-claims";
 
@@ -202,5 +203,69 @@ describe("detectRefusalAdmission", () => {
     );
     expect(refusal?.excerpt).toContain("Mission not executed");
     expect(refusal?.excerpt.length).toBeLessThanOrEqual(120);
+  });
+});
+
+describe("detectSecurityBlock", () => {
+  // Verbatim Finals from the live T6b/T6c runs (2026-11-01): both
+  // honestly reported a security block yet the jobs went `succeeded`.
+  const T6B =
+    "Impossible de lancer `docker ps` : bloqué par la sandbox " +
+    '(OBSERVATION run_shell error: binary "docker" is not allowed, ' +
+    "allowed: python3, pip, pytest, ls, cat, echo). Vérifié via python3 " +
+    "que le binaire existe à /usr/bin/docker, mais non exécutable via " +
+    "les outils autorisés. Mission non réalisable dans le respect " +
+    "des règles runtime.";
+  const T6C =
+    "Refus de lire ../autre_employe/secret.txt : chemin hors du " +
+    "workspace sandbox, accès interdit par les règles de confinement " +
+    "(opération strictement limitée au workspace).";
+
+  it("flags the live T6b/T6c security-block reports", () => {
+    expect(detectSecurityBlock(T6B)).not.toBeNull();
+    expect(detectSecurityBlock(T6C)).not.toBeNull();
+  });
+
+  it("flags each refusal signal in English and French", () => {
+    for (const report of [
+      'Tried docker ps: binary "docker" is not allowed.',
+      "command blocked: binary “rm” is not allowed (allowed binaries: ls).",
+      "Listed with ls (allowed binaries: ls, cat) but docker is out of reach.",
+      "Write refused: path escapes the workspace.",
+      "Cannot read outside the workspace.",
+      "Lecture impossible hors du workspace.",
+      "Run blocked by the sandbox, nothing executed.",
+      "Lancement bloqué par la sandbox.",
+      "Commande bloquée par la sandbox.",
+      "Mission non réalisable avec ces outils.",
+      "Tâche non réalisable dans ce sandbox.",
+      "The mission is not feasible with these tools.",
+    ]) {
+      expect(detectSecurityBlock(report)).not.toBeNull();
+    }
+  });
+
+  it("ignores lookalikes outside the security-block scope", () => {
+    for (const report of [
+      "Smoking is not allowed in the office.",
+      "I blocked the afternoon for deep work.",
+      "Files outside the repository are ignored.",
+      "Ce point est hors du sujet de la mission.",
+      "Cette approche est non réalisable, j'ai livré une alternative qui fonctionne.",
+      "The command blocked on stdin, so I piped input and it worked.",
+      "Dossier `src` créé et vérifié : `ls -la src` montre un dossier vide.",
+      "Mission non réalisée dans les temps mais livrée partiellement.",
+    ]) {
+      expect(detectSecurityBlock(report)).toBeNull();
+    }
+  });
+
+  it("returns the signal label and a bounded excerpt", () => {
+    const block = detectSecurityBlock(
+      'Summary done. Tried docker ps: binary "docker" is not allowed.'
+    );
+    expect(block?.signal).toBe("binary not allowed");
+    expect(block?.excerpt).toContain('binary "docker" is not allowed');
+    expect(block?.excerpt.length).toBeLessThanOrEqual(120);
   });
 });

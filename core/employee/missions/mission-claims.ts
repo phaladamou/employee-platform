@@ -279,6 +279,118 @@ const REFUSAL_PATTERNS: ReadonlyArray<RegExp> = [
 ];
 
 /**
+ * Signal de blocage de securite cite ou decrit dans le Final :
+ * l'agent rapporte honnetement qu'une regle l'a arrete (binaire
+ * refuse, chemin hors workspace) au lieu d'avoir accompli le but.
+ * Meme fail-soft que les refus : doute (needs_review), jamais
+ * d'echec auto — le chemin robuste reste de declarer des criteres.
+ *
+ * Frontiere assumee : les chaines machine exactes (erreur runtime
+ * citee verbatim) et les paraphrases ciblees FR+EN comptent ; le
+ * vocabulaire vague ("not allowed" nu, "bloque" sans sandbox, "non
+ * realisable" sans mission) ne matche pas. T6b/T6c live (2026-11-01)
+ * passaient a travers les refus : "Mission non realisable" n'est
+ * pas "Mission non realisee", "hors du workspace" n'etait pas
+ * connu. Ne pas elargir sans garde-fous (voir l'en-tete).
+ */
+export interface SecurityBlockSignal {
+  /** Libelle court pour le motif de revue. */
+  readonly signal:
+    | "binary not allowed"
+    | "workspace escape"
+    | "sandbox block"
+    | "goal unfeasible";
+  /** Extrait du rapport (motive le reviewReason, borne a 120 car.). */
+  readonly excerpt: string;
+}
+
+const SECURITY_BLOCK_PATTERNS: ReadonlyArray<{
+  signal: SecurityBlockSignal["signal"];
+  pattern: RegExp;
+}> = [
+  // Chaines machine exactes (command-policy, toolRoot).
+  {
+    signal: "binary not allowed",
+    pattern: new RegExp(
+      String.raw`\bbinary\s+["“][^"”\n]+["”]\s+is\s+not\s+allowed\b`,
+      "imu"
+    ),
+  },
+  {
+    signal: "binary not allowed",
+    pattern: new RegExp(String.raw`\bcommand\s+blocked\s*:`, "imu"),
+  },
+  {
+    signal: "binary not allowed",
+    pattern: new RegExp(String.raw`\(allowed binaries\s*:`, "imu"),
+  },
+  {
+    signal: "workspace escape",
+    pattern: new RegExp(
+      String.raw`\bpath\s+escapes\s+the\s+workspace\b`,
+      "imu"
+    ),
+  },
+  // Paraphrases ciblees EN.
+  {
+    signal: "workspace escape",
+    pattern: new RegExp(
+      String.raw`\boutside\s+(the\s+)?workspace\b`,
+      "imu"
+    ),
+  },
+  {
+    signal: "sandbox block",
+    pattern: new RegExp(
+      String.raw`\bblocked\s+by\s+the\s+sandbox\b`,
+      "imu"
+    ),
+  },
+  {
+    signal: "goal unfeasible",
+    pattern: new RegExp(
+      String.raw`\b(mission|task|goal)\s+is\s+not\s+feasible\b`,
+      "imu"
+    ),
+  },
+  // Paraphrases ciblees FR.
+  {
+    signal: "workspace escape",
+    pattern: new RegExp(String.raw`\bhors\s+du\s+workspace\b`, "imu"),
+  },
+  {
+    signal: "sandbox block",
+    pattern: new RegExp(
+      String.raw`\bbloquée?\s+par\s+la\s+sandbox\b`,
+      "imu"
+    ),
+  },
+  {
+    signal: "goal unfeasible",
+    pattern: new RegExp(
+      String.raw`\b(mission|tâche|tache)\s+non\s+réalisable\b`,
+      "imu"
+    ),
+  },
+];
+
+/**
+ * Premier signal de blocage de securite du rapport, ou null.
+ * Deterministe (ordre des motifs). L'appelant decide du verdict.
+ */
+export function detectSecurityBlock(
+  reportContent: string
+): SecurityBlockSignal | null {
+  for (const { signal, pattern } of SECURITY_BLOCK_PATTERNS) {
+    const match = pattern.exec(reportContent);
+    if (match) {
+      return { signal, excerpt: excerptOf(match[0]) };
+    }
+  }
+  return null;
+}
+
+/**
  * Premier aveu de non-accomplissement du rapport, ou null.
  * Deterministe (ordre des motifs). L'appelant decide du verdict.
  */
