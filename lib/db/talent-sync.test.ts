@@ -151,7 +151,7 @@ describe("talent catalog sync", () => {
 
     // Graine seulement : les cles riches partent a l'insertion,
     // jamais dans la clause de conflit (la base garde ses contenus).
-    // consumptionProfile n'existe qu'en graine Atlas (mesure N=1).
+    // consumptionProfile n'existe qu'en graine Atlas (mesure N=4).
     const updates = calls.filter((c) => c.op === "update");
     expect(updates).toHaveLength(6);
     for (const update of updates) {
