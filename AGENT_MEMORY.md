@@ -542,13 +542,23 @@ Leçons dures :
   garde, section panneau détails (Zap + coût estimé + listes),
   i18n en/fr/zh. Tests : seed exact ×6, validation, garde,
   backfill scopé (sinon UPDATE nu refusé).
+- Consommation mesurée (d9e8914 + web) : provider usage OpenAI →
+  cumul boucle → JobConsumption {tokensUsed|null, cpuSeconds
+  (murale), maxMemoryMb|null (pic RSS debut/fin)} posé à la
+  clôture (succès/échec/revue ; annulations = rien) ; parse
+  tolérant (legacy/malforme → null). Fiches : 0011 NULL les
+  estimations inventées, seed Atlas = mesure N=1 (2130 tok,
+  5.1s, 125 Mo, 1 Mo disque, sans réseau), 5 autres = "No data
+  yet" ; panneau Average vs No-data-yet + i18n. Trou pré-existant
+  signalé : intent-refus → 500 au lieu de 400 (toHttpError,
+  non touché).
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ a88a616 (data dbed7ee) —
-  457/457 vitest (51 fichiers) + 33/33 node lib/employees,
-  `tsc` propre, drizzle check OK, migrations 0008→0010 à appliquer
+- **État 2026-11-02 : code @ 4df4320 (noyau d9e8914) —
+  473/473 vitest (52 fichiers) + 33/33 node lib/employees,
+  `tsc` propre, drizzle check OK, migrations 0008→0011 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)

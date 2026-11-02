@@ -30,7 +30,7 @@ adversarial cases, and honest coverage notes.
 | Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
 | Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **51 files, 457 tests, all green** (Vitest) **+ 33 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **52 files, 473 tests, all green** (Vitest) **+ 33 tests** (`node --test lib/employees/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -106,6 +106,14 @@ in-process with a real `FetchLLMProvider` (Muse key from `.env.local`),
 publish `--spec atlas-software-engineer@1.0.0`, hire, submit the three
 missions, poll `status` to a terminal state, and check the workspace on
 disk. Clean `.tmp/emp` and the driver afterwards.
+
+Atlas calibration (2026-11-02, same harness + `--expect-file`):
+one real mission (hello.py + `ls`, `succeeded`) measured
+`{tokensUsed: 2130, cpuSeconds: 5.103, maxMemoryMb: 125.19}` on the
+finished job — these values seed the Atlas fiche (N=1 average).
+Incidental finding (pre-existing, untouched): a submit refused by
+the mission-intent detector returns 500 instead of 400 because
+`toHttpError` doesn't match its message.
 
 Example — replaying the success-semantics check:
 
@@ -194,6 +202,10 @@ Each case below is a committed regression test, not a one-off script:
   engagement returns 404 (CLI + HTTP) and the engagement stays
   active; terminating your own archives the workspace on disk
   (`archive/<id>-<timestamp>/`) and further submits get 403.
+- **Honest metering** (`runtime/fetch-llm-provider.test.ts`,
+  `sdk/job-worker.test.ts`): absent provider usage stays absent
+  (never a 0 that would read as "proven free"); legacy or
+  malformed job consumption parses to null without quarantine.
 
 ## 5. Coverage — what is tested and what is not
 
