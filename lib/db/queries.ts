@@ -1370,7 +1370,12 @@ export async function getHiredTalentSpecs(
     const rows = await db
       .select({ talentSpec: employee.talentSpec })
       .from(employee)
-      .where(eq(employee.accountId, accountId));
+      .where(
+        and(
+          eq(employee.accountId, accountId),
+          ne(employee.status, "terminated")
+        )
+      );
     return rows
       .map((row) => row.talentSpec)
       .filter((spec): spec is string => spec !== null);
@@ -1385,6 +1390,8 @@ export async function getHiredTalentSpecs(
 
 // Instancie un talent du catalogue pour le compte. Contrainte unique
 // (accountId, talentSpec) : un talent = une instance par compte.
+// Re-recrutement apres licenciement : la ligne terminee est
+// reactivee (nouveau contrat, meme identite), pas dupliquee.
 export async function hireEmployee({
   accountId,
   talent,
@@ -1394,6 +1401,35 @@ export async function hireEmployee({
 }): Promise<Employee[]> {
   try {
     const db = await getDb();
+    const [terminated] = await db
+      .select({ id: employee.id })
+      .from(employee)
+      .where(
+        and(
+          eq(employee.accountId, accountId),
+          eq(employee.talentSpec, talent.spec),
+          eq(employee.status, "terminated")
+        )
+      )
+      .limit(1);
+    if (terminated) {
+      return await db
+        .update(employee)
+        .set({
+          status: "idle",
+          terminatedAt: null,
+          hiredAt: new Date(),
+          specVersion: talent.version,
+          name: talent.name,
+          role: talent.role,
+          departmentId: talent.departmentId,
+          background: talent.background,
+          createdBy: talent.createdBy,
+          technologies: talent.technologies,
+        })
+        .where(eq(employee.id, terminated.id))
+        .returning();
+    }
     return await db
       .insert(employee)
       .values({
