@@ -20,6 +20,7 @@ import {
 import type { ArtifactKind } from "@/components/workspace/artifact";
 import type { VisibilityType } from "@/components/workspace/visibility-selector";
 import { ChatbotError } from "../errors";
+import { CHEF_GREETING } from "../chef/onboarding";
 import type { RichTalentProfile, TalentSeed } from "../employees/talents";
 import {
   account,
@@ -1173,11 +1174,25 @@ export async function ensureAccountProvisioned(
         status: "idle",
         ...CHEF_PROFILE,
       });
-      await db.insert(chat).values({
-        userId,
-        title: CHEF_PROFILE.name,
-        createdAt: new Date(),
-      });
+      const [welcomeChat] = await db
+        .insert(chat)
+        .values({
+          userId,
+          title: CHEF_PROFILE.name,
+          createdAt: new Date(),
+        })
+        .returning({ id: chat.id });
+      // Graine du parcours d'accueil : la presentation est aussi le
+      // marqueur qui enclenche le mode Chef dans la route chat.
+      if (welcomeChat) {
+        await db.insert(message).values({
+          chatId: welcomeChat.id,
+          role: "assistant",
+          parts: [{ type: "text", text: CHEF_GREETING }],
+          attachments: [],
+          createdAt: new Date(),
+        } as any);
+      }
       return candidate;
     }
 

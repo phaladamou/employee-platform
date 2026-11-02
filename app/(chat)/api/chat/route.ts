@@ -42,6 +42,7 @@ import { newsSearch } from "@/lib/ai/tools/news-search";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { webSearch } from "@/lib/ai/tools/web-search";
+import { resolveChefStep } from "@/lib/chef/resolve";
 import { isProductionEnvironment } from "@/lib/constants";
 
 import {
@@ -330,6 +331,22 @@ export async function POST(request: Request) {
       });
     }
 
+    // Mode Chef : chat d'accueil marque d'un compte qui n'a que son
+    // Manager. En cas d'erreur de resolution, on retombe sur le flux
+    // normal (le chat continue de fonctionner).
+    const chefStep =
+      !isToolApprovalFlow && chat
+        ? await resolveChefStep({
+            userId: session.user.id,
+            chatId: id,
+            history: messagesFromDb,
+            uiMessages,
+          }).catch((error) => {
+            console.error("Chef resolve error:", error);
+            return null;
+          })
+        : null;
+
     const modelConfig = chatModels.find(
       (m) => m.id === chatModel,
     );
@@ -446,6 +463,49 @@ export async function POST(request: Request) {
         : undefined,
 
       execute: async ({ writer: dataStream }) => {
+        // ================================================================
+        // CHEF WELCOME FLOW (sans outils : le Manager guide, il
+        // n'execute pas de missions techniques)
+        // ================================================================
+
+        if (chefStep) {
+          if (chefStep.kind === "persona") {
+            const chefResult = streamText({
+              model: getLanguageModel(chatModel),
+              system: chefStep.systemPrompt,
+              messages: filteredMessages,
+            });
+
+            dataStream.merge(
+              chefResult.toUIMessageStream({
+                sendReasoning,
+              })
+            );
+
+            return;
+          }
+
+          const chefTextId = generateUUID();
+
+          dataStream.write({
+            type: "text-start",
+            id: chefTextId,
+          });
+
+          dataStream.write({
+            type: "text-delta",
+            id: chefTextId,
+            delta: chefStep.text,
+          });
+
+          dataStream.write({
+            type: "text-end",
+            id: chefTextId,
+          });
+
+          return;
+        }
+
         // ================================================================
         // TOOL APPROVAL FLOW
         //
