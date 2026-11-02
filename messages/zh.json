@@ -107,6 +107,12 @@
       "boundaries": "边界",
       "deliverables": "交付物",
       "verification": "验证",
+      "consumption": "资源与消耗",
+      "consumptionCost": "预估成本：每次任务约{tokens} tokens，{cpu}秒 CPU。",
+      "consumptionMemory": "最低内存：{mb} MB",
+      "consumptionDisk": "最低磁盘：{mb} MB",
+      "consumptionNetworkYes": "需要网络访问",
+      "consumptionNetworkNo": "无需网络访问",
       "viewInDepartment": "在部门中查看"
     }
   },

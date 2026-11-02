@@ -107,6 +107,12 @@
       "boundaries": "Limites",
       "deliverables": "Livrables",
       "verification": "Vérification",
+      "consumption": "Ressources et consommation",
+      "consumptionCost": "Coût estimé : ~{tokens} tokens/mission, {cpu}s CPU.",
+      "consumptionMemory": "Mémoire minimale : {mb} Mo",
+      "consumptionDisk": "Disque minimal : {mb} Mo",
+      "consumptionNetworkYes": "Accès réseau requis",
+      "consumptionNetworkNo": "Aucun accès réseau requis",
       "viewInDepartment": "Voir dans le département"
     }
   },

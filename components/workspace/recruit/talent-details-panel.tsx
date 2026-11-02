@@ -1,7 +1,7 @@
 // components/workspace/recruit/talent-details-panel.tsx
 "use client";
 
-import { CheckIcon, XIcon } from "lucide-react";
+import { CheckIcon, XIcon, ZapIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,18 @@ function getInitials(name: string): string {
   return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function SectionTitle({
+  children,
+  icon,
+}: {
+  children: React.ReactNode;
+  icon?: React.ReactNode;
+}) {
   return (
-    <p className="text-[12px] font-medium text-foreground/70">{children}</p>
+    <p className="flex items-center gap-1.5 text-[12px] font-medium text-foreground/70">
+      {icon}
+      {children}
+    </p>
   );
 }
 
@@ -221,6 +230,41 @@ export function TalentDetailsPanel({
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
             {talent.verification}
           </p>
+        </div>
+      )}
+
+      {talent.consumption && (
+        <div>
+          <SectionTitle
+            icon={<ZapIcon aria-hidden="true" className="size-3.5" />}
+          >
+            {t("details.consumption")}
+          </SectionTitle>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+            {t("details.consumptionCost", {
+              tokens: talent.consumption.estimatedTokensPerMission.toLocaleString(
+                "en-US"
+              ),
+              cpu: talent.consumption.estimatedCpuSecondsPerMission,
+            })}
+          </p>
+          <ul className="mt-1.5 list-disc space-y-1.5 pl-5 text-[13.5px] leading-relaxed text-muted-foreground">
+            <li>
+              {t("details.consumptionMemory", {
+                mb: talent.consumption.minMemoryMb,
+              })}
+            </li>
+            <li>
+              {t("details.consumptionDisk", {
+                mb: talent.consumption.minDiskMb,
+              })}
+            </li>
+            <li>
+              {talent.consumption.networkRequired
+                ? t("details.consumptionNetworkYes")
+                : t("details.consumptionNetworkNo")}
+            </li>
+          </ul>
         </div>
       )}
     </div>

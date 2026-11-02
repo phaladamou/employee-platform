@@ -107,6 +107,12 @@
       "boundaries": "Boundaries",
       "deliverables": "Deliverables",
       "verification": "Verification",
+      "consumption": "Resources & Consumption",
+      "consumptionCost": "Estimated cost: ~{tokens} tokens/mission, {cpu}s CPU.",
+      "consumptionMemory": "Minimum memory: {mb} MB",
+      "consumptionDisk": "Minimum disk: {mb} MB",
+      "consumptionNetworkYes": "Network access required",
+      "consumptionNetworkNo": "No network access needed",
       "viewInDepartment": "View in department"
     }
   },
