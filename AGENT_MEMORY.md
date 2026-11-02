@@ -528,17 +528,27 @@ Leçons dures :
   statuts/colonnes (`terminated`, `terminatedAt`, migration 0009 :
   RENAME + UPDATE `released`→`terminated`, sûre que 0008 soit
   appliquée ou non), route `[id]/terminate`, `terminateEmployeeByAccount`,
+  re-recrutement = réactivation ligne (hireEmployee UPDATE si
+  terminated, sinon INSERT ; hiredSpecs exclut terminated),
   clés i18n `terminate.*`, testids, spec E2E. Libellés EN : bouton
   "Terminate", dialogue "Terminate {name}? This will end his
   employment contract…". Noyau déjà cohérent (`terminate` partout ;
   `release()` restants = verrous/stream, sens différent).
+- Resources & Consumption : colonne `TalentProfile.consumptionProfile`
+  (migration 0010, JSON nullable), type `ConsumptionProfile`
+  (tokens/CPU/RAM/disque/reseau), graine 6 valeurs (Nova seul
+  réseau), 9e clé riche validée (PUT compatible), backfill sync
+  NULL-only (jamais d'écrasement), format API `consumption` +
+  garde, section panneau détails (Zap + coût estimé + listes),
+  i18n en/fr/zh. Tests : seed exact ×6, validation, garde,
+  backfill scopé (sinon UPDATE nu refusé).
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 5cc898a —
-  456/456 vitest (51 fichiers) + 30/30 node lib/employees,
-  `tsc` propre, drizzle check OK, migrations 0008+0009 à appliquer
+- **État 2026-11-02 : code @ a88a616 (data dbed7ee) —
+  457/457 vitest (51 fichiers) + 33/33 node lib/employees,
+  `tsc` propre, drizzle check OK, migrations 0008→0010 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
