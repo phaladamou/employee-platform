@@ -670,6 +670,19 @@ Leçons dures :
   cargo absent ici — la CI le build), `tsc` propre.** Docs du
   bloc commitées juste après (voir commit docs). Résiduels :
   fork+PR démo à fermer côté GitHub.
+- Facturation démo jury (2026-11-03, NON COMMITÉ) : `/pricing`
+  public (Starter 0$, Pro 49$, Enterprise 199$, boutons Upgrade),
+  `/checkout` simulé (formulaire + "Pay 49$" + succès + redirect
+  /billing), `/billing` (plan courant Starter défaut + historique
+  simulé + Manage subscription). `lib/billing/billing.ts` : plans
+  + store simulé localStorage (`emp.billing.plan.v1/history.v1`,
+  store injecté, zéro réseau) ; `components/billing/*` (tiers,
+  form, view, badge Test mode) ; i18n `billing` EN/FR/ZH ;
+  `/pricing` en PUBLIC_PATHS + test policy. Convention apprise :
+  modules purs node-testables = ZÉRO import relatif de valeur
+  (fusion plans+simulation en un fichier). Tests 8/8 billing +
+  12/12 policy, `tsc` propre. Limite : non relié aux vrais
+  entitlements (démo seule, câblage réel = chantier séparé).
 
 ## 10. Conventions et environnement (rappel)
 
