@@ -1,8 +1,7 @@
 import { execFile } from "node:child_process";
-import { appendFile, mkdir } from "node:fs/promises";
-import { join } from "node:path";
 import { promisify } from "node:util";
 
+import { appendActivity } from "./activity";
 import {
   resolveWithinRoot,
   toolFail,
@@ -14,9 +13,6 @@ import {
 } from "./tool";
 
 const execFileAsync = promisify(execFile);
-
-/** Journal d'activite JSONL a la racine du workspace (lu par l'IDE web). */
-export const ACTIVITY_LOG_FILE = ".employee-activity.log";
 
 const GITHUB_API = "https://api.github.com";
 const API_TIMEOUT_MS = 30_000;
@@ -31,6 +27,15 @@ function sleep(ms: number): Promise<void> {
 }
 const GIT_BOT_NAME = "Atlas";
 const GIT_BOT_EMAIL = "atlas@employee-platform.local";
+// Branches protegees : Atlas pousse sur des branches de travail et
+// ouvre des PRs, jamais directement sur la branche par defaut.
+const PROTECTED_BRANCHES = new Set(["main", "master"]);
+
+// Guidage paresseux : l'echec d'authentification n'arrete pas la
+// mission — Atlas fait d'abord la partie publique, puis demande
+// le compte ou transmet ses modifications locales.
+const CONNECT_GUIDANCE =
+  "Do what you can without it first (clone, read, edit locally), then ask the user to connect GitHub in Settings to continue — or hand off your local changes for them to apply.";
 
 function asNonEmptyString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -47,23 +52,6 @@ export function scrubToken(text: string, token: string): string {
     return text;
   }
   return text.split(token).join("***");
-}
-
-async function appendActivity(
-  ctx: ToolContext,
-  tool: string,
-  message: string,
-  ok: boolean
-): Promise<void> {
-  try {
-    const root = toolRoot(ctx);
-    await mkdir(root, { recursive: true });
-    const line = `${JSON.stringify({ ts: new Date().toISOString(), tool, message, ok })}\n`;
-    await appendFile(join(root, ACTIVITY_LOG_FILE), line, "utf8");
-  } catch {
-    // Telemetrie best-effort : un journal inaccessible ne doit jamais
-    // faire echouer la mission.
-  }
 }
 
 function splitRepo(repo: string): { owner: string; name: string } | null {
@@ -117,19 +105,26 @@ async function githubApi(
 
 /**
  * Injecte le token dans une URL https, laisse les autres (file://...)
- * telles quelles. Idempotent : un userinfo existant (le clone laisse
- * origin authentifiee) est remplace, jamais empile — sinon git rejette
- * l'URL ("Port number was not a decimal number").
+ * telles quelles. Idempotent : un userinfo existant est remplace,
+ * jamais empile — sinon git rejette l'URL ("Port number was not a
+ * decimal number"). Sans token : URL publique inchangee.
  */
-export function authedRemoteUrl(url: string, token: string): string {
-  if (!url.startsWith("https://")) {
+export function authedRemoteUrl(url: string, token: string | null): string {
+  if (!token || !url.startsWith("https://")) {
     return url;
   }
-  const bare = url.replace(/^(https:\/\/)[^/]*@/, "$1");
-  return bare.replace("https://", `https://x-access-token:${token}@`);
+  return stripCredentials(url).replace(
+    "https://",
+    `https://x-access-token:${token}@`
+  );
 }
 
-function cloneSource(repo: string, token: string): string {
+/** Retire userinfo (tokens) d'une URL avant stockage disque (.git/config). */
+export function stripCredentials(url: string): string {
+  return url.replace(/^(https:\/\/)[^/]*@/, "$1");
+}
+
+function cloneSource(repo: string, token: string | null): string {
   if (repo.includes("://")) {
     return authedRemoteUrl(repo, token);
   }
@@ -174,7 +169,7 @@ export function createGithubForkTool(): EmployeeTool {
   return {
     name: "github_fork",
     description:
-      "Fork a GitHub repository into the authenticated account. Returns the fork full name.",
+      "Fork a GitHub repository into the authenticated account. Returns the fork full name. Requires a connected GitHub account.",
     argsDescription: '{ "repo": "<owner/name>" }',
     async execute(args: ToolArgs, ctx: ToolContext) {
       const repo = asNonEmptyString(args.repo);
@@ -184,7 +179,9 @@ export function createGithubForkTool(): EmployeeTool {
       }
       const token = toolToken(ctx);
       if (!token) {
-        return toolFail("github_fork requires GITHUB_TOKEN in the tool environment");
+        return toolFail(
+          `github_fork requires a connected GitHub account. ${CONNECT_GUIDANCE}`
+        );
       }
       await appendActivity(ctx, "github_fork", `Forking ${repo}...`, true);
       try {
@@ -213,17 +210,16 @@ export function createGithubCloneTool(): EmployeeTool {
   return {
     name: "github_clone",
     description:
-      "Clone a GitHub repository (or any git URL) into the workspace. Returns the directory.",
+      "Clone a GitHub repository (or any git URL) into the workspace. Returns the directory. Public repositories clone without an account; private ones need a connected GitHub account.",
     argsDescription: '{ "repo": "<owner/name or URL>", "dir": "<optional target directory>" }',
     async execute(args: ToolArgs, ctx: ToolContext) {
       const repo = asNonEmptyString(args.repo);
       if (!repo) {
         return toolFail('github_clone requires a "repo" argument');
       }
+      // Pas de compte requis : les depots publics se clonent sans
+      // authentification. Les depots prives echouent naturellement.
       const token = toolToken(ctx);
-      if (!token) {
-        return toolFail("github_clone requires GITHUB_TOKEN in the tool environment");
-      }
       const dir = asNonEmptyString(args.dir) ?? defaultCloneDir(repo);
       let target: string;
       try {
@@ -257,13 +253,19 @@ export function createGithubCloneTool(): EmployeeTool {
         if (lastError) {
           throw lastError;
         }
+        // Hygiene credential : origin reste publique sur disque, le
+        // token ne persiste jamais dans .git/config.
+        await runGit(
+          ["remote", "set-url", "origin", stripCredentials(source)],
+          target
+        );
         return toolOk(
           `Cloned ${repo} into ${dir}/. Read or edit files with paths like ${dir}/README.md.`
         );
       } catch (error) {
         const message = scrubToken(
           error instanceof Error ? error.message : String(error),
-          token
+          token ?? ""
         );
         await appendActivity(ctx, "github_clone", `Clone failed: ${message}`, false);
         return toolFail(`github_clone: ${message}`);
@@ -275,7 +277,8 @@ export function createGithubCloneTool(): EmployeeTool {
 export function createGithubCreateIssueTool(): EmployeeTool {
   return {
     name: "github_create_issue",
-    description: "Create a GitHub issue. Returns the issue number and URL.",
+    description:
+      "Create a GitHub issue. Returns the issue number and URL. Requires a connected GitHub account.",
     argsDescription:
       '{ "repo": "<owner/name>", "title": "<title>", "body": "<optional body>" }',
     async execute(args: ToolArgs, ctx: ToolContext) {
@@ -290,7 +293,9 @@ export function createGithubCreateIssueTool(): EmployeeTool {
       }
       const token = toolToken(ctx);
       if (!token) {
-        return toolFail("github_create_issue requires GITHUB_TOKEN in the tool environment");
+        return toolFail(
+          `github_create_issue requires a connected GitHub account. ${CONNECT_GUIDANCE}`
+        );
       }
       const body = asNonEmptyString(args.body);
       await appendActivity(
@@ -325,7 +330,7 @@ export function createGithubCreatePrTool(): EmployeeTool {
   return {
     name: "github_create_pr",
     description:
-      "Open a GitHub pull request from a pushed branch. Returns the PR number and URL.",
+      "Open a GitHub pull request from a pushed branch. Returns the PR number and URL. Requires a connected GitHub account.",
     argsDescription:
       '{ "repo": "<owner/name>", "head": "<branch>", "base": "<optional base branch>", "title": "<title>", "body": "<optional body>" }',
     async execute(args: ToolArgs, ctx: ToolContext) {
@@ -344,7 +349,9 @@ export function createGithubCreatePrTool(): EmployeeTool {
       }
       const token = toolToken(ctx);
       if (!token) {
-        return toolFail("github_create_pr requires GITHUB_TOKEN in the tool environment");
+        return toolFail(
+          `github_create_pr requires a connected GitHub account. ${CONNECT_GUIDANCE}`
+        );
       }
       const body = asNonEmptyString(args.body);
       await appendActivity(
@@ -391,7 +398,7 @@ export function createGithubPushTool(): EmployeeTool {
   return {
     name: "github_push",
     description:
-      "Commit all changes in a workspace directory on a branch and push it to the remote.",
+      "Commit all changes in a workspace directory on a branch and push it to the remote. Refuses protected branches (main, master): push a feature branch and open a PR instead. Requires a connected GitHub account.",
     argsDescription:
       '{ "dir": "<workspace directory>", "branch": "<branch name>", "message": "<commit message>" }',
     async execute(args: ToolArgs, ctx: ToolContext) {
@@ -404,12 +411,19 @@ export function createGithubPushTool(): EmployeeTool {
       if (!branch) {
         return toolFail('github_push requires a "branch" argument');
       }
+      if (PROTECTED_BRANCHES.has(branch)) {
+        return toolFail(
+          `github_push refuses to push to protected branch "${branch}" (push a feature branch and open a PR instead)`
+        );
+      }
       if (!message) {
         return toolFail('github_push requires a "message" argument');
       }
       const token = toolToken(ctx);
       if (!token) {
-        return toolFail("github_push requires GITHUB_TOKEN in the tool environment");
+        return toolFail(
+          `github_push requires a connected GitHub account. ${CONNECT_GUIDANCE}`
+        );
       }
       let target: string;
       try {
@@ -446,11 +460,23 @@ export function createGithubPushTool(): EmployeeTool {
           );
         }
         const remote = await runGit(["remote", "get-url", "origin"], target);
-        await runGit(
-          ["remote", "set-url", "origin", authedRemoteUrl(remote, token)],
-          target
-        );
-        await runGit(["push", "-u", "origin", branch], target);
+        const publicRemote = stripCredentials(remote);
+        try {
+          await runGit(
+            ["remote", "set-url", "origin", authedRemoteUrl(publicRemote, token)],
+            target
+          );
+          await runGit(["push", "-u", "origin", branch], target);
+        } finally {
+          // Restauration best-effort : le token ne persiste jamais
+          // dans .git/config, succes comme echec du push.
+          try {
+            await runGit(["remote", "set-url", "origin", publicRemote], target);
+          } catch {
+            // Un set-url local n'echoue quasiment jamais ; ne pas
+            // masquer le resultat du push.
+          }
+        }
         return toolOk(
           status
             ? `Pushed ${branch} from ${dir}/ to origin.`

@@ -5,8 +5,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { ACTIVITY_LOG_FILE } from "./activity";
 import {
-  ACTIVITY_LOG_FILE,
   authedRemoteUrl,
   createGithubCloneTool,
   createGithubCreateIssueTool,
@@ -14,6 +14,7 @@ import {
   createGithubForkTool,
   createGithubPushTool,
   scrubToken,
+  stripCredentials,
 } from "./github";
 import type { ToolContext } from "./tool";
 
@@ -314,5 +315,125 @@ describe("github tools", () => {
       { cwd: dir }
     );
     expect(stdout).toContain("refs/heads/atlas/demo");
+  });
+
+  it("github_clone works without a token (public clone)", async () => {
+    await sandbox();
+    const noToken: ToolContext = { sandboxRoot: dir };
+    const src = await localSourceRepo();
+
+    const result = await createGithubCloneTool().execute(
+      { repo: `file://${src}`, dir: "pub" },
+      noToken
+    );
+
+    expect(result.ok).toBe(true);
+    expect(await readFile(join(dir, "pub", "README.md"), "utf8")).toBe(
+      "hello\n"
+    );
+  });
+
+  it("github_fork without a token points to Settings", async () => {
+    await sandbox();
+    const noToken: ToolContext = { sandboxRoot: dir };
+    const result = await createGithubForkTool().execute(
+      { repo: "octocat/Hello-World" },
+      noToken
+    );
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain("connected GitHub account");
+  });
+
+  it("authed tools guide lazy work before asking for the account", async () => {
+    await sandbox();
+    const noToken: ToolContext = { sandboxRoot: dir };
+    const calls = [
+      () =>
+        createGithubForkTool().execute({ repo: "o/r" }, noToken),
+      () =>
+        createGithubCreateIssueTool().execute(
+          { repo: "o/r", title: "t" },
+          noToken
+        ),
+      () =>
+        createGithubCreatePrTool().execute(
+          { repo: "o/r", head: "b", title: "t" },
+          noToken
+        ),
+      () =>
+        createGithubPushTool().execute(
+          { dir: "work", branch: "atlas/x", message: "m" },
+          noToken
+        ),
+    ];
+    for (const call of calls) {
+      const result = await call();
+      expect(result.ok).toBe(false);
+      expect(result.output).toContain("connected GitHub account");
+      expect(result.output).toContain("without it first");
+      expect(result.output).toContain("hand off your local changes");
+    }
+  });
+
+  it("github_push refuses protected branches without touching the repo", async () => {
+    const ctx = await sandbox();
+    const src = await localSourceRepo();
+    await createGithubCloneTool().execute(
+      { repo: `file://${src}`, dir: "work" },
+      ctx
+    );
+    const before = await execFileAsync(
+      "git",
+      ["branch", "--show-current"],
+      { cwd: join(dir, "work") }
+    );
+
+    const result = await createGithubPushTool().execute(
+      { dir: "work", branch: "main", message: "nope" },
+      ctx
+    );
+
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('protected branch "main"');
+    const after = await execFileAsync(
+      "git",
+      ["branch", "--show-current"],
+      { cwd: join(dir, "work") }
+    );
+    expect(after.stdout).toBe(before.stdout);
+  });
+
+  it("stripCredentials removes userinfo from https remotes", () => {
+    expect(
+      stripCredentials(`https://x-access-token:${TOKEN}@github.com/o/r.git`)
+    ).toBe("https://github.com/o/r.git");
+    expect(stripCredentials("https://github.com/o/r.git")).toBe(
+      "https://github.com/o/r.git"
+    );
+    expect(stripCredentials("file:///tmp/x")).toBe("file:///tmp/x");
+  });
+
+  it("clone and push never persist the token in .git/config", async () => {
+    const ctx = await sandbox();
+    const src = await localSourceRepo();
+    await createGithubCloneTool().execute(
+      { repo: `file://${src}`, dir: "work" },
+      ctx
+    );
+    await writeFile(join(dir, "work", "README.md"), "hello atlas\n", "utf8");
+    await createGithubPushTool().execute(
+      { dir: "work", branch: "atlas/clean", message: "docs: atlas line" },
+      ctx
+    );
+
+    const config = await readFile(join(dir, "work", ".git", "config"), "utf8");
+    expect(config).not.toContain(TOKEN);
+    expect(config).not.toContain("x-access-token");
+    const { stdout } = await execFileAsync(
+      "git",
+      ["remote", "get-url", "origin"],
+      { cwd: join(dir, "work") }
+    );
+    expect(stdout.trim()).toBe(`file://${src}`);
   });
 });
