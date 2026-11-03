@@ -21,7 +21,6 @@ import {
 } from "@/hooks/use-artifact";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { Artifact } from "./artifact";
-import { CapabilitiesCarousel } from "./capabilities-carousel";
 import { EmptyState } from "./empty-state";
 import { ChatHeader } from "./workspace-header";
 import { DataStreamHandler } from "./data-stream-handler";
@@ -55,7 +54,6 @@ export function ChatShellChat() {
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [carouselDismissed, setCarouselDismissed] = useState(false);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { artifact, setArtifact } = useArtifact();
   const router = useRouter();
@@ -81,7 +79,6 @@ export function ChatShellChat() {
       setEditingMessage(null);
       setAttachments([]);
       setActiveCategory(null);
-      setCarouselDismissed(false);
     }
   }, [chatId, setArtifact]);
 
@@ -283,11 +280,6 @@ export function ChatShellChat() {
         ) : null}
       </div>
       <DataStreamHandler />
-      {!carouselDismissed && messages.length === 0 && !isLoading && (
-        <div className="fixed bottom-4 left-0 right-0 z-10">
-          <CapabilitiesCarousel onDismiss={() => setCarouselDismissed(true)} />
-        </div>
-      )}
       <AlertDialog
         onOpenChange={setShowCreditCardAlert}
         open={showCreditCardAlert}
