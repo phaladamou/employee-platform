@@ -12,7 +12,10 @@ import {
   assignMission,
   createEmployeeMission,
 } from "@/core/employee/missions/employee-mission";
-import { detectMissionIntent } from "@/core/employee/missions/mission-intent";
+import {
+  detectMissionIntent,
+  isGithubMission,
+} from "@/core/employee/missions/mission-intent";
 import { EmployeeMemory } from "@/core/employee/memory/employee-memory";
 import { createEmployeeProfile } from "@/core/employee/profile/employee-profile";
 import { loadProfileRegistry } from "@/core/employee/profiles/profile-registry";
@@ -74,8 +77,14 @@ export async function runWebMission(input: {
   // Meme garde que partout : creation de fichier / bugfix exigent
   // des criteres declares. Le chat web n'en saisit pas : revue
   // humaine explicite au lieu d'une execution non verifiable.
+  // Exception : les missions GitHub produisent des artefacts
+  // verifiables exterieurement (issues/PRs + URLs). Predicat unique
+  // du noyau (mission-intent.ts), comme les chemins CLI.
   const intent = detectMissionIntent(input.prompt);
-  if (intent.wantsFileCreation || intent.wantsBugfix) {
+  if (
+    !isGithubMission(input.prompt) &&
+    (intent.wantsFileCreation || intent.wantsBugfix)
+  ) {
     return { status: "needs_review", summary: "", needsAcceptance: true };
   }
 
@@ -93,12 +102,22 @@ export async function runWebMission(input: {
     { workspaces }
   ).memory;
 
+  const specialization = resolveSpecialization(input);
+  const spec = specialization
+    ? registry.get(specialization.name, specialization.version)
+    : undefined;
+  // Moindre privilege : le token GitHub n'est expose aux outils que
+  // pour les profils qui declarent des outils github_*.
+  const githubToken = process.env.GITHUB_TOKEN;
+  const wantsGithub =
+    spec?.allowedTools.some((name) => name.startsWith("github_")) ?? false;
+
   const profile = createEmployeeProfile({
     id: input.employeeId,
     name: input.employeeName,
     role: input.employeeRole,
     skills: [],
-    specialization: resolveSpecialization(input),
+    specialization,
   });
   const mission = assignMission(
     createEmployeeMission({ prompt: input.prompt }),
@@ -108,7 +127,12 @@ export async function runWebMission(input: {
     toolContext: {
       sandboxRoot: resolve(process.env.EMPLOYEE_SANDBOX ?? ".data/workspace"),
       workspaceRoot,
-      env: { PATH: process.env.PATH },
+      env: {
+        PATH: process.env.PATH,
+        ...(wantsGithub && githubToken
+          ? { GITHUB_TOKEN: githubToken }
+          : {}),
+      },
       sandboxBin: process.env.EMPLOYEE_SANDBOX_BIN,
     },
     memory,
