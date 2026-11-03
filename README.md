@@ -100,3 +100,13 @@ Expected result: `succeeded` + a report grounded in tool observations
 *Built during the Meta Global AI Developer Hackathon
 (Oct 26 – Nov 4, 2026). Stack: Next.js, TypeScript, Meta Model API
 (Muse Spark), Tailwind CSS, PostgreSQL.*
+
+## License
+
+Copyright (c) 2026 Phal Adamou. All Rights Reserved.
+
+This code is the exclusive property of Phal Adamou. It is provided
+strictly for evaluation purposes for the Meta Global AI Developer
+Hackathon. Any reproduction, distribution, modification, or commercial
+use is strictly prohibited without prior written consent. See
+[LICENSE](LICENSE).
