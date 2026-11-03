@@ -617,14 +617,34 @@ Leçons dures :
   bouton Download for Desktop (releases + QR survole, visuel
   d'attente) + bouton panneau droit (prop optionnelle, autres
   surfaces intactes). Tests 18/18 node chef, tsc vert.
+- Provider chat = Muse seul (hackathon Meta, DeepSeek retire
+  partout cote app) : `resolveChatLLM()` sans args
+  (MUSE_*, muse-spark-1.3) ; agent chat + tool-approval + Chef
+  + titres + suggestions + registre (MuseProvider) + researcher
+  ; fichiers deepseek-provider et smoke supprimes, entree
+  picker retiree, reglage Engine retire (inutile). Tests 3/3
+  core + 18/18 chef, tsc vert. Restes volontaires : noyau
+  employee multi-provider (defaut Muse), metadata picker,
+  disclaimers "not DeepSeek".
+- Latence chat : gateway capabilities en paresseux (tool-approval
+  seul, N HTTP externes economises par message) ; lectures route
+  en parallele (provider/compte/chat, puis save/Chef) ;
+  historique pre-charge dans le host (plus de relecture, fini le
+  doublon user en contexte) + logs [CHAT-TIME] + retrait
+  DeepSeek (Muse seul, hackathon Meta). 57/57 node,
+  481/481 vitest, tsc vert. POUSSE : 193f4a5, fece5c7,
+  4dfbe84.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 0942227 (panneau Team) —
-  481/481 vitest (52 fichiers) + 54/54 node (employees/chef/sidebar),
-  `tsc` propre, migrations 0008→0011 à appliquer
-  (`pnpm db:migrate` là où la DB est joignable).**
+- **État 2026-11-03 : code @ 4dfbe84 (Muse-only +
+  latence + logs) — 481/481 vitest (52 fichiers) + 57/57 node
+  (employees/chef/sidebar/chat-provider), `tsc` propre,
+  migrations 0008→0011 à appliquer (`pnpm db:migrate` là où la
+  DB est joignable).** Provider = Muse seul (DeepSeek retiré,
+  hackathon Meta) ; caps gateway paresseuses ; lectures route
+  parallèles ; historique pré-chargé ; logs [CHAT-TIME].
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
 - Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant

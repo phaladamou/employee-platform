@@ -30,7 +30,7 @@ adversarial cases, and honest coverage notes.
 | Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
 | Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **52 files, 481 tests, all green** (Vitest) **+ 51 tests** (`node --test lib/employees/ lib/chef/`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **52 files, 481 tests, all green** (Vitest) **+ 51 tests** (`node --test lib/employees/ lib/chef/`) **+ 3 tests** (`node --test core/models/chat-provider.test.ts`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
