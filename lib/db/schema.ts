@@ -39,17 +39,30 @@ export const user = pgTable("User", {
 
 export type User = InferSelectModel<typeof user>;
 
-export const chat = pgTable("Chat", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  createdAt: timestamp("createdAt").notNull(),
-  title: text("title").notNull(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => user.id),
-  visibility: varchar("visibility", { enum: ["public", "private"] })
-    .notNull()
-    .default("private"),
-});
+export const chat = pgTable(
+  "Chat",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    createdAt: timestamp("createdAt").notNull(),
+    title: text("title").notNull(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    visibility: varchar("visibility", { enum: ["public", "private"] })
+      .notNull()
+      .default("private"),
+    // Conversation employe : NULL = chat libre, renseigne = la
+    // discussion persistante (user, employe). Contrainte unique
+    // ci-dessous : un seul fil par couple (les NULL restent
+    // multiples, semantique Postgres).
+    employeeId: uuid("employeeId").references(() => employee.id, {
+      onDelete: "cascade",
+    }),
+  },
+  (table) => [
+    unique("Chat_user_employee_uniq").on(table.userId, table.employeeId),
+  ]
+);
 
 export type Chat = InferSelectModel<typeof chat>;
 
@@ -62,6 +75,11 @@ export const message = pgTable("Message_v2", {
   parts: json("parts").notNull(),
   attachments: json("attachments").notNull(),
   createdAt: timestamp("createdAt").notNull(),
+  // Reponse de mission : lien vers la fiche Mission (restaure
+  // la reference mission apres rechargement). NULL sinon.
+  missionId: uuid("missionId").references(() => mission.id, {
+    onDelete: "set null",
+  }),
 });
 
 export type DBMessage = InferSelectModel<typeof message>;
@@ -389,6 +407,9 @@ export const mission = pgTable(
     // Statut : queued | running | succeeded | failed | needs_review.
     status: varchar("status", { length: 24 }).notNull().default("queued"),
     report: text("report"),
+    // Trace d'execution : [{tool, ok}] dans l'ordre, prouve ce
+    // qui a vraiment tourne (anti-hallucination).
+    toolCalls: json("toolCalls").notNull().default([]),
     kernelJobId: text("kernelJobId"),
     expectFile: text("expectFile"),
     expectTest: boolean("expectTest").notNull().default(false),
