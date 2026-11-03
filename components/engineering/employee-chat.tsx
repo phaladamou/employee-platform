@@ -18,6 +18,14 @@ interface ChatMessage {
   mission?: boolean;
 }
 
+interface HistoryRow {
+  id: string;
+  role: string;
+  text: string;
+  missionId: string | null;
+  createdAt: string;
+}
+
 export function EmployeeChat({ employee }: { employee: Employee }) {
   const t = useTranslations("employees");
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -30,6 +38,7 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
   const [input, setInput] = useState("");
   const [asMission, setAsMission] = useState(false);
   const [sending, setSending] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [, setTick] = useState(0);
   const idRef = useRef(0);
@@ -40,6 +49,54 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
       controllerRef.current?.abort();
     };
   }, []);
+
+  // Historique persistant : recharge le fil (user, employe) depuis
+  // la base. Conversation vide = on garde la salutation locale.
+  useEffect(() => {
+    let cancelled = false;
+    setHistoryLoading(true);
+    fetch(`/api/employees/${encodeURIComponent(employee.id)}/chat`)
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error(`history failed: ${response.status}`);
+        }
+        return (await response.json()) as { messages?: HistoryRow[] };
+      })
+      .then((payload) => {
+        if (cancelled) {
+          return;
+        }
+        const rows = Array.isArray(payload.messages)
+          ? payload.messages
+          : [];
+        if (rows.length > 0) {
+          setMessages(
+            rows.map((row) => ({
+              id: row.id,
+              role: row.role === "employee" ? "employee" : "user",
+              text:
+                row.text ||
+                (row.missionId
+                  ? t("missionNeedsAcceptance")
+                  : t("chatEmptyReply")),
+              missionId: row.missionId ?? undefined,
+            }))
+          );
+        }
+      })
+      .catch(() => {
+        // Historique indisponible : on garde la salutation, le
+        // chat reste utilisable (l'envoi re-tentera la base).
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setHistoryLoading(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id, t]);
 
   const hasPending = messages.some((message) => message.pending === true);
 
@@ -194,6 +251,11 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
       </div>
 
       <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+        {historyLoading && (
+          <p className="text-[12px] text-muted-foreground">
+            {t("chatHistoryLoading")}
+          </p>
+        )}
         {messages.map((message) => (
           <div
             className={cn(

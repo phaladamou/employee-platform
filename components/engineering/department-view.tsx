@@ -10,11 +10,14 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   getEmployeesByDepartment,
+  isGithubCapable,
   type Employee,
 } from "@/lib/employees/catalog";
 import { fetcher } from "@/lib/utils";
 import { EmployeeChat } from "./employee-chat";
 import { EmployeeIde } from "./employee-ide";
+import { EmployeeMissionHistory } from "./employee-mission-history";
+import { GithubMissionPanel } from "./github-mission-panel";
 
 type EmployeesResponse = {
   departments: string[];
@@ -82,6 +85,7 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
     { revalidateOnFocus: false }
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tab, setTab] = useState<"chat" | "history" | "github">("chat");
 
   // Meme pattern que la page Employes : noms traduits quand connus,
   // identifiant brut sinon.
@@ -100,6 +104,16 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
   const selected = members.find((item) => item.id === selectedId) ?? null;
 
   if (selected) {
+    const tabs: Array<{
+      id: "chat" | "history" | "github";
+      label: string;
+    }> = [
+      { id: "chat", label: t("chatTab") },
+      { id: "history", label: t("historyTab") },
+      ...(isGithubCapable(selected.talentSpec)
+        ? [{ id: "github" as const, label: t("githubTab") }]
+        : []),
+    ];
     return (
       <div className="flex h-dvh w-full flex-col overflow-hidden bg-background">
         <div className="mx-auto w-full max-w-7xl shrink-0 px-8 pt-6 pb-4">
@@ -132,7 +146,42 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
 
         <div className="mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-4 px-8 pb-8 lg:flex-row">
           <div className="min-h-0 flex-1 lg:basis-[60%]">
-            <EmployeeChat employee={selected} key={selected.id} />
+            <div className="flex h-full min-h-0 flex-col gap-3">
+              <div className="flex shrink-0 gap-1 self-start rounded-lg border border-border/60 bg-card p-1">
+                {tabs.map((item) => (
+                  <button
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-[13px] font-medium",
+                      tab === item.id
+                        ? "bg-foreground text-background"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                    key={item.id}
+                    onClick={() => setTab(item.id)}
+                    type="button"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+              <div className="min-h-0 flex-1">
+                {tab === "github" &&
+                isGithubCapable(selected.talentSpec) ? (
+                  <GithubMissionPanel
+                    employee={selected}
+                    key={`github-${selected.id}`}
+                  />
+                ) : tab === "history" ? (
+                  <EmployeeMissionHistory
+                    employeeId={selected.id}
+                    employeeName={selected.name}
+                    key={`history-${selected.id}`}
+                  />
+                ) : (
+                  <EmployeeChat employee={selected} key={selected.id} />
+                )}
+              </div>
+            </div>
           </div>
           <div className="min-h-0 flex-1 lg:basis-[40%]">
             <EmployeeIde employeeId={selected.id} />
