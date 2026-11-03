@@ -51,6 +51,8 @@
     "lib/chef/onboarding.test.ts",
     "lib/employees/catalog.test.ts",
     "lib/employees/departments.test.ts",
+    "lib/server/web-mission-mapping.test.ts",
+    "lib/server/sse-parse.test.ts",
     "lib/employees/talents.test.ts",
     "lib/employees/rich-profiles.test.ts",
     "lib/engineering/cli-commands.test.ts",
