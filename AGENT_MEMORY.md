@@ -638,13 +638,16 @@ Leçons dures :
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-03 : code @ 4dfbe84 (Muse-only +
-  latence + logs) — 481/481 vitest (52 fichiers) + 57/57 node
+- **État 2026-11-03 : code @ 88fed4e (reasoning effort
+  minimal) — 481/481 vitest (52 fichiers) + 58/58 node
   (employees/chef/sidebar/chat-provider), `tsc` propre,
   migrations 0008→0011 à appliquer (`pnpm db:migrate` là où la
-  DB est joignable).** Provider = Muse seul (DeepSeek retiré,
-  hackathon Meta) ; caps gateway paresseuses ; lectures route
-  parallèles ; historique pré-chargé ; logs [CHAT-TIME].
+  DB est joignable).** TTFT 5-7s → 2.3s via
+  `reasoning_effort=minimal` (MUSE_REASONING_EFFORT,
+  minimal/low/medium/high/xhigh). Cause : muse-spark-1.3 est
+  un modèle de raisonnement (réflexion cachée avant le 1er
+  token) ; plateforme/SDK/réseau/prompt innocentés par
+  mesures curl vs Node à payload égal.
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
 - Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant
