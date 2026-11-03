@@ -575,14 +575,27 @@ Leçons dures :
   FR, nom, besoin -> persona, oui -> guide /employees/recruit,
   marqueur presentation) + `resolve.ts` (1er chat + que le Chef,
   repli flux normal sur erreur) ; branche route chat (sans outils,
-  streaming natif) ; graine message au provisioning. Tests 8/8
-  node, 481/481 vitest, 44/44 node elargi, tsc vert.
+  streaming natif) ; graine message au provisioning. Correction :
+  compte Chef-only -> TOUS les chats en persona Chef
+  (`decideChefMode`, script reserve au chat marque). Redirect
+  `/workspace` vers chat principal TENTE PUIS REVERTI sur ordre
+  (l'utilisateur veut un chat neuf a chaque visite). Tests 9/9
+  node chef, 45/45 elargi, tsc vert.
+- Cartes Chef (remplacent Learn/Solve/Code dans l'empty state) :
+  `lib/chef/actions.ts` (copie exact, hrefs /employees/recruit et
+  /employees verifies existants, ouverture mission traitee comme
+  besoin) + `chef-action-cards.tsx` (Link x2, envoi message
+  mission) ; moteur : 1er message phrase -> besoin direct
+  (persona), nom = 1-2 mots ou prefixe explicite, politesse de
+  tete ignoree. Tests 13/13 node chef, 49/49 elargi, 481/481
+  vitest, tsc vert. Flaky observe : job-worker heartbeat (passe
+  suivante OK, famille connue).
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ c417e8f (parcours Chef) —
-  481/481 vitest (52 fichiers) + 44/44 node (employees/chef/sidebar),
+- **État 2026-11-02 : code @ 73e76e9 (cartes Chef) —
+  481/481 vitest (52 fichiers) + 49/49 node (employees/chef/sidebar),
   `tsc` propre, migrations 0008→0011 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
