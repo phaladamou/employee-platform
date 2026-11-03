@@ -402,7 +402,7 @@ function PureMultimodalInput({
           </div>
         )}
         <PromptInput
-          className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-black/30 dark:[&>div]:border-white/25 [&>div]:bg-card/70 dark:[&>div]:bg-white/5 [&>div]:shadow-lg [&>div]:shadow-black/10 dark:[&>div]:shadow-black/50 [&>div]:has-[[data-slot=input-group-control]:focus-visible]:border-black/30! dark:[&>div]:has-[[data-slot=input-group-control]:focus-visible]:border-white/25! [&>div]:has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
+          className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-blue-200 dark:[&>div]:border-blue-400/25 [&>div]:bg-card/70 dark:[&>div]:bg-white/5 [&>div]:shadow-lg [&>div]:shadow-blue-900/10 dark:[&>div]:shadow-black/50 [&>div]:has-[[data-slot=input-group-control]:focus-visible]:border-blue-200! dark:[&>div]:has-[[data-slot=input-group-control]:focus-visible]:border-blue-400/25! [&>div]:has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
           onSubmit={() => {
             if (input.startsWith("/")) {
               const q = input.slice(1).trim();
@@ -444,7 +444,7 @@ function PureMultimodalInput({
           )}
           <PromptInputTextarea
             className={cn(
-              "min-h-20 text-[13px] leading-relaxed px-4 pt-3 pb-1 text-black dark:text-white placeholder:text-black/60 dark:placeholder:text-white/40 caret-black dark:caret-white",
+              "min-h-20 text-[13px] leading-relaxed px-4 pt-3 pb-1 text-black dark:text-white placeholder:text-black/60 dark:placeholder:text-white/40 caret-blue-600 dark:caret-blue-400",
               selectedTemplate && "pl-32"
             )}
             data-testid="multimodal-input"
