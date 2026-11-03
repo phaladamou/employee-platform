@@ -111,7 +111,7 @@ export function CliTerminal() {
         className="flex flex-1 flex-col overflow-y-auto px-6 py-6 sm:px-10"
         ref={scrollRef}
       >
-        <div className="m-auto w-full max-w-3xl">
+        <div className="mx-auto mt-[20dvh] w-full max-w-3xl">
           <div className="space-y-1 font-mono text-[13px] leading-[1.9]">
             {lines.map((line) =>
               line.kind === "input" ? (
