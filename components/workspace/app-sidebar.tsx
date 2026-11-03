@@ -2,6 +2,7 @@
 "use client";
 
 import {
+  Building2Icon,
   FileTextIcon,
   FlaskConicalIcon,
   HistoryIcon,
@@ -201,6 +202,13 @@ export function AppSidebar() {
       isActive: isEmployees,
       icon: UsersRoundIcon,
       label: t("employees"),
+      group: "secondary",
+    },
+    {
+      route: "/departments",
+      isActive: pathname.startsWith("/departments"),
+      icon: Building2Icon,
+      label: t("departments"),
       group: "secondary",
     },
     {
