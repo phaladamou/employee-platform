@@ -31,8 +31,29 @@ const NAME_PREFIXES = [
 
 // "Je m'appelle Phal" -> "Phal". Heuristique sobre : un seul token,
 // vide si rien d'exploitable (le message de suite s'en passe).
+// Un mot de politesse en tete ("Bonjour Phal") est ignore.
+const GREETING_WORDS = [
+  "bonjour",
+  "bonsoir",
+  "salut",
+  "hello",
+  "hi",
+  "hey",
+  "coucou",
+  "yo",
+];
+
+function stripLeadingGreeting(collapsed: string): string {
+  const [first, ...rest] = collapsed.split(" ");
+  const bare = (first ?? "").toLowerCase().replace(/[^a-z]/g, "");
+  if (first && rest.length > 0 && GREETING_WORDS.includes(bare)) {
+    return rest.join(" ");
+  }
+  return collapsed;
+}
+
 export function extractDisplayName(text: string): string {
-  const collapsed = text.trim().replace(/\s+/g, " ");
+  const collapsed = stripLeadingGreeting(text.trim().replace(/\s+/g, " "));
   const lower = collapsed.toLowerCase();
   let rest = collapsed;
   for (const prefix of NAME_PREFIXES) {
@@ -133,18 +154,56 @@ export type ChefStep =
   | { kind: "scripted"; text: string }
   | { kind: "persona"; need: string | null };
 
+// Regle du mode Chef : sans compte Chef-only, pas de mode Chef. Sur
+// le chat d'accueil marque, le script (presentation, nom, besoin,
+// guide) ; sur tout autre chat, la persona directe (le Chef repond,
+// sans rejouer l'accueil).
+export function decideChefMode(args: {
+  marked: boolean;
+  chefOnly: boolean;
+  userTexts: string[];
+}): ChefStep | null {
+  if (!args.chefOnly) return null;
+  if (!args.marked) return { kind: "persona", need: null };
+  return nextChefStep(args.userTexts);
+}
+
+// Un nom tient en 1-2 mots ("Marie Curie") ou s'annonce
+// explicitement ("je m'appelle ..."). Au-dela, c'est une phrase :
+// l'utilisateur exprime directement son besoin (ex: clic "Start a
+// Mission") et on saute l'etape du nom.
+const MAX_NAME_WORDS = 2;
+
+function looksLikeName(text: string): boolean {
+  const collapsed = stripLeadingGreeting(text.trim().replace(/\s+/g, " "));
+  if (!collapsed) return false;
+  if (
+    NAME_PREFIXES.some((prefix) =>
+      collapsed.toLowerCase().startsWith(prefix)
+    )
+  ) {
+    return true;
+  }
+  return collapsed.split(" ").length <= MAX_NAME_WORDS;
+}
+
 // Derive l'etape du seul historique utilisateur : 0 -> presentation,
-// 1 (le nom) -> question projet, 2 (le besoin) -> recommandation via
-// le prompt systeme, 3 ("oui ?") -> guide recrutement ou persona,
+// 1 (le nom, ou directement le besoin si phrase) -> question projet
+// ou recommandation via le prompt systeme, 2 (le besoin) ->
+// recommandation, 3 ("oui ?") -> guide recrutement ou persona,
 // 4+ -> conversation libre en persona.
 export function nextChefStep(userTexts: string[]): ChefStep {
   if (userTexts.length === 0) {
     return { kind: "greeting", text: CHEF_GREETING };
   }
   if (userTexts.length === 1) {
+    const raw = userTexts[0] ?? "";
+    if (raw.trim() !== "" && !looksLikeName(raw)) {
+      return { kind: "persona", need: raw };
+    }
     return {
       kind: "scripted",
-      text: buildNameReply(extractDisplayName(userTexts[0] ?? "")),
+      text: buildNameReply(extractDisplayName(raw)),
     };
   }
   if (userTexts.length === 2) {

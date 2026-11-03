@@ -9,6 +9,7 @@ import {
   buildNameReply,
   buildRecruitGuideReply,
   CHEF_GREETING,
+  decideChefMode,
   extractDisplayName,
   hasChefGreetingMarker,
   isAffirmative,
@@ -32,6 +33,8 @@ describe("chef onboarding", () => {
     assert.equal(extractDisplayName("Moi c'est paul"), "Paul");
     assert.equal(extractDisplayName("My name is Bob"), "Bob");
     assert.equal(extractDisplayName("Call me Zoe, please"), "Zoe");
+    assert.equal(extractDisplayName("Bonjour Phal"), "Phal");
+    assert.equal(extractDisplayName("Marie Curie"), "Marie");
     assert.equal(extractDisplayName("!!!"), "");
     assert.equal(extractDisplayName(""), "");
   });
@@ -105,6 +108,40 @@ describe("chef onboarding", () => {
       kind: "persona",
       need: null,
     });
+  });
+
+  it("routes chef-only chats to the Chef, script only when marked", () => {
+    assert.equal(
+      decideChefMode({ marked: true, chefOnly: false, userTexts: ["Hi"] }),
+      null
+    );
+    assert.deepEqual(
+      decideChefMode({ marked: false, chefOnly: true, userTexts: ["Hi"] }),
+      { kind: "persona", need: null }
+    );
+    const marked = decideChefMode({
+      marked: true,
+      chefOnly: true,
+      userTexts: ["Phal"],
+    });
+    assert.equal(marked?.kind, "scripted");
+  });
+
+  it("treats a long first message as the need, not the name", () => {
+    assert.deepEqual(nextChefStep(["I want to start a mission."]), {
+      kind: "persona",
+      need: "I want to start a mission.",
+    });
+    assert.deepEqual(nextChefStep(["Je veux une application mobile"]), {
+      kind: "persona",
+      need: "Je veux une application mobile",
+    });
+    const explicit = nextChefStep(["Je m'appelle Jean Paul Sartre"]);
+    assert.equal(explicit.kind, "scripted");
+    assert.match(explicit.text, /Enchanté Jean/);
+    const polite = nextChefStep(["Bonjour Phal"]);
+    assert.equal(polite.kind, "scripted");
+    assert.match(polite.text, /Enchanté Phal/);
   });
 
   it("maps messages to user texts without shifting steps", () => {

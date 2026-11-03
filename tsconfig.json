@@ -44,6 +44,7 @@
     "lib/auth/route-policy.test.ts",
     "lib/auth/sticky-session.test.ts",
     "lib/chat-draft.test.ts",
+    "lib/chef/actions.test.ts",
     "lib/chef/onboarding.test.ts",
     "lib/employees/catalog.test.ts",
     "lib/employees/talents.test.ts",

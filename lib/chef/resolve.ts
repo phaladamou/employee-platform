@@ -1,23 +1,23 @@
 // lib/chef/resolve.ts
 //
-// Colle serveur (DB + prompt) du mode Chef : determine si le chat
-// courant est le chat d'accueil marque d'un compte qui n'a que son
-// Chef, puis calcule l'etape via le moteur pur. Le branching fin
-// (script vs persona) reste verrouille par onboarding.test.ts.
+// Colle serveur (DB + prompt) du mode Chef : sur un compte qui n'a
+// que son Chef, chaque chat parle au Chef (script sur le chat
+// d'accueil marque, persona directe ailleurs). Le branching fin
+// reste verrouille par onboarding.test.ts.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  getAccountIdForUser,
   getEmployeesByAccount,
   getFirstChatIdForUser,
-  requireAccountId,
 } from "../db/queries";
 
 import {
   type ChefMessageLike,
   type ChefStep,
+  decideChefMode,
   hasChefGreetingMarker,
-  nextChefStep,
   userTextsFromMessages,
 } from "./onboarding";
 
@@ -54,14 +54,26 @@ export async function resolveChefStep(args: {
   history: readonly ChefMessageLike[];
   uiMessages: readonly ChefMessageLike[];
 }): Promise<ResolvedChefStep | null> {
-  // Marqueur d'abord (en memoire) : les chats normaux ne coutent
-  // aucune requete supplementaire.
-  if (!hasChefGreetingMarker(args.history)) return null;
-  const firstChatId = await getFirstChatIdForUser(args.userId);
-  if (firstChatId !== args.chatId) return null;
-  const accountId = await requireAccountId(args.userId);
+  // Compte Chef-only ? (2 requetes indexees par message : le prix
+  // pour que chaque chat du workspace parle au Chef.) Sans compte,
+  // flux normal.
+  const accountId = await getAccountIdForUser(args.userId);
+  if (!accountId) return null;
   const employees = await getEmployeesByAccount(accountId);
-  if (employees.some((employee) => employee.kind !== "chef")) return null;
-  const step = nextChefStep(userTextsFromMessages(args.uiMessages));
+  const chefOnly = !employees.some(
+    (employee) => employee.kind !== "chef"
+  );
+  if (!chefOnly) return null;
+  // Chat d'accueil marque -> script ; tout autre chat -> persona
+  // directe (l'accueil ne se rejoue jamais).
+  const marked =
+    hasChefGreetingMarker(args.history) &&
+    (await getFirstChatIdForUser(args.userId)) === args.chatId;
+  const step = decideChefMode({
+    marked,
+    chefOnly,
+    userTexts: userTextsFromMessages(args.uiMessages),
+  });
+  if (!step) return null;
   return { ...step, systemPrompt: loadChefSystemPrompt() };
 }
