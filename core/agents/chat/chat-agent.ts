@@ -80,7 +80,12 @@ export class ChatAgent implements Agent {
         this.buildModelMessages(agentContext);
 
       const llm = resolveChatLLM();
-      console.log(`[CHAT] agent model=${llm.model}`);
+      const payloadChars =
+        agentContext.systemPrompt.length +
+        JSON.stringify(modelMessages).length;
+      console.log(
+        `[CHAT] agent model=${llm.model} base=${llm.baseURL} msgs=${modelMessages.length} chars=${payloadChars} tools=${supportsTools ? "webSearch" : "none"} effort=${llm.reasoningEffort}`
+      );
       const agentStart = Date.now();
       const client = createOpenAI({
         apiKey: llm.apiKey,
@@ -101,18 +106,25 @@ export class ChatAgent implements Agent {
         tools: supportsTools
           ? this.buildTools()
           : {},
+        providerOptions: {
+          openai: { reasoningEffort: llm.reasoningEffort },
+        },
       });
 
       let accumulatedText = "";
       let firstChunkLogged = false;
 
+      const apiCallStart = Date.now();
+      console.log(
+        `[CHAT-TIME] muse api call start +${apiCallStart - agentStart}ms`
+      );
       for await (const part of result.fullStream) {
         const textDelta = this.handleStreamPart(part, emit);
         if (textDelta) {
           if (!firstChunkLogged) {
             firstChunkLogged = true;
             console.log(
-              `[CHAT-TIME] agent first chunk +${Date.now() - agentStart}ms`
+              `[CHAT-TIME] muse first token +${Date.now() - apiCallStart}ms after api call`
             );
           }
           accumulatedText += textDelta;
