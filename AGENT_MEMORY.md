@@ -610,12 +610,19 @@ Leçons dures :
   chat.askAnything + chat.placeholder (orpheline, alignee),
   MultimodalInput unique (vide + conversation, Chef inclus),
   copie verrouillee par test. 53/53 node, tsc vert.
+- Panneau droit "Team" (choix user) : membres + missions en
+  cours + 5 derniers rapports, SWR (missions polling 15s),
+  route GET /api/missions (requireAccountId + nom employe),
+  cles panel* EN/FR/ZH. Header : selecteur visibilite retire,
+  bouton Download for Desktop (releases + QR survole, visuel
+  d'attente) + bouton panneau droit (prop optionnelle, autres
+  surfaces intactes). Tests 18/18 node chef, tsc vert.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 8cb7596 (placeholder) —
-  481/481 vitest (52 fichiers) + 53/53 node (employees/chef/sidebar),
+- **État 2026-11-02 : code @ 0942227 (panneau Team) —
+  481/481 vitest (52 fichiers) + 54/54 node (employees/chef/sidebar),
   `tsc` propre, migrations 0008→0011 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
