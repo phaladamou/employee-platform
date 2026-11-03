@@ -402,7 +402,7 @@ function PureMultimodalInput({
           </div>
         )}
         <PromptInput
-          className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-black/20 dark:[&>div]:border-white/15 [&>div]:bg-card/70 dark:[&>div]:bg-white/5 [&>div]:shadow-[var(--shadow-composer)] [&>div]:shadow-sm"
+          className="[&>div]:rounded-2xl [&>div]:border [&>div]:border-black/30 dark:[&>div]:border-white/25 [&>div]:bg-card/70 dark:[&>div]:bg-white/5 [&>div]:shadow-lg [&>div]:shadow-black/10 dark:[&>div]:shadow-black/50 [&>div]:has-[[data-slot=input-group-control]:focus-visible]:border-black/30! dark:[&>div]:has-[[data-slot=input-group-control]:focus-visible]:border-white/25! [&>div]:has-[[data-slot=input-group-control]:focus-visible]:ring-0!"
           onSubmit={() => {
             if (input.startsWith("/")) {
               const q = input.slice(1).trim();
