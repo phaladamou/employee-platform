@@ -108,48 +108,50 @@ export function CliTerminal() {
       onClick={() => inputRef.current?.focus()}
     >
       <div
-        className="flex-1 space-y-1 overflow-y-auto px-6 py-6 font-mono text-[13px] leading-[1.9] sm:px-10"
+        className="flex flex-1 flex-col overflow-y-auto px-6 py-6 sm:px-10"
         ref={scrollRef}
       >
-        {lines.map((line) =>
-          line.kind === "input" ? (
-            <div
-              className="whitespace-pre-wrap text-secondary-foreground"
-              key={line.id}
-            >
-              <span className="mr-2 text-muted-foreground">›</span>
-              {line.text}
-            </div>
-          ) : (
-            <div
-              className={
-                line.kind === "error"
-                  ? "whitespace-pre-wrap text-destructive"
-                  : "whitespace-pre-wrap text-muted-foreground"
-              }
-              key={line.id}
-            >
-              {line.text || " "}
-            </div>
-          )
-        )}
-      </div>
-      <div className="px-6 pb-6 sm:px-10">
-        <div className="flex items-center gap-2 rounded-xl border border-border/60 bg-muted/50 px-4 py-3 font-mono text-[13px]">
-          <span className="shrink-0 text-muted-foreground">›</span>
-          <input
-            aria-label={t("placeholder")}
-            autoFocus
-            className="flex-1 bg-transparent text-secondary-foreground outline-none placeholder:text-muted-foreground/60"
-            disabled={busy}
-            onChange={(event) => setValue(event.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder={t("placeholder")}
-            ref={inputRef}
-            spellCheck={false}
-            type="text"
-            value={value}
-          />
+        <div className="m-auto w-full max-w-3xl">
+          <div className="space-y-1 font-mono text-[13px] leading-[1.9]">
+            {lines.map((line) =>
+              line.kind === "input" ? (
+                <div
+                  className="whitespace-pre-wrap text-secondary-foreground"
+                  key={line.id}
+                >
+                  <span className="mr-2 text-muted-foreground">›</span>
+                  {line.text}
+                </div>
+              ) : (
+                <div
+                  className={
+                    line.kind === "error"
+                      ? "whitespace-pre-wrap text-destructive"
+                      : "whitespace-pre-wrap text-muted-foreground"
+                  }
+                  key={line.id}
+                >
+                  {line.text || " "}
+                </div>
+              )
+            )}
+          </div>
+          <div className="mt-4 flex items-center gap-2 rounded-xl border border-border/60 bg-muted/50 px-4 py-3 font-mono text-[13px]">
+            <span className="shrink-0 text-muted-foreground">›</span>
+            <input
+              aria-label={t("placeholder")}
+              autoFocus
+              className="flex-1 bg-transparent text-secondary-foreground outline-none placeholder:text-muted-foreground/60"
+              disabled={busy}
+              onChange={(event) => setValue(event.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={t("placeholder")}
+              ref={inputRef}
+              spellCheck={false}
+              type="text"
+              value={value}
+            />
+          </div>
         </div>
       </div>
     </div>
