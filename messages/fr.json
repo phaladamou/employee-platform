@@ -416,7 +416,20 @@
     "deploy": "Déployer",
     "categoryLearnTitle": "Que voulez-vous apprendre ?",
     "categorySolveTitle": "Que voulez-vous résoudre ?",
-    "categoryCodeTitle": "Que voulez-vous coder ?"
+    "categoryCodeTitle": "Que voulez-vous coder ?",
+    "actionRecruitTitle": "Recruter des talents",
+    "actionRecruitDescription": "Découvrez des employés IA spécialisés et constituez votre équipe.",
+    "actionMissionTitle": "Lancer une mission",
+    "actionMissionDescription": "Confiez une tâche à l'un de vos employés et recevez un rapport.",
+    "actionMissionOpener": "Je veux lancer une mission.",
+    "actionTeamTitle": "Voir l'équipe",
+    "actionTeamDescription": "Suivez le statut de vos employés et leur historique.",
+    "chefHelloNamed": "Bonjour {name},",
+    "chefHello": "Bonjour,",
+    "chefIntro1": "Je suis votre Chef, le manager de votre équipe d'employés IA.",
+    "chefIntro2": "Je vous aide à recruter le bon spécialiste pour chaque besoin.",
+    "chefIntro3": "Je lance leurs missions et je vous rapporte leurs résultats.",
+    "chefIntro4": "Par quoi commençons-nous ?"
   },
   "search": {
     "placeholder": "Rechercher dans vos conversations...",

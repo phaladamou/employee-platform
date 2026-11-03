@@ -416,7 +416,20 @@
     "deploy": "Deploy",
     "categoryLearnTitle": "What do you want to learn?",
     "categorySolveTitle": "What do you want to solve?",
-    "categoryCodeTitle": "What do you want to code?"
+    "categoryCodeTitle": "What do you want to code?",
+    "actionRecruitTitle": "Recruit Talent",
+    "actionRecruitDescription": "Discover specialized AI employees and build your team.",
+    "actionMissionTitle": "Start a Mission",
+    "actionMissionDescription": "Give a task to one of your employees and get a report.",
+    "actionMissionOpener": "I want to start a mission.",
+    "actionTeamTitle": "View Team",
+    "actionTeamDescription": "Check the status of your employees and their history.",
+    "chefHelloNamed": "Hello {name},",
+    "chefHello": "Hello,",
+    "chefIntro1": "I'm your Chef, the manager of your AI employee team.",
+    "chefIntro2": "I help you recruit the right specialist for every need.",
+    "chefIntro3": "I run their missions and bring you back their reports.",
+    "chefIntro4": "Where should we start?"
   },
   "search": {
     "placeholder": "Search your conversations...",

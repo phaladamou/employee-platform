@@ -416,7 +416,20 @@
     "deploy": "部署",
     "categoryLearnTitle": "你想学什么？",
     "categorySolveTitle": "你想解决什么？",
-    "categoryCodeTitle": "你想编写什么？"
+    "categoryCodeTitle": "你想编写什么？",
+    "actionRecruitTitle": "招聘人才",
+    "actionRecruitDescription": "发现专业的 AI 员工，组建您的团队。",
+    "actionMissionTitle": "启动任务",
+    "actionMissionDescription": "给员工分配任务并获取报告。",
+    "actionMissionOpener": "我想启动一个任务。",
+    "actionTeamTitle": "查看团队",
+    "actionTeamDescription": "查看员工状态和历史记录。",
+    "chefHelloNamed": "你好{name}，",
+    "chefHello": "您好，",
+    "chefIntro1": "我是您的 Chef，AI 员工团队的管理者。",
+    "chefIntro2": "我帮您为每个需求招聘合适的专才。",
+    "chefIntro3": "我启动他们的任务，并向您汇报结果。",
+    "chefIntro4": "我们从哪里开始？"
   },
   "search": {
     "placeholder": "搜索您的对话...",

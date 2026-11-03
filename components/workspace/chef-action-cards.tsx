@@ -4,6 +4,7 @@
 import type { UseChatHelpers } from "@ai-sdk/react";
 import Link from "next/link";
 import { RocketIcon, UserPlusIcon, UsersRoundIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { CHEF_ACTION_CARDS } from "@/lib/chef/actions";
 import type { ChatMessage } from "@/lib/types";
 
@@ -18,6 +19,8 @@ export function ChefActionCards({
 }: {
   sendMessage: UseChatHelpers<ChatMessage>["sendMessage"];
 }) {
+  const t = useTranslations("chat");
+
   return (
     <div className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
       {CHEF_ACTION_CARDS.map((card) => {
@@ -27,10 +30,10 @@ export function ChefActionCards({
             <Icon className="size-4 shrink-0 text-blue-600 dark:text-blue-400" />
             <span className="min-w-0">
               <span className="block text-[13px] font-medium text-foreground">
-                {card.title}
+                {t(card.titleKey)}
               </span>
               <span className="block text-xs leading-snug text-muted-foreground">
-                {card.description}
+                {t(card.descriptionKey)}
               </span>
             </span>
           </>
@@ -49,7 +52,12 @@ export function ChefActionCards({
             onClick={() =>
               sendMessage({
                 role: "user",
-                parts: [{ type: "text", text: card.missionOpener ?? "" }],
+                parts: [
+                  {
+                    type: "text",
+                    text: card.openerKey ? t(card.openerKey) : "",
+                  },
+                ],
               })
             }
             type="button"

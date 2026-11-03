@@ -1,38 +1,40 @@
 // lib/chef/actions.ts
 //
-// Les 3 cartes d'action sous la presentation du Chef (donnees pures,
-// rendues par components/workspace/chef-action-cards.tsx). Deux
+// Les 3 cartes d'action du chat vide (donnees pures, rendues par
+// components/workspace/chef-action-cards.tsx). Titres et textes via
+// next-intl (namespace "chat", messages/{en,fr,zh}.json) : deux
 // cartes naviguent (href interne), la troisieme envoie un message
 // d'ouverture que le moteur traite comme un besoin direct.
-// Verrouille par actions.test.ts (copie exact + routes existantes).
+// Verrouille par actions.test.ts (cles presentes partout, routes
+// existantes, ouvreurs compris par le moteur).
 export interface ChefActionCard {
   id: "recruit" | "mission" | "team";
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
   href: string | null;
-  missionOpener: string | null;
+  openerKey: string | null;
 }
 
 export const CHEF_ACTION_CARDS: ChefActionCard[] = [
   {
     id: "recruit",
-    title: "Recruit Talent",
-    description: "Discover specialized AI employees and build your team.",
+    titleKey: "actionRecruitTitle",
+    descriptionKey: "actionRecruitDescription",
     href: "/employees/recruit",
-    missionOpener: null,
+    openerKey: null,
   },
   {
     id: "mission",
-    title: "Start a Mission",
-    description: "Give a task to one of your employees and get a report.",
+    titleKey: "actionMissionTitle",
+    descriptionKey: "actionMissionDescription",
     href: null,
-    missionOpener: "I want to start a mission.",
+    openerKey: "actionMissionOpener",
   },
   {
     id: "team",
-    title: "View Team",
-    description: "Check the status of your employees and their history.",
+    titleKey: "actionTeamTitle",
+    descriptionKey: "actionTeamDescription",
     href: "/employees",
-    missionOpener: null,
+    openerKey: null,
   },
 ];
