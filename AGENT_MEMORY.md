@@ -614,8 +614,8 @@ Leçons dures :
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 2dab4a4 (composer) —
-  481/481 vitest (52 fichiers) + 52/52 node (employees/chef/sidebar),
+- **État 2026-11-02 : code @ 8cb7596 (placeholder) —
+  481/481 vitest (52 fichiers) + 53/53 node (employees/chef/sidebar),
   `tsc` propre, migrations 0008→0011 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
