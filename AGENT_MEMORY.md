@@ -590,12 +590,28 @@ Leçons dures :
   tete ignoree. Tests 13/13 node chef, 49/49 elargi, 481/481
   vitest, tsc vert. Flaky observe : job-worker heartbeat (passe
   suivante OK, famille connue).
+- i18n cartes Chef : cles action*Title/Description/Opener en
+  EN/FR/ZH (namespace chat), composant via useTranslations,
+  ouvreurs FR/ZH verifies persona par le moteur ; moteur : noms
+  et besoins chinois (CJK 2-4 = nom, prefixe 我叫/我是).
+  Tests 15/15 node chef, 51/51 elargi, tsc vert.
+- Greeting Chef (empty state) : fini l'aleatoire centre, le Chef
+  se presente avec le prenom (useUser, repli sans prenom),
+  format normal aligne a gauche, 5 lignes (hello + description
+  + question), hierarchie (hello semi-gras, suite douce),
+  15px, cles chefHello* et chefIntro1-4 EN/FR/ZH. Tentes puis
+  retirees sur ordre : avatar C, numeros cartes, degrade bleu,
+  souligne pointille. Tests 16/16 node chef, tsc vert.
+- Retrait carrousel flottant (capabilities-carousel supprime,
+  shell nettoye) ; composer : bordure 1px renforcee, ombre
+  flottante, focus neutralise (aspect identique dedans/dehors,
+  scope au champ chat). tsc vert.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-02 : code @ 73e76e9 (cartes Chef) —
-  481/481 vitest (52 fichiers) + 49/49 node (employees/chef/sidebar),
+- **État 2026-11-02 : code @ 2dab4a4 (composer) —
+  481/481 vitest (52 fichiers) + 52/52 node (employees/chef/sidebar),
   `tsc` propre, migrations 0008→0011 à appliquer
   (`pnpm db:migrate` là où la DB est joignable).**
   (Convention : cette ligne suit le dernier commit de CODE ; les
