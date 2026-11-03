@@ -13,6 +13,10 @@ export const PUBLIC_PATHS = [
   "/help",
   "/docs",
   "/faq",
+  "/legal-notice",
+  "/acceptable-use",
+  "/security",
+  "/contact",
 ];
 
 export const PUBLIC_PREFIXES = [

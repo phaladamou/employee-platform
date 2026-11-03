@@ -38,6 +38,18 @@ export default function LegalLayout({
           <Link className="hover:text-foreground" href="/sub-processors">
             Sub-processors
           </Link>
+          <Link className="hover:text-foreground" href="/security">
+            Security
+          </Link>
+          <Link className="hover:text-foreground" href="/acceptable-use">
+            Acceptable Use
+          </Link>
+          <Link className="hover:text-foreground" href="/legal-notice">
+            Legal Notice
+          </Link>
+          <Link className="hover:text-foreground" href="/contact">
+            Contact
+          </Link>
           <span className="ml-auto text-muted-foreground/60">
             © {new Date().getFullYear()} Employee Inc
           </span>
