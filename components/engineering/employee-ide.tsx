@@ -11,10 +11,15 @@ import { cn } from "@/lib/utils";
 import {
   buildFileTree,
   languageForPath,
+  parseActivityLog,
   type FileTreeNode,
   type WorkspaceFileEntry,
 } from "@/lib/engineering/files";
 import { fetcher } from "@/lib/utils";
+
+// Miroir de ACTIVITY_LOG_FILE (core/employee/tools/github.ts) : le
+// client ne peut pas importer le module noyau (node:child_process).
+const ACTIVITY_LOG_PATH = ".employee-activity.log";
 
 function TreeNode({
   node,
@@ -122,12 +127,51 @@ function FileViewer({
   );
 }
 
+function ActivityFeed({ employeeId }: { employeeId: string }) {
+  const t = useTranslations("employees");
+  const { data } = useSWR<{ content: string }>(
+    `/api/employees/${encodeURIComponent(employeeId)}/files/${ACTIVITY_LOG_PATH}`,
+    fetcher,
+    { revalidateOnFocus: false, refreshInterval: 2000 }
+  );
+  const entries = useMemo(
+    () => (data ? parseActivityLog(data.content, 10) : []),
+    [data]
+  );
+
+  return (
+    <div className="max-h-32 shrink-0 overflow-y-auto border-b border-border/60 p-2">
+      <p className="px-2 pb-1 text-[11px] font-medium text-foreground">
+        {t("activityTitle")}
+      </p>
+      {entries.length === 0 ? (
+        <p className="px-2 py-1 text-[12px] text-muted-foreground">
+          {t("activityEmpty")}
+        </p>
+      ) : (
+        entries.map((entry, index) => (
+          <p
+            className={cn(
+              "truncate px-2 py-0.5 font-mono text-[11px]",
+              entry.ok ? "text-muted-foreground" : "text-red-600 dark:text-red-400"
+            )}
+            key={`${index}-${entry.ts}`}
+            title={entry.message}
+          >
+            {entry.message}
+          </p>
+        ))
+      )}
+    </div>
+  );
+}
+
 export function EmployeeIde({ employeeId }: { employeeId: string }) {
   const t = useTranslations("employees");
   const { data, error, isLoading } = useSWR<{ files: WorkspaceFileEntry[] }>(
     `/api/employees/${encodeURIComponent(employeeId)}/files`,
     fetcher,
-    { revalidateOnFocus: false }
+    { revalidateOnFocus: false, refreshInterval: 4000 }
   );
   const [selected, setSelected] = useState<string | null>(null);
 
@@ -145,6 +189,8 @@ export function EmployeeIde({ employeeId }: { employeeId: string }) {
           {data ? t("filesCount", { count: data.files.length }) : "…"}
         </p>
       </div>
+
+      <ActivityFeed employeeId={employeeId} />
 
       <div className="max-h-48 shrink-0 overflow-y-auto border-b border-border/60 p-2">
         {isLoading ? (
