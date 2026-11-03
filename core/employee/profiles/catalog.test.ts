@@ -27,7 +27,7 @@ const CATALOG = [
     employee: "Atlas",
     spec: "atlas-software-engineer",
     role: "Software Engineer",
-    tools: ["read_file", "write_file", "run_shell"],
+    tools: ["read_file", "write_file", "run_shell", "github_fork", "github_clone", "github_create_issue", "github_create_pr", "github_push"],
     computer: {
       binaries: ["python3", "pip", "pytest", "ls", "cat", "echo"],
       networkAccess: false,
