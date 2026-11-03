@@ -9,7 +9,7 @@ export function CliShell() {
   const { chatId, isReadonly, visibilityType } = useActiveChat();
 
   return (
-    <div className="flex h-dvh w-full flex-col overflow-hidden bg-white dark:bg-background">
+    <div className="theme-light flex h-dvh w-full flex-col overflow-hidden bg-background">
       <ChatHeader
         chatId={chatId}
         isReadonly={isReadonly}
