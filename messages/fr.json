@@ -732,5 +732,12 @@
     "press": "Presse",
     "partnerships": "Partenariats",
     "logOut": "Se déconnecter"
+  },
+  "cli": {
+    "welcome1": "Bienvenue dans le CLI Employee.",
+    "welcome2": "Tapez \"help\" pour lister les commandes.",
+    "placeholder": "Tapez une commande…",
+    "sessionExpired": "Session expirée — reconnectez-vous.",
+    "networkError": "Erreur réseau — le serveur tourne-t-il ?"
   }
 }

@@ -3,6 +3,7 @@
 
 import { useActiveChat } from "@/hooks/use-active-chat";
 import { ChatHeader } from "@/components/workspace/workspace-header";
+import { CliTerminal } from "@/components/cli/cli-terminal";
 
 export function CliShell() {
   const { chatId, isReadonly, visibilityType } = useActiveChat();
@@ -14,9 +15,7 @@ export function CliShell() {
         isReadonly={isReadonly}
         selectedVisibilityType={visibilityType}
       />
-      <div className="flex flex-1 items-center justify-center">
-        <p className="text-[13px] text-muted-foreground">CLI</p>
-      </div>
+      <CliTerminal />
     </div>
   );
 }

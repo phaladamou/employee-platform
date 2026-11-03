@@ -732,5 +732,12 @@
     "press": "Press",
     "partnerships": "Partnerships",
     "logOut": "Log out"
+  },
+  "cli": {
+    "welcome1": "Welcome to the Employee CLI.",
+    "welcome2": "Type \"help\" to list commands.",
+    "placeholder": "Type a command…",
+    "sessionExpired": "Session expired — please sign in again.",
+    "networkError": "Network error — is the server running?"
   }
 }
