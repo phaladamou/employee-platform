@@ -6,7 +6,7 @@ import "server-only";
 import { readdir, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
-import { ACTIVITY_LOG_FILE } from "@/core/employee/tools/github";
+import { ACTIVITY_LOG_FILE } from "@/core/employee/tools/activity";
 import { EmployeeWorkspaces } from "@/core/employee/workspaces/employee-workspaces";
 import type { WorkspaceFileEntry } from "./files";
 import { MAX_FILE_BYTES } from "./files";
