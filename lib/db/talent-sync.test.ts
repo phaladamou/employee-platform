@@ -89,7 +89,7 @@ describe("talent catalog sync", () => {
     expect(String(values.overview)).toContain("AI software engineer");
     expect(values.responsibilities).toHaveLength(5);
     expect(values.capabilities).toContain("Debugging");
-    expect(values.tools).toHaveLength(3);
+    expect(values.tools).toHaveLength(8);
     expect(String(values.executionEnvironment)).toContain("assigned workspace");
     expect(values.boundaries).toHaveLength(7);
     expect(values.deliverables).toHaveLength(5);

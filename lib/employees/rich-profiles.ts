@@ -41,6 +41,17 @@ const ATLAS_PROFILE: RichTalentProfile = {
       description:
         "Execute approved development commands within the configured environment.",
     },
+    { name: "github_fork", description: "Fork a GitHub repository." },
+    {
+      name: "github_clone",
+      description: "Clone a repository into the workspace.",
+    },
+    { name: "github_create_issue", description: "Create a GitHub issue." },
+    { name: "github_create_pr", description: "Open a GitHub pull request." },
+    {
+      name: "github_push",
+      description: "Commit and push a workspace branch.",
+    },
   ],
   executionEnvironment:
     "Atlas works within an assigned workspace with explicitly defined filesystem and command-execution permissions. Its execution environment should provide: access to the files required for the assigned task, a configured runtime appropriate to the project, access to approved development and testing commands, defined execution limits and resource constraints, a mechanism for capturing command output, errors, and exit codes, and isolation from unauthorized files, credentials, and external resources. The availability of a tool does not automatically grant unrestricted access to the underlying system.",
