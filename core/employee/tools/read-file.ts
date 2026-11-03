@@ -1,5 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 
+import { appendActivity } from "./activity";
 import {
   resolveWithinRoot,
   toolFail,
@@ -33,6 +34,8 @@ export function createReadFileTool(): EmployeeTool {
       } catch {
         return toolFail(`path escapes the workspace: ${args.path}`);
       }
+
+      await appendActivity(ctx, "read_file", `Reading ${args.path}...`, true);
 
       try {
         const info = await stat(resolved);

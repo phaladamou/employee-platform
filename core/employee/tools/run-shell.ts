@@ -1,6 +1,7 @@
 import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 
+import { appendActivity } from "./activity";
 import {
   assertBinariesAllowed,
   withMemoryLimit,
@@ -236,6 +237,12 @@ export function createRunShellTool(): EmployeeTool {
         computer !== null
           ? withMemoryLimit(args.command, computer.maxMemoryMb)
           : args.command;
+
+      const preview =
+        args.command.length > 120
+          ? `${args.command.slice(0, 120)}…`
+          : args.command;
+      await appendActivity(ctx, "run_shell", `Running: ${preview}`, true);
 
       if (ctx.sandboxBin) {
         const bridged = await runViaSandbox(

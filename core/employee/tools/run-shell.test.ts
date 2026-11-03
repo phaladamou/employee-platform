@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { buildEmployeeComputer } from "../computer/employee-computer";
+import { ACTIVITY_LOG_FILE } from "./activity";
 import {
   isEmployeeProfileSpec,
   type EmployeeProfileSpec,
@@ -45,6 +46,19 @@ describe("run_shell tool", () => {
 
     expect(result.ok).toBe(true);
     expect(result.output).toBe("hi");
+  });
+
+  it("announces commands in the activity log", async () => {
+    const ctx = await sandbox();
+
+    const result = await createRunShellTool().execute(
+      { command: `${NODE} -e "process.stdout.write('hi')"` },
+      ctx
+    );
+
+    expect(result.ok).toBe(true);
+    const content = await readFile(join(dir, ACTIVITY_LOG_FILE), "utf8");
+    expect(JSON.parse(content.trim()).message).toContain("Running:");
   });
 
   it("runs with the workspace as working directory", async () => {

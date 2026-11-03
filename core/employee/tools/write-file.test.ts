@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { ACTIVITY_LOG_FILE } from "./activity";
 import { WRITE_FILE_MAX_CHARS, createWriteFileTool } from "./write-file";
 import type { ToolContext } from "./tool";
 
@@ -97,5 +98,18 @@ describe("write_file tool", () => {
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it("announces writes in the activity log", async () => {
+    const ctx = await sandbox();
+
+    const result = await createWriteFileTool().execute(
+      { path: "hello.txt", content: "hi" },
+      ctx
+    );
+
+    expect(result.ok).toBe(true);
+    const content = await readFile(join(dir, ACTIVITY_LOG_FILE), "utf8");
+    expect(JSON.parse(content.trim()).message).toContain("Writing hello.txt");
   });
 });

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
+import { appendActivity } from "./activity";
 import {
   resolveWithinRoot,
   toolFail,
@@ -45,6 +46,7 @@ export function createWriteFileTool(): EmployeeTool {
       }
 
       await mkdir(dirname(resolved), { recursive: true });
+      await appendActivity(ctx, "write_file", `Writing ${args.path}...`, true);
       await writeFile(resolved, args.content, "utf8");
 
       return toolOk(

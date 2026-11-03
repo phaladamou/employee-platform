@@ -1,8 +1,9 @@
-import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { ACTIVITY_LOG_FILE } from "./activity";
 import { createReadFileTool } from "./read-file";
 import type { ToolContext } from "./tool";
 
@@ -87,5 +88,19 @@ describe("read_file tool", () => {
     } finally {
       await rm(outside, { recursive: true, force: true });
     }
+  });
+
+  it("announces reads in the activity log", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+
+    const result = await createReadFileTool().execute(
+      { path: "notes.txt" },
+      ctx
+    );
+
+    expect(result.ok).toBe(true);
+    const content = await readFile(join(dir, ACTIVITY_LOG_FILE), "utf8");
+    expect(JSON.parse(content.trim()).message).toContain("Reading notes.txt");
   });
 });
