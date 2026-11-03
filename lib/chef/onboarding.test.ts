@@ -144,6 +144,20 @@ describe("chef onboarding", () => {
     assert.match(polite.text, /Enchanté Phal/);
   });
 
+  it("handles Chinese names and needs (no spaces)", () => {
+    assert.equal(extractDisplayName("王芳"), "王芳");
+    const name = nextChefStep(["王芳"]);
+    assert.equal(name.kind, "scripted");
+    assert.match(name.text, /Enchanté 王芳/);
+    const explicit = nextChefStep(["我叫王芳"]);
+    assert.equal(explicit.kind, "scripted");
+    assert.match(explicit.text, /王芳/);
+    assert.deepEqual(nextChefStep(["我想启动一个任务。"]), {
+      kind: "persona",
+      need: "我想启动一个任务。",
+    });
+  });
+
   it("maps messages to user texts without shifting steps", () => {
     const texts = userTextsFromMessages([
       { role: "assistant", parts: [{ type: "text", text: CHEF_GREETING }] },

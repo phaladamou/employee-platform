@@ -27,6 +27,9 @@ const NAME_PREFIXES = [
   "i am ",
   "call me ",
   "this is ",
+  // Sans espace : le chinois n'en utilise pas ("我叫王芳").
+  "我叫",
+  "我是",
 ];
 
 // "Je m'appelle Phal" -> "Phal". Heuristique sobre : un seul token,
@@ -64,7 +67,7 @@ export function extractDisplayName(text: string): string {
   }
   const first = rest.split(" ")[0] ?? "";
   const cleaned = first.replace(
-    /^[^A-Za-zÀ-ÿ'-]+|[^A-Za-zÀ-ÿ'-]+$/g,
+    /^[^A-Za-zÀ-ÿ'\u3000-\u9fff\uff00-\uffef-]+|[^A-Za-zÀ-ÿ'\u3000-\u9fff\uff00-\uffef-]+$/g,
     ""
   );
   if (!cleaned) return "";
@@ -183,6 +186,14 @@ function looksLikeName(text: string): boolean {
     )
   ) {
     return true;
+  }
+  // Chinois (sans espaces) : un nom fait 2-4 caracteres, une phrase
+  // davantage ("我想启动一个任务" = besoin).
+  const compact = collapsed.replace(/\s+/g, "");
+  if (/[\u3000-\u9fff\uff00-\uffef]/.test(compact)) {
+    return (
+      compact.replace(/[^\u3000-\u9fff\uff00-\uffef]/g, "").length <= 4
+    );
   }
   return collapsed.split(" ").length <= MAX_NAME_WORDS;
 }
