@@ -15,6 +15,47 @@ export interface FileTreeNode {
   children?: FileTreeNode[];
 }
 
+export interface ActivityEntry {
+  ts: string;
+  tool: string;
+  message: string;
+  ok: boolean;
+}
+
+/**
+ * Parse le journal d'activite JSONL ecrit par les outils (une ligne
+ * par action). Lignes illisibles ignorees, dernieres `limit` gardees.
+ */
+export function parseActivityLog(text: string, limit = 20): ActivityEntry[] {
+  const out: ActivityEntry[] = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    try {
+      const data = JSON.parse(trimmed) as {
+        ts?: unknown;
+        tool?: unknown;
+        message?: unknown;
+        ok?: unknown;
+      };
+      if (typeof data.message !== "string" || !data.message) {
+        continue;
+      }
+      out.push({
+        ts: typeof data.ts === "string" ? data.ts : "",
+        tool: typeof data.tool === "string" ? data.tool : "",
+        message: data.message,
+        ok: data.ok !== false,
+      });
+    } catch {
+      continue;
+    }
+  }
+  return out.slice(-Math.max(1, limit));
+}
+
 // Taille max servie par l'API fichier (socle : lecture seule).
 export const MAX_FILE_BYTES = 200_000;
 

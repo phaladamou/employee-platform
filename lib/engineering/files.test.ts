@@ -8,6 +8,7 @@ import {
   buildFileTree,
   isSafeWorkspacePath,
   languageForPath,
+  parseActivityLog,
 } from "./files.ts";
 
 describe("isSafeWorkspacePath", () => {
@@ -51,5 +52,32 @@ describe("buildFileTree", () => {
     const tree = buildFileTree(["ok.py", "../evil.txt"]);
     assert.equal(tree.length, 1);
     assert.equal(tree[0].name, "ok.py");
+  });
+});
+
+describe("parseActivityLog", () => {
+  it("parse les lignes JSONL et ignore le bruit", () => {
+    const text =
+      '{"ts":"2026-01-01T00:00:00Z","tool":"github_fork","message":"Forking o/r...","ok":true}\n' +
+      "not json\n" +
+      '{"tool":"x"}\n' +
+      '{"ts":"2026-01-01T00:00:01Z","tool":"github_clone","message":"Clone failed: nope","ok":false}\n';
+    const entries = parseActivityLog(text);
+    assert.equal(entries.length, 2);
+    assert.equal(entries[0].tool, "github_fork");
+    assert.equal(entries[0].message, "Forking o/r...");
+    assert.equal(entries[0].ok, true);
+    assert.equal(entries[1].ok, false);
+  });
+
+  it("garde les dernieres lignes selon la limite", () => {
+    const text = [1, 2, 3, 4, 5]
+      .map((n) => `{"tool":"t","message":"m${n}","ok":true}`)
+      .join("\n");
+    const entries = parseActivityLog(text, 2);
+    assert.deepEqual(
+      entries.map((e) => e.message),
+      ["m4", "m5"]
+    );
   });
 });
