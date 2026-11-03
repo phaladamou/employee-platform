@@ -1,12 +1,12 @@
-// components/workspace/scientia-logo.tsx
+// components/workspace/employee-logo.tsx
 import { cn } from "@/lib/utils";
 
-interface ScientiaLogoProps {
+interface EmployeeLogoProps {
   className?: string;
   size?: number;
 }
 
-export function ScientiaLogo({ size = 48, className }: ScientiaLogoProps) {
+export function EmployeeLogo({ size = 48, className }: EmployeeLogoProps) {
   return (
     <svg
       className={cn("flex-shrink-0", className)}

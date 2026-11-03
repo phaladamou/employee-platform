@@ -41,7 +41,7 @@ import { useDraftInput } from "./use-draft-input";
 import { useStickySession } from "./use-sticky-session";
 import { PreviewAttachment } from "./preview-attachment";
 
-const scientiaModels = [
+const assistantModels = [
   { id: "fast", label: "Fast" },
   { id: "smart", label: "Smart" },
   { id: "creative", label: "Creative" },
@@ -84,7 +84,7 @@ function PureWebsiteMultimodalInput({
   const { width } = useWindowSize();
   const hasAutoFocused = useRef(false);
   const [mode, setMode] = useState<ModeType | null>(null);
-  const [scientiaModel, setScientiaModel] = useState("fast");
+  const [assistantModel, setAssistantModel] = useState("fast");
   const [modelMenuOpen, setModelMenuOpen] = useState(false);
   const { modeRef } = useActiveChat();
   const tw = useTranslations("websites");
@@ -334,7 +334,7 @@ function PureWebsiteMultimodalInput({
                     className="h-7 rounded-lg px-2 text-[12px] text-black dark:text-white transition-colors hover:text-foreground gap-1"
                     variant="ghost"
                   >
-                    {scientiaModels.find((m) => m.id === scientiaModel)
+                    {assistantModels.find((m) => m.id === assistantModel)
                       ?.label ?? "Fast"}
                     <ChevronDownIcon className="size-3" />
                   </Button>
@@ -346,16 +346,16 @@ function PureWebsiteMultimodalInput({
                   sideOffset={8}
                 >
                   <div className="flex flex-col gap-0.5">
-                    {scientiaModels.map((m) => (
+                    {assistantModels.map((m) => (
                       <button
                         className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] transition-colors hover:bg-muted/60 ${
-                          scientiaModel === m.id
+                          assistantModel === m.id
                             ? "text-foreground bg-muted/40"
                             : "text-black dark:text-white"
                         }`}
                         key={m.id}
                         onClick={() => {
-                          setScientiaModel(m.id);
+                          setAssistantModel(m.id);
                           setModelMenuOpen(false);
                         }}
                         type="button"

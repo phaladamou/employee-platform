@@ -24,7 +24,7 @@ import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import useSWRInfinite from "swr/infinite";
 
-import { ScientiaLogo } from "@/components/workspace/scientia-logo";
+import { EmployeeLogo } from "@/components/workspace/employee-logo";
 
 import {
   DropdownMenu,
@@ -435,7 +435,7 @@ export function AppSidebar() {
                   href="/"
                   onClick={() => setOpenMobile(false)}
                 >
-                  <ScientiaLogo className="shrink-0" size={42} />
+                  <EmployeeLogo className="shrink-0" size={42} />
 
                   <span className="truncate text-[14px] font-semibold tracking-tight text-foreground group-data-[collapsible=icon]:hidden">
                     Employee
