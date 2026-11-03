@@ -15,7 +15,8 @@ export type MissionStatus =
   | "running"
   | "succeeded"
   | "failed"
-  | "needs_review";
+  | "needs_review"
+  | "cancelled";
 
 export interface Department {
   id: string;
@@ -129,6 +130,7 @@ const MISSION_STATUSES: MissionStatus[] = [
   "succeeded",
   "failed",
   "needs_review",
+  "cancelled",
 ];
 
 export function isMissionStatus(value: unknown): value is MissionStatus {
