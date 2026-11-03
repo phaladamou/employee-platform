@@ -1584,6 +1584,47 @@ export async function getMissionsByAccount(
   }
 }
 
+export interface RecentMission {
+  id: string;
+  title: string;
+  status: string;
+  report: string | null;
+  updatedAt: Date;
+  employeeId: string;
+  employeeName: string;
+}
+
+// Missions recentes du compte + nom de l'employe (panneau droit).
+export async function getRecentMissionsByAccount(
+  accountId: string,
+  limit = 20
+): Promise<RecentMission[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select({
+        id: mission.id,
+        title: mission.title,
+        status: mission.status,
+        report: mission.report,
+        updatedAt: mission.updatedAt,
+        employeeId: mission.employeeId,
+        employeeName: employee.name,
+      })
+      .from(mission)
+      .innerJoin(employee, eq(mission.employeeId, employee.id))
+      .where(eq(mission.accountId, accountId))
+      .orderBy(desc(mission.updatedAt))
+      .limit(limit);
+  } catch (_error) {
+    console.error("getRecentMissionsByAccount DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get recent missions"
+    );
+  }
+}
+
 export async function getMissionById(
   accountId: string,
   missionId: string
