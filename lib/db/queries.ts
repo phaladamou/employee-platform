@@ -248,7 +248,11 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
-export async function saveMessages({ messages }: { messages: DBMessage[] }) {
+export async function saveMessages({
+  messages,
+}: {
+  messages: Array<typeof message.$inferInsert>;
+}) {
   try {
     const db = await getDb();
     return await db.insert(message).values(messages as any);
@@ -1654,6 +1658,7 @@ export async function updateMission({
     status?: string;
     report?: string | null;
     kernelJobId?: string | null;
+    toolCalls?: unknown;
   };
 }): Promise<Mission | null> {
   try {
@@ -1667,6 +1672,133 @@ export async function updateMission({
   } catch (_error) {
     console.error("updateMission DB Error:", _error);
     throw new ChatbotError("bad_request:database", "Failed to update mission");
+  }
+}
+
+// ============ CONVERSATIONS EMPLOYE (persistance discussion) ============
+
+// Fil persistant (user, employe). NULL si jamais discute (le GET
+// n'en cree pas : l'historique vide ne salit pas la base).
+export async function getEmployeeChat(
+  userId: string,
+  employeeId: string
+): Promise<Chat | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(chat)
+      .where(and(eq(chat.userId, userId), eq(chat.employeeId, employeeId)))
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("getEmployeeChat DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee chat"
+    );
+  }
+}
+
+export async function getOrCreateEmployeeChat({
+  userId,
+  employeeId,
+  title,
+}: {
+  userId: string;
+  employeeId: string;
+  title: string;
+}): Promise<Chat> {
+  const existing = await getEmployeeChat(userId, employeeId);
+  if (existing) {
+    return existing;
+  }
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .insert(chat)
+      .values({
+        createdAt: new Date(),
+        userId,
+        title,
+        visibility: "private",
+        employeeId,
+      } as any)
+      .returning();
+    if (!row) {
+      throw new Error("insert returned no row");
+    }
+    return row;
+  } catch (_error) {
+    console.error("getOrCreateEmployeeChat DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create employee chat"
+    );
+  }
+}
+
+// Un message de discussion employe : contenu texte dans parts
+// (convention Message_v2), lien mission pour les reponses qui
+// concluent une mission (restaure la reference au rechargement).
+export async function saveEmployeeMessage({
+  chatId,
+  role,
+  text,
+  missionId,
+}: {
+  chatId: string;
+  role: "user" | "assistant";
+  text: string;
+  missionId?: string;
+}): Promise<DBMessage> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .insert(message)
+      .values({
+        id: randomUUID(),
+        chatId,
+        role,
+        parts: [{ type: "text", text }],
+        attachments: [],
+        createdAt: new Date(),
+        missionId: missionId ?? null,
+      } as any)
+      .returning();
+    if (!row) {
+      throw new Error("insert returned no row");
+    }
+    return row;
+  } catch (_error) {
+    console.error("saveEmployeeMessage DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to save employee message"
+    );
+  }
+}
+
+// Historique des missions d'un employe du compte (onglet History).
+export async function getMissionsByEmployee(
+  accountId: string,
+  employeeId: string
+): Promise<Mission[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(mission)
+      .where(
+        and(eq(mission.accountId, accountId), eq(mission.employeeId, employeeId))
+      )
+      .orderBy(desc(mission.createdAt));
+  } catch (_error) {
+    console.error("getMissionsByEmployee DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee missions"
+    );
   }
 }
 

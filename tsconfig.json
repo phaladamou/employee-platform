@@ -53,6 +53,7 @@
     "lib/employees/departments.test.ts",
     "lib/server/web-mission-mapping.test.ts",
     "lib/server/sse-parse.test.ts",
+    "lib/server/employee-conversation-mapping.test.ts",
     "lib/billing/billing.test.ts",
     "lib/employees/talents.test.ts",
     "lib/employees/rich-profiles.test.ts",
