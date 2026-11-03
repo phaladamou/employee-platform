@@ -5,7 +5,7 @@ import { InMemoryEventBus } from "../../communication/in-memory-event-bus";
 import { CapabilityRegistry } from "../../capabilities/capability-registry";
 import { createResearchCapability } from "../../capabilities/research";
 import { LLMProviderRegistry } from "../../models/llm-provider-registry";
-import { DeepSeekProvider } from "../../models/providers/deepseek-provider";
+import { MuseProvider } from "../../models/providers/muse-provider";
 import { ResearcherAgent } from "../../agents/researcher/researcher";
 
 async function testResearcherAgent() {
@@ -21,7 +21,7 @@ async function testResearcherAgent() {
   capabilities.register(researchCapability);
 
   // 3. Enregistrer le provider LLM
-  llmProviders.register(new DeepSeekProvider());
+  llmProviders.register(new MuseProvider());
 
   // 4. Créer le ResearcherAgent
   const researcher = new ResearcherAgent();

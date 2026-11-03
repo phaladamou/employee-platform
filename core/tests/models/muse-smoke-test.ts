@@ -4,9 +4,9 @@ import { config } from "dotenv";
 config({ path: ".env.local" });
 
 async function main() {
-  const { DeepSeekProvider } =
-  await import("../../models/providers/deepseek-provider");
-  const provider = new DeepSeekProvider();
+  const { MuseProvider } =
+  await import("../../models/providers/muse-provider");
+  const provider = new MuseProvider();
 
   const result = await provider.generate({
     messages: [

@@ -91,11 +91,11 @@ export class ResearcherAgent implements Agent {
     }
 
     const llm =
-      this.context.llmProviders.get("deepseek");
+      this.context.llmProviders.get("muse");
 
     if (!llm) {
       throw new Error(
-        "DeepSeek provider is not available"
+        "Muse provider is not available"
       );
     }
 

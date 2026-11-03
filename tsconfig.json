@@ -52,6 +52,7 @@
     "lib/otp-email-template.test.ts",
     "lib/sidebar/nav-state.test.ts",
     "core/employee/**/*.test.ts",
+    "core/models/chat-provider.test.ts",
     "vitest.config.ts"
   ]
 }

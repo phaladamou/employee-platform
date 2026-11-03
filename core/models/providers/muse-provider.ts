@@ -1,4 +1,3 @@
-
 import dotenv from "dotenv";
 import { createOpenAI } from "@ai-sdk/openai";
 import { generateText } from "ai";
@@ -8,42 +7,30 @@ import type {
   LLMRequest,
   LLMResponse,
 } from "../llm-provider";
+import { resolveChatLLM } from "../chat-provider";
 
 // Charge explicitement .env.local
 dotenv.config({
   path: ".env.local",
 });
 
-function getClient() {
-  // Resolution paresseuse : l'absence de cle ne doit pas faire echouer
-  // le chargement du module.
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-
-  if (!apiKey) {
-    throw new Error(
-      "DEEPSEEK_API_KEY is missing. Check Scientia Labs/.env.local."
-    );
-  }
-
-  return createOpenAI({
-    apiKey,
-    baseURL:
-      process.env.DEEPSEEK_BASE_URL ??
-      "https://api.deepseek.com/v1",
-  });
-}
-
-export class DeepSeekProvider implements LLMProvider {
-  readonly id = "deepseek";
-  readonly name = "DeepSeek";
+export class MuseProvider implements LLMProvider {
+  readonly id = "muse";
+  readonly name = "Muse";
 
   async generate(
     request: LLMRequest
   ): Promise<LLMResponse> {
-    const deepseek = getClient();
+    // Resolution paresseuse : l'absence de cle ne doit pas faire
+    // echouer le chargement du module.
+    const llm = resolveChatLLM();
+    const client = createOpenAI({
+      apiKey: llm.apiKey,
+      baseURL: llm.baseURL,
+    });
 
     const result = await generateText({
-      model: deepseek.chat("deepseek-chat"),
+      model: client.chat(llm.model),
 
       messages: request.messages.map((message) => ({
         role: message.role,
@@ -55,7 +42,7 @@ export class DeepSeekProvider implements LLMProvider {
 
     return {
       content: result.text,
-      model: "deepseek-chat",
+      model: llm.model,
 
       usage: result.usage
         ? {
