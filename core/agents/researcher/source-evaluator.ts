@@ -28,7 +28,7 @@ export class SourceEvaluator {
         {
           role: "system",
           content: `
-You are the source evaluation component of Scientia Labs.
+You are the source evaluation component of the Employee platform.
 
 Evaluate a scientific or informational web source for a research task.
 

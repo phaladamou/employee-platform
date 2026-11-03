@@ -67,7 +67,7 @@ Recency: ${source.evaluation?.recency ?? "unknown"}/100
         {
           role: "system",
           content: `
-You are the research-gap analysis component of Scientia Labs.
+You are the research-gap analysis component of the Employee platform.
 
 Your job is NOT to answer the research question.
 

@@ -12,7 +12,7 @@ async function main() {
     messages: [
       {
         role: "user",
-        content: "Réponds simplement : Scientia Labs fonctionne.",
+        content: "Réponds simplement : Employee Platform fonctionne.",
       },
     ],
     temperature: 0,
