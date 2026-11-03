@@ -330,7 +330,7 @@
     }
   },
   "chat": {
-    "placeholder": "提出任何问题...",
+    "placeholder": "告诉您的经理您想要完成什么...",
     "editMessage": "编辑您的消息...",
     "cancel": "取消",
     "history": "会话",
@@ -364,7 +364,7 @@
     "night1": "深夜好奇心？我在这里。",
     "night2": "在熬夜苦读？一起学习吧。",
     "night3": "夜还长。我们该发现什么？",
-    "askAnything": "提出任何问题...",
+    "askAnything": "告诉您的经理您想要完成什么...",
     "editingMessage": "正在编辑消息",
     "learnPlaceholder": "教我...",
     "solvePlaceholder": "帮我解决...",

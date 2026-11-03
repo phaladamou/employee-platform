@@ -330,7 +330,7 @@
     }
   },
   "chat": {
-    "placeholder": "Ask anything...",
+    "placeholder": "Tell your Manager what you want to accomplish...",
     "editMessage": "Edit your message...",
     "cancel": "Cancel",
     "history": "Sessions",
@@ -364,7 +364,7 @@
     "night1": "Late-night curiosity?",
     "night2": "Still learning?",
     "night3": "What shall we discover tonight?",
-    "askAnything": "Ask anything...",
+    "askAnything": "Tell your Manager what you want to accomplish...",
     "editingMessage": "Editing message",
     "learnPlaceholder": "Teach me...",
     "solvePlaceholder": "Solve this for me...",

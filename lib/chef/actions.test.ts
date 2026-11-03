@@ -67,6 +67,28 @@ describe("chef action cards", () => {
     }
   });
 
+  it("locks the manager placeholder in every locale", () => {
+    assert.equal(
+      chatMessages("en").askAnything,
+      "Tell your Manager what you want to accomplish..."
+    );
+    assert.equal(
+      chatMessages("fr").askAnything,
+      "Dites à votre Manager ce que vous voulez accomplir..."
+    );
+    assert.equal(
+      chatMessages("zh").askAnything,
+      "告诉您的经理您想要完成什么..."
+    );
+    for (const locale of LOCALES) {
+      assert.equal(
+        chatMessages(locale).placeholder,
+        chatMessages(locale).askAnything,
+        locale
+      );
+    }
+  });
+
   it("links to existing routes", () => {
     for (const card of CHEF_ACTION_CARDS) {
       if (!card.href) continue;

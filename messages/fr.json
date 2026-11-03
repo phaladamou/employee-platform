@@ -330,7 +330,7 @@
     }
   },
   "chat": {
-    "placeholder": "Posez votre question...",
+    "placeholder": "Dites à votre Manager ce que vous voulez accomplir...",
     "editMessage": "Modifiez votre message...",
     "cancel": "Annuler",
     "history": "Sessions",
@@ -364,7 +364,7 @@
     "night1": "Une curiosité tardive ? Je suis là pour ça.",
     "night2": "Vous brûlez l'huile de minuit ? Apprenons.",
     "night3": "La nuit est jeune. Que devrions-nous découvrir ?",
-    "askAnything": "Posez votre question...",
+    "askAnything": "Dites à votre Manager ce que vous voulez accomplir...",
     "editingMessage": "Modification du message",
     "learnPlaceholder": "Apprenez-moi...",
     "solvePlaceholder": "Résolvez ceci pour moi...",
