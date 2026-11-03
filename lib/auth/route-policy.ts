@@ -17,6 +17,16 @@ export const PUBLIC_PATHS = [
   "/acceptable-use",
   "/security",
   "/contact",
+  "/retention",
+  "/ai-governance",
+  "/vulnerability-disclosure",
+  "/about",
+  "/status",
+  "/changelog",
+  "/press",
+  "/partnerships",
+  "/brand",
+  "/careers",
 ];
 
 export const PUBLIC_PREFIXES = [

@@ -81,6 +81,25 @@ describe("decideRoute", () => {
     }
   });
 
+  it("pages institutionnelles P2+P3 publiques sans session", () => {
+    for (const pathname of [
+      "/dpa",
+      "/sub-processors",
+      "/retention",
+      "/ai-governance",
+      "/vulnerability-disclosure",
+      "/about",
+      "/status",
+      "/changelog",
+      "/press",
+      "/partnerships",
+      "/brand",
+      "/careers",
+    ]) {
+      assert.deepEqual(decideRoute(pathname, "", false), { action: "next" });
+    }
+  });
+
   it("favicons et icones metadata restent publics sans session", () => {
     for (const pathname of [
       "/favicon.ico",

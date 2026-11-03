@@ -101,24 +101,15 @@ export default function SecurityPage() {
         >
           security@employee.app
         </a>
-        . Include a description of the issue, the steps to reproduce it, and
-        the potential impact. We ask that you:
-      </p>
-      <ul className="mt-3 list-disc pl-6">
-        <li>
-          Give us a reasonable time to fix the issue before any public
-          disclosure;
-        </li>
-        <li>
-          Avoid accessing, modifying, or deleting data that does not belong to
-          you, and avoid degrading the Service for others;
-        </li>
-        <li>Act in good faith and within the scope of your own account.</li>
-      </ul>
-      <p>
-        We will acknowledge your report promptly, keep you informed of our
-        progress, and will not take legal action against researchers who
-        follow these guidelines.
+        . Our{" "}
+        <a
+          className="text-foreground underline underline-offset-4"
+          href="/vulnerability-disclosure"
+        >
+          Vulnerability Disclosure
+        </a>{" "}
+        policy describes the scope, ground rules, and safe harbor for
+        researchers.
       </p>
 
       <h2 className="mt-10 text-[20px] font-medium tracking-tight">
