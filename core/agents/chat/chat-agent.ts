@@ -14,6 +14,7 @@ import type { CoreEvent } from "../../contracts/output";
 
 import { systemPrompt } from "./prompts";
 import type { ChatAgentContext } from "./chat-types";
+import { resolveChatLLM } from "../../models/chat-provider";
 
 export class ChatAgent implements Agent {
   readonly id = "chat";
@@ -78,11 +79,12 @@ export class ChatAgent implements Agent {
       const modelMessages =
         this.buildModelMessages(agentContext);
 
-      const deepseek = createOpenAI({
-        apiKey: process.env.DEEPSEEK_API_KEY,
-        baseURL:
-          process.env.DEEPSEEK_BASE_URL ??
-          "https://api.deepseek.com/v1",
+      const llm = resolveChatLLM();
+      console.log(`[CHAT] agent model=${llm.model}`);
+      const agentStart = Date.now();
+      const client = createOpenAI({
+        apiKey: llm.apiKey,
+        baseURL: llm.baseURL,
       });
 
       emit({
@@ -91,7 +93,7 @@ export class ChatAgent implements Agent {
       });
 
       const result = streamText({
-        model: deepseek.chat("deepseek-chat"),
+        model: client.chat(llm.model),
         system: agentContext.systemPrompt,
         messages: modelMessages,
         stopWhen: stepCountIs(5),
@@ -102,10 +104,17 @@ export class ChatAgent implements Agent {
       });
 
       let accumulatedText = "";
+      let firstChunkLogged = false;
 
       for await (const part of result.fullStream) {
         const textDelta = this.handleStreamPart(part, emit);
         if (textDelta) {
+          if (!firstChunkLogged) {
+            firstChunkLogged = true;
+            console.log(
+              `[CHAT-TIME] agent first chunk +${Date.now() - agentStart}ms`
+            );
+          }
           accumulatedText += textDelta;
         }
       }

@@ -23,6 +23,7 @@ import {
   appCore,
   buildCoreInput,
   createAppCoreHost,
+  toHostMessages,
 } from "@/lib/core/adapter";
 
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
@@ -33,7 +34,7 @@ import {
   getCapabilities,
 } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
+import { getChatLanguageModel } from "@/lib/ai/chat-provider";
 import { calculate } from "@/lib/ai/tools/calculate";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { editDocument } from "@/lib/ai/tools/edit-document";
@@ -109,6 +110,11 @@ async function getFileContent(
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
+  // Diagnostic latence : horodate chaque etape (logs [CHAT-TIME]).
+  const t0 = Date.now();
+  const tlog = (label: string) =>
+    console.log(`[CHAT-TIME] ${label} +${Date.now() - t0}ms`);
+
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
@@ -144,10 +150,14 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 1,
-    });
+    // Latence : ces 2 lectures sont independantes (session + id).
+    const [messageCount, chat] = await Promise.all([
+      getMessageCountByUserId({
+        id: session.user.id,
+        differenceInHours: 1,
+      }),
+      getChatById({ id }),
+    ]);
 
     if (
       messageCount >
@@ -155,6 +165,8 @@ export async function POST(request: Request) {
     ) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
+
+    tlog("reads done (count+chat)");
 
     // -----------------------------------------------------------------------
     // IMPORTANT :
@@ -178,8 +190,6 @@ export async function POST(request: Request) {
         ),
       );
 
-    const chat = await getChatById({ id });
-
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string> | null = null;
 
@@ -201,6 +211,8 @@ export async function POST(request: Request) {
         message: message as UIMessage,
       });
     }
+
+    tlog("history ready");
 
     let uiMessages: ChatMessage[];
 
@@ -316,27 +328,27 @@ export async function POST(request: Request) {
     // Persistence du message utilisateur
     // -----------------------------------------------------------------------
 
-    if (message?.role === "user") {
-      await saveMessages({
-        messages: [
-          {
-            chatId: id,
-            id: message.id,
-            role: "user",
-            parts: message.parts,
-            attachments: message.attachments ?? [],
-            createdAt: new Date(),
-          },
-        ],
-      });
-    }
-
-    // Mode Chef : chat d'accueil marque d'un compte qui n'a que son
-    // Manager. En cas d'erreur de resolution, on retombe sur le flux
-    // normal (le chat continue de fonctionner).
-    const chefStep =
+    // Latence : sauvegarde et resolution Chef independantes.
+    const [, chefStep] = await Promise.all([
+      message?.role === "user"
+        ? saveMessages({
+            messages: [
+              {
+                chatId: id,
+                id: message.id,
+                role: "user",
+                parts: message.parts,
+                attachments: message.attachments ?? [],
+                createdAt: new Date(),
+              },
+            ],
+          })
+        : null,
+      // Mode Chef : chat d'accueil marque d'un compte qui n'a que
+      // son Manager. En cas d'erreur de resolution, on retombe sur
+      // le flux normal (le chat continue de fonctionner).
       !isToolApprovalFlow && chat
-        ? await resolveChefStep({
+        ? resolveChefStep({
             userId: session.user.id,
             chatId: id,
             history: messagesFromDb,
@@ -345,15 +357,23 @@ export async function POST(request: Request) {
             console.error("Chef resolve error:", error);
             return null;
           })
-        : null;
+        : null,
+    ]);
+    tlog("saved + chef resolved");
 
     const modelConfig = chatModels.find(
       (m) => m.id === chatModel,
     );
 
-    const modelCapabilities = await getCapabilities();
+    // Latence : getCapabilities() appelle la gateway externe (un HTTP
+    // par modele). Seul le flux tool-approval s'en sert : les flux
+    // normal et Chef l'ignorent (le Chef n'a pas d'outils de toute
+    // facon, la directive site ne doit pas s'y injecter).
+    const modelCapabilities = isToolApprovalFlow
+      ? await getCapabilities()
+      : null;
 
-    const capabilities = modelCapabilities[chatModel];
+    const capabilities = modelCapabilities?.[chatModel];
 
     const isReasoningModel =
       capabilities?.reasoning === true;
@@ -457,6 +477,8 @@ export async function POST(request: Request) {
     // UI STREAM
     // -----------------------------------------------------------------------
 
+    tlog("stream start");
+
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow
         ? uiMessages
@@ -471,7 +493,7 @@ export async function POST(request: Request) {
         if (chefStep) {
           if (chefStep.kind === "persona") {
             const chefResult = streamText({
-              model: getLanguageModel(chatModel),
+              model: getChatLanguageModel(),
               system: chefStep.systemPrompt,
               messages: filteredMessages,
             });
@@ -515,7 +537,7 @@ export async function POST(request: Request) {
 
         if (isToolApprovalFlow) {
           const result = streamText({
-            model: getLanguageModel(chatModel),
+            model: getChatLanguageModel(),
 
             system: systemPrompt({
               requestHints,
@@ -639,9 +661,13 @@ export async function POST(request: Request) {
           visibility: selectedVisibilityType,
         });
 
-        const coreHost = createAppCoreHost();
+        const coreHost = createAppCoreHost({
+          chatId: id,
+          messages: toHostMessages(messagesFromDb),
+        });
 
         const textId = generateUUID();
+        let firstTokenLogged = false;
 
         dataStream.write({
           type: "text-start",
@@ -657,6 +683,10 @@ export async function POST(request: Request) {
 
               switch (event.type) {
                 case "text_delta": {
+                  if (!firstTokenLogged) {
+                    firstTokenLogged = true;
+                    tlog("first token");
+                  }
                   dataStream.write({
                     type: "text-delta",
                     id: textId,
