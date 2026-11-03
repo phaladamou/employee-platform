@@ -5,6 +5,7 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  formatToolCalls,
   resolveSpecialization,
   toWebStatus,
 } from "./web-mission-mapping.ts";
@@ -16,6 +17,37 @@ describe("toWebStatus", () => {
     assert.equal(toWebStatus("needs_review"), "needs_review");
     assert.equal(toWebStatus("running"), "running");
     assert.equal(toWebStatus("pending"), "queued");
+  });
+});
+
+describe("formatToolCalls", () => {
+  it("flags answers without tool calls", () => {
+    assert.equal(
+      formatToolCalls([]),
+      "Tools used: none (the employee answered without calling tools)."
+    );
+  });
+
+  it("lists calls with their status", () => {
+    assert.equal(
+      formatToolCalls([
+        { tool: "github_clone", ok: true },
+        { tool: "read_file", ok: true },
+        { tool: "github_push", ok: false },
+      ]),
+      "Tools used: github_clone (ok), read_file (ok), github_push (failed)."
+    );
+  });
+
+  it("caps long traces", () => {
+    const calls = Array.from({ length: 15 }, (_, i) => ({
+      tool: `tool_${i}`,
+      ok: true,
+    }));
+    const line = formatToolCalls(calls);
+    assert.ok(line.includes("tool_0 (ok)"));
+    assert.ok(!line.includes("tool_12"));
+    assert.ok(line.endsWith("(+3 more)."));
   });
 });
 

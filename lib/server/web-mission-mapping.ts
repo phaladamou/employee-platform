@@ -18,6 +18,25 @@ export function toWebStatus(
   return status;
 }
 
+/**
+ * Trace d'execution ajoutee au rapport : la liste brute des appels
+ * d'outils prouve ce qui a vraiment tourne (anti-hallucination).
+ * Volontairement en anglais (trace machine, comme le journal).
+ */
+export function formatToolCalls(
+  calls: ReadonlyArray<{ tool: string; ok: boolean }>
+): string {
+  if (calls.length === 0) {
+    return "Tools used: none (the employee answered without calling tools).";
+  }
+  const shown = calls.slice(0, 12).map((call) => {
+    const name = call.tool && call.tool.trim() ? call.tool : "?";
+    return `${name} (${call.ok === true ? "ok" : "failed"})`;
+  });
+  const extra = calls.length - shown.length;
+  return `Tools used: ${shown.join(", ")}${extra > 0 ? ` (+${extra} more)` : ""}.`;
+}
+
 export function resolveSpecialization(employee: {
   talentSpec: string | null;
   specVersion: string | null;
