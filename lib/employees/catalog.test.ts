@@ -115,6 +115,7 @@ describe("employee catalog", () => {
     assert.equal(isEmployeeKind("hired"), true);
     assert.equal(isEmployeeKind("admin"), false);
     assert.equal(isMissionStatus("needs_review"), true);
+    assert.equal(isMissionStatus("cancelled"), true);
     assert.equal(isMissionStatus("done"), false);
   });
 

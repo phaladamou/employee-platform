@@ -46,6 +46,7 @@
     "lib/chat-draft.test.ts",
     "lib/chef/actions.test.ts",
     "lib/cli/commands.test.ts",
+    "lib/cli/confirm.test.ts",
     "lib/cli/parser.test.ts",
     "lib/chef/onboarding.test.ts",
     "lib/employees/catalog.test.ts",
