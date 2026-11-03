@@ -137,6 +137,16 @@ export function isMissionStatus(value: unknown): value is MissionStatus {
   return MISSION_STATUSES.some((status) => status === value);
 }
 
+// Profils declares avec des outils github_* (onglet GitHub de
+// l'espace employe). Miroir de la verite noyau (allowedTools des
+// JSON de profils) : ajouter un profil ici quand il gagne les
+// outils GitHub.
+const GITHUB_CAPABLE_SPECS: readonly string[] = ["atlas-software-engineer"];
+
+export function isGithubCapable(spec: unknown): boolean {
+  return GITHUB_CAPABLE_SPECS.some((name) => name === spec);
+}
+
 export function asStringList(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.filter((item): item is string => typeof item === "string");

@@ -18,6 +18,7 @@ import {
   getEmployeesByDepartment,
   isEmployeeKind,
   isEmployeeStatus,
+  isGithubCapable,
   isKnownDepartment,
   isMissionStatus,
   type Employee,
@@ -90,6 +91,13 @@ describe("employee catalog", () => {
     assert.equal(isKnownDepartment("research-data"), true);
     assert.equal(isKnownDepartment("marketing"), false);
     assert.equal(isKnownDepartment("unknown"), false);
+  });
+
+  it("flags github-capable specs only", () => {
+    assert.equal(isGithubCapable("atlas-software-engineer"), true);
+    assert.equal(isGithubCapable("nova-devops-engineer"), false);
+    assert.equal(isGithubCapable(undefined), false);
+    assert.equal(isGithubCapable(null), false);
   });
 
   it("groups employees by department", () => {
