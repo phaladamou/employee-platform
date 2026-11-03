@@ -26,6 +26,12 @@ import { openFileStores } from "@/core/employee/stores/employee-stores";
 import { EmployeeWorkspaces } from "@/core/employee/workspaces/employee-workspaces";
 
 import {
+  toStoredToolCalls,
+  type ToolCallRecord,
+} from "./employee-conversation-mapping";
+import { loadUserGithubToken } from "./github-connection";
+import {
+  formatToolCalls,
   resolveSpecialization,
   toWebStatus,
   type WebMissionStatus,
@@ -64,9 +70,11 @@ export interface WebMissionResult {
   status: WebMissionStatus;
   summary: string;
   needsAcceptance: boolean;
+  toolCalls: ToolCallRecord[];
 }
 
 export async function runWebMission(input: {
+  userId: string;
   employeeId: string;
   employeeName: string;
   employeeRole: string;
@@ -85,7 +93,12 @@ export async function runWebMission(input: {
     !isGithubMission(input.prompt) &&
     (intent.wantsFileCreation || intent.wantsBugfix)
   ) {
-    return { status: "needs_review", summary: "", needsAcceptance: true };
+    return {
+      status: "needs_review",
+      summary: "",
+      needsAcceptance: true,
+      toolCalls: [],
+    };
   }
 
   const provider = resolveProvider();
@@ -106,11 +119,15 @@ export async function runWebMission(input: {
   const spec = specialization
     ? registry.get(specialization.name, specialization.version)
     : undefined;
-  // Moindre privilege : le token GitHub n'est expose aux outils que
-  // pour les profils qui declarent des outils github_*.
-  const githubToken = process.env.GITHUB_TOKEN;
+  // Moindre privilege : le token GitHub de l'utilisateur (consenti
+  // via Settings) n'est expose aux outils que pour les profils qui
+  // declarent des outils github_*. Sans connexion : les outils
+  // authentifies echouent proprement, le clone public reste possible.
   const wantsGithub =
     spec?.allowedTools.some((name) => name.startsWith("github_")) ?? false;
+  const githubToken = wantsGithub
+    ? await loadUserGithubToken(input.userId)
+    : null;
 
   const profile = createEmployeeProfile({
     id: input.employeeId,
@@ -145,10 +162,13 @@ export async function runWebMission(input: {
   if (status !== "succeeded" && status !== "failed" && status !== "needs_review") {
     throw new Error(`Unexpected terminal status: ${result.mission.status}`);
   }
+  const base = result.report?.summary ?? result.error ?? "";
+  const trace = formatToolCalls(result.toolCalls ?? []);
   return {
     status,
-    summary: result.report?.summary ?? result.error ?? "",
+    summary: base ? `${base}\n\n${trace}` : trace,
     needsAcceptance: false,
+    toolCalls: toStoredToolCalls(result.toolCalls ?? []),
   };
 }
 
