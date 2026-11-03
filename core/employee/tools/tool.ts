@@ -5,6 +5,7 @@ import type { EmployeeComputer } from "../computer/employee-computer";
 import { createReadFileTool } from "./read-file";
 import { createWriteFileTool } from "./write-file";
 import { createRunShellTool } from "./run-shell";
+import { createGithubTools } from "./github";
 
 export interface ToolContext {
   /** Racine partagee (repli quand workspaceRoot est absent). */
@@ -152,7 +153,15 @@ export function toolRoot(ctx: ToolContext): string {
   return ctx.workspaceRoot ?? ctx.sandboxRoot;
 }
 
-/** Les 3 outils de base d'un Employee. */
+/**
+ * Tous les outils disponibles d'un Employee. Les profils restreignent
+ * via allowedTools + permissions (resolveToolsForProfile).
+ */
 export function createCoreTools(): EmployeeTool[] {
-  return [createReadFileTool(), createWriteFileTool(), createRunShellTool()];
+  return [
+    createReadFileTool(),
+    createWriteFileTool(),
+    createRunShellTool(),
+    ...createGithubTools(),
+  ];
 }

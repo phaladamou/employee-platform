@@ -14,12 +14,18 @@ export const TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   read_file: "fs:read",
   write_file: "fs:write",
   run_shell: "shell:exec",
+  github_fork: "github:api",
+  github_clone: "github:api",
+  github_create_issue: "github:api",
+  github_create_pr: "github:api",
+  github_push: "github:api",
 };
 
 const KNOWN_PERMISSIONS: readonly ToolPermission[] = [
   "fs:read",
   "fs:write",
   "shell:exec",
+  "github:api",
 ];
 
 /**

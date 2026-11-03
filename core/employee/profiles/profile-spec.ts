@@ -1,4 +1,8 @@
-export type ToolPermission = "fs:read" | "fs:write" | "shell:exec";
+export type ToolPermission =
+  | "fs:read"
+  | "fs:write"
+  | "shell:exec"
+  | "github:api";
 
 export const MAX_PROFILE_STEPS = 100;
 
