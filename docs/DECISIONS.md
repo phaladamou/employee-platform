@@ -306,3 +306,36 @@ each choice costs. Numbered ADRs; newest last.
   namespacing (Landlock V4 TCP rights deliberately unused), and the
   minimal read-only view does not cover runtimes needing `/proc`
   (e.g. node-in-shell is untested under confinement).
+
+## ADR-016 — GitHub missions are verified on GitHub, exempt from local acceptance
+
+- **Context.** Missions that look like file creation or bugfixes must
+  declare machine-checkable criteria (`--expect-file` /
+  `--expect-test`), verified against the local workspace. GitHub
+  missions (fork, clone, issue, PR) produce no local artifacts worth
+  checking — their effects live on GitHub (fork/issue/PR numbers +
+  URLs). Worse, their prompts trip the detectors incidentally
+  (`create` inside `github_create_issue` next to `README file`),
+  blocking missions whose verification story is sound.
+- **Decision.** Prompts carrying explicit GitHub markers (`github`,
+  `fork`, `repo`, `issue`, `pull request`, case-sensitive `PR` —
+  `isGithubMission()` in `mission-intent.ts`, strict unicode-letter
+  boundaries) skip the local-acceptance requirement in
+  `assertAcceptanceForIntent()`. Detection itself stays truthful
+  (still reports the file/bugfix intent); only the requirement is
+  lifted. The web-chat guard keeps its own narrower exemption
+  (`isVerifiableGithubMission`) and still defaults to `needs_review`.
+- **Rejected.** (a) Attaching dummy `--expect-file` criteria to
+  GitHub missions — theater: the checked files would not be the
+  deliverable. (b) Exempting inside `detectMissionIntent` — would
+  hide the real intent from the web-chat guard and future consumers;
+  the exemption is about verification locus, not about what the
+  prompt says.
+- **Consequences.** GitHub missions run without local criteria on
+  every submit path (CLI, API, web, E2E harness — they share
+  `createEmployeeMission`). Verification moves to the GitHub API
+  (the E2E harness re-reads fork/PR/README independently). A local
+  file mission that merely mentions e.g. "repo" now also slips
+  through — accepted: explicit markers plus human review
+  (`needs_review` still applies on the web path) bound the blast
+  radius.

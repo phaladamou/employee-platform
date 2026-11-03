@@ -86,6 +86,8 @@ Expected result: `succeeded` + a report grounded in tool observations
   Fail Fast enforcement.
 - [docs/CREATOR_VS_EMPLOYER.md](docs/CREATOR_VS_EMPLOYER.md) — the product
   vision: who defines the DNA, who recruits.
+- [docs/GITHUB_E2E.md](docs/GITHUB_E2E.md) — Atlas GitHub runbook:
+  live fork/clone/edit/push/PR demo, token preconditions, incidents.
 - [core/employee/README.md](core/employee/README.md) — core technical
   reference (routes, CLI, data, tests).
 

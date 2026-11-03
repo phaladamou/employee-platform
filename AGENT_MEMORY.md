@@ -650,6 +650,26 @@ Leçons dures :
 - Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant
   (drift Biome/Ultracite, config untouched), catalogue Talent
   global sans admin, `.env.local` à recopier à chaque déménagement.
+- GitHub E2E Atlas VERT (2026-11-03, branche
+  `feature/engineering-atlas-nova`, commits 0ef8e27/a3f8c65/f80afbb
+  poussés sur la branche — PAS main, ordre user) : exemption
+  acceptance missions GitHub (`isGithubMission`, mission-intent +
+  4 tests), `maxSteps` Atlas 16→32 (lockfile regen via
+  `createProfileLockfile`, version 1.0.0 gardée : budget, pas
+  ADN), fix `github_push` (injection idempotente + push toujours,
+  + 3 tests). Harnais jetable `/tmp/atlas-github-e2e.mts`
+  (fork/clone/edit/push/PR, T7 PASS 17h36 : fork+PR+README
+  vérifiés API, upstream vierge). Leçons : token `ghu_*` NE
+  FORKE PAS (403 integration) — PAT classic `repo` exporté dans
+  le shell (`--env-file` ne surcharge jamais l'export) ; fork
+  pré-existant = FATAL (supprimer d'abord) ; log
+  `.employee-activity.log` dans le workspace inspect. Runbook :
+  `docs/GITHUB_E2E.md` (EN), ADR-016, TESTING §1/§3/§4 à jour.
+- **État branche feature/engineering-atlas-nova @ f80afbb : 497
+  vitest (53 fichiers, 496 verts + 1 env `emp-sandbox not built`,
+  cargo absent ici — la CI le build), `tsc` propre.** Docs du
+  bloc commitées juste après (voir commit docs). Résiduels :
+  fork+PR démo à fermer côté GitHub.
 
 ## 10. Conventions et environnement (rappel)
 

@@ -24,13 +24,14 @@ adversarial cases, and honest coverage notes.
 | WASM interop | `core/employee/wasm/wrapper.test.ts` | Rust↔Node signatures byte-identical both directions |
 | Crypto backend | `missions/mission-proof.test.ts` | WASM-first proofs, Node fallback (missing/corrupt module) |
 | Shell bridge | `tools/run-shell.test.ts` | Fake-binary protocol tests, ENOENT-only fallback, fail-closed errors, per-profile binary allowlist (`computer.binaries`) |
+| GitHub tools | `tools/github.test.ts` | `github_fork/clone/create_issue/create_pr/push`: mocked API posts + local-git push incl. clean-tree re-push and idempotent credential injection |
 | Workspace isolation | `tools/workspace-confinement.test.ts` | `toolRoot` decision, cross-employee read/write blocked, shell cwd + `--work-dir` routing, full-chain escape via the real binary (Linux) |
 | Profile catalog | `profiles/catalog.test.ts` | The 6 shipped profiles load, identities are unique, `environment` + `computer` blocks match the spec |
 | EmployeeComputer | `computer/command-policy.test.ts`, `computer/employee-computer.test.ts` | First-level invocation control (per-segment binaries, `eval`/`.`/`source` denied, pure builtins always allowed), builder defaults + 300 s timeout ceiling |
 | Talent sync | `lib/db/talent-sync.test.ts` | Seed-only DB sync (rich keys filled on insert, never overwritten), no `server-only` import so `db:migrate` works under `tsx` |
 | Talent library | `lib/employees/*.test.ts` (`node --test`) | Talent resolution, rich-profile merge, catalog shape for the Talent Network UI |
 
-Current state: **52 files, 481 tests, all green** (Vitest) **+ 51 tests** (`node --test lib/employees/ lib/chef/`) **+ 3 tests** (`node --test core/models/chat-provider.test.ts`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
+Current state: **53 files, 497 tests** (Vitest: 496 green + 1 env-gated `emp-sandbox not built`, see §2) **+ 51 tests** (`node --test lib/employees/ lib/chef/`) **+ 3 tests** (`node --test core/models/chat-provider.test.ts`) **+ 27 Rust tests** (`cargo test --locked`: 17 lib + 3 binary + 7 Landlock integration).
 
 ## 2. Commands
 
@@ -86,6 +87,7 @@ Scripted tests use a fake provider. The live runs below used Meta Muse
 | T6a | Atlas live: "create a `src` folder and list it" (Mini-Ordinateur, real server + worker + Muse, 2026-11-01) | Pass: `succeeded`, `src/` on disk in the Atlas workspace, report cites `ls -la src` |
 | T6b | Atlas live: "run `docker ps`" (binary outside the allowlist) | Enforcement pass, verdict open: `docker` refused pre-exec (report quotes the error + allowlist), but the job ended `succeeded` ("mission non réalisable") instead of `needs_review` |
 | T6c | Atlas live: "read `../autre_employe/secret.txt`" (workspace escape, real sibling secret on disk) | Enforcement pass, verdict open: read refused, sibling secret absent from all jobs/memory/reports (grep-clean), but the job ended `succeeded` instead of `failed` / `needs_review` |
+| T7 | Atlas GitHub E2E: fork → clone → edit → push → PR on a throwaway fork (real Muse, 2026-11-03, runbook: [GITHUB_E2E.md](GITHUB_E2E.md)) | Pass: fork + PR #1 + README line verified via the GitHub API, upstream untouched |
 
 Notes on T6a/b/c: no `EMPLOYEE_SANDBOX_BIN` in that codespace, so the
 Node fallback backend (`cwd`-only, no Landlock) applied — both refusals
@@ -98,6 +100,11 @@ detector (`detectSecurityBlock`, trigger (e)) now moves such Finals to
 `needs_review` — replaying T6b/T6c today yields `needs_review` with a
 `report signals a security block (…)` reason (pinned by regression
 tests on the verbatim Finals).
+
+T7's driver (`/tmp/atlas-github-e2e.mts`, throwaway like the T6
+harness) is documented with its preconditions in
+[GITHUB_E2E.md](GITHUB_E2E.md), including the incident history that
+shaped it (acceptance-gate exemption, push-credential fix).
 
 Replay recipe (throwaway harness, kept out of the repo): copy
 `core/employee` to `.tmp/emp`, rewrite relative imports with a `.ts`
@@ -216,6 +223,15 @@ Each case below is a committed regression test, not a one-off script:
   calls) — a clean record overrules caveat wording, and impersonal
   ("il est impossible de…"), boastful ("impossible de faire
   mieux") or negated forms never match.
+- **Double credential injection** (`tools/github.test.ts`, live E2E):
+  re-injecting the token into an already-authed `origin` URL makes
+  git reject the remote (`URL rejected: Port number…`); injection is
+  idempotent (existing userinfo replaced, never stacked).
+- **Silent push skip on clean trees** (`tools/github.test.ts`, live
+  E2E): a clean tree used to return success without pushing, so a
+  retry after an aborted push never converged; `github_push` now
+  always pushes (only the commit is skipped when there is nothing
+  new).
 
 ## 5. Coverage — what is tested and what is not
 

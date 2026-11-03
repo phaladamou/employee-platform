@@ -58,8 +58,11 @@ compatibility; the supported catalog is the six below:
 ### Engineering
 
 - `atlas-software-engineer@1.0.0` — Software Engineer. Tools:
-  `read_file`, `write_file`, `run_shell`. Environment: `python3`,
-  `pip`, `pytest`, `git`. 16 steps. Implements, tests, verifies.
+  `read_file`, `write_file`, `run_shell`, `github_fork`,
+  `github_clone`, `github_create_issue`, `github_create_pr`,
+  `github_push`. Environment: `python3`, `pip`, `pytest`, `git`.
+  32 steps. Implements, tests, verifies — including on GitHub
+  (see [GITHUB_E2E.md](GITHUB_E2E.md)).
 - `nova-devops-engineer@1.0.0` — DevOps Engineer. Tools: `run_shell`,
   `read_file` (no `write_file` — least privilege). Binaries:
   `docker`, `git` (+ inspection base). 12 steps. Pipelines and
