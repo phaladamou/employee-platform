@@ -606,6 +606,10 @@ Leçons dures :
   shell nettoye) ; composer : bordure 1px renforcee, ombre
   flottante, focus neutralise (aspect identique dedans/dehors,
   scope au champ chat). tsc vert.
+- Placeholder Manager ("Tell your Manager..." EN/FR/ZH) : cles
+  chat.askAnything + chat.placeholder (orpheline, alignee),
+  MultimodalInput unique (vide + conversation, Chef inclus),
+  copie verrouillee par test. 53/53 node, tsc vert.
 - Docs : TESTING.md (51 fichiers / 447 vitest + 30 node
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
