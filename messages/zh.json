@@ -717,6 +717,20 @@
     "privacy": "隐私",
     "dpa": "数据处理协议",
     "subProcessors": "子处理者",
+    "about": "关于",
+    "changelog": "更新日志",
+    "status": "状态",
+    "brand": "品牌",
+    "retention": "数据保留",
+    "acceptableUse": "可接受使用",
+    "legalNotice": "法律声明",
+    "security": "安全",
+    "disclosure": "漏洞披露",
+    "aiGovernance": "AI治理",
+    "contact": "联系我们",
+    "careers": "招聘",
+    "press": "媒体",
+    "partnerships": "合作伙伴",
     "logOut": "退出登录"
   }
 }

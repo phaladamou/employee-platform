@@ -293,7 +293,34 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
                 <span className="flex-1">{tMenu("learnMore")}</span>
               </DropdownMenuSubTrigger>
 
-              <DropdownMenuSubContent align="end" className="w-52 rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl" sideOffset={4}>
+              <DropdownMenuSubContent align="end" className="max-h-80 w-52 overflow-y-auto rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl" sideOffset={4}>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/about")}
+                >
+                  <span className="flex-1">{tMenu("about")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/contact")}
+                >
+                  <span className="flex-1">{tMenu("contact")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/changelog")}
+                >
+                  <span className="flex-1">{tMenu("changelog")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/status")}
+                >
+                  <span className="flex-1">{tMenu("status")}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-2 my-1.5 bg-sidebar-border/40" />
+
                 <DropdownMenuItem
                   className={menuItemClass}
                   onClick={() => router.push("/terms")}
@@ -317,6 +344,72 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
                   onClick={() => router.push("/sub-processors")}
                 >
                   <span className="flex-1">{tMenu("subProcessors")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/retention")}
+                >
+                  <span className="flex-1">{tMenu("retention")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/acceptable-use")}
+                >
+                  <span className="flex-1">{tMenu("acceptableUse")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/legal-notice")}
+                >
+                  <span className="flex-1">{tMenu("legalNotice")}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-2 my-1.5 bg-sidebar-border/40" />
+
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/security")}
+                >
+                  <span className="flex-1">{tMenu("security")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/vulnerability-disclosure")}
+                >
+                  <span className="flex-1">{tMenu("disclosure")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/ai-governance")}
+                >
+                  <span className="flex-1">{tMenu("aiGovernance")}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-2 my-1.5 bg-sidebar-border/40" />
+
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/careers")}
+                >
+                  <span className="flex-1">{tMenu("careers")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/press")}
+                >
+                  <span className="flex-1">{tMenu("press")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/partnerships")}
+                >
+                  <span className="flex-1">{tMenu("partnerships")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/brand")}
+                >
+                  <span className="flex-1">{tMenu("brand")}</span>
                 </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>

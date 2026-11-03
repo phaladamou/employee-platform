@@ -717,6 +717,20 @@
     "privacy": "Confidentialité",
     "dpa": "DPA",
     "subProcessors": "Sous-traitants",
+    "about": "À propos",
+    "changelog": "Changelog",
+    "status": "Statut",
+    "brand": "Marque",
+    "retention": "Conservation",
+    "acceptableUse": "Utilisation acceptable",
+    "legalNotice": "Mentions légales",
+    "security": "Sécurité",
+    "disclosure": "Divulgation",
+    "aiGovernance": "Gouvernance IA",
+    "contact": "Contact",
+    "careers": "Carrières",
+    "press": "Presse",
+    "partnerships": "Partenariats",
     "logOut": "Se déconnecter"
   }
 }
