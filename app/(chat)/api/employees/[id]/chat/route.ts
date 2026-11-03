@@ -1,6 +1,6 @@
 // app/(chat)/api/employees/[id]/chat/route.ts
-// Socle discussion Engineering : reponse deterministe + creation
-// de mission optionnelle (le temps reel et le LLM viendront ensuite).
+// Discussion Engineering : reponse LLM reelle + missions executees
+// pour de vrai via le noyau (in-process, dev-first).
 import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
@@ -8,8 +8,14 @@ import {
   createMission,
   getEmployeeById,
   requireAccountId,
+  updateMission,
 } from "@/lib/db/queries";
 import { isMissionStatus } from "@/lib/employees/catalog";
+import { streamEmployeeReply } from "@/lib/server/employee-chat-stream";
+import {
+  chatWithEmployee,
+  runWebMission,
+} from "@/lib/server/run-web-mission";
 
 export async function POST(
   request: Request,
@@ -46,9 +52,33 @@ export async function POST(
     }
 
     if (!asMission) {
-      return NextResponse.json({
-        reply: `Bien reçu. Je suis ${target.name} (${target.role}). Décrivez la mission puis cochez "Mission" pour me la confier ; je l'exécuterai dans mon workspace.`,
-      });
+      const url = new URL(request.url);
+      if (url.searchParams.get("stream") === "1") {
+        try {
+          return await streamEmployeeReply({
+            name: target.name,
+            role: target.role,
+            message,
+          });
+        } catch (error) {
+          console.error("POST /api/employees/[id]/chat Stream Error:", error);
+          return NextResponse.json(
+            { error: "Chat unavailable" },
+            { status: 500 }
+          );
+        }
+      }
+      try {
+        const reply = await chatWithEmployee({
+          employeeName: target.name,
+          employeeRole: target.role,
+          message,
+        });
+        return NextResponse.json({ reply });
+      } catch (error) {
+        console.error("POST /api/employees/[id]/chat LLM Error:", error);
+        return NextResponse.json({ error: "Chat unavailable" }, { status: 500 });
+      }
     }
 
     const [created] = await createMission({
@@ -60,18 +90,65 @@ export async function POST(
     if (!created) {
       throw new Error("insert returned no row");
     }
-    return NextResponse.json(
-      {
-        reply: `Mission enregistrée pour ${target.name} : "${message.slice(0, 120)}". Je la traite dans mon workspace.`,
-        mission: {
-          id: created.id,
-          title: created.title,
-          status: isMissionStatus(created.status) ? created.status : "queued",
-          employeeId: created.employeeId,
+    await updateMission({
+      accountId,
+      missionId: created.id,
+      patch: { status: "running" },
+    });
+
+    try {
+      const outcome = await runWebMission({
+        employeeId: id,
+        employeeName: target.name,
+        employeeRole: target.role,
+        talentSpec: target.talentSpec,
+        specVersion: target.specVersion,
+        prompt: message,
+      });
+      const updated = await updateMission({
+        accountId,
+        missionId: created.id,
+        patch: { status: outcome.status, report: outcome.summary || null },
+      });
+      const row = updated ?? created;
+      return NextResponse.json(
+        {
+          mission: {
+            id: row.id,
+            title: row.title,
+            status: isMissionStatus(row.status) ? row.status : "queued",
+            employeeId: row.employeeId,
+          },
+          summary: outcome.summary,
+          needsAcceptance: outcome.needsAcceptance,
         },
-      },
-      { status: 201 }
-    );
+        { status: 201 }
+      );
+    } catch (error) {
+      console.error("POST /api/employees/[id]/chat Run Error:", error);
+      const detail = String(
+        error instanceof Error ? error.message : error
+      ).slice(0, 500);
+      const failed = await updateMission({
+        accountId,
+        missionId: created.id,
+        patch: { status: "failed", report: detail },
+      });
+      const row = failed ?? created;
+      return NextResponse.json(
+        {
+          mission: {
+            id: row.id,
+            title: row.title,
+            status: "failed",
+            employeeId: row.employeeId,
+          },
+          summary: detail,
+          needsAcceptance: false,
+        },
+        { status: 201 }
+      );
+    }
   } catch (error) {
     console.error("POST /api/employees/[id]/chat Error:", error);
     return NextResponse.json(
