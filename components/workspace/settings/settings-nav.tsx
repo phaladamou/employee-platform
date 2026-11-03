@@ -17,6 +17,7 @@ export function SettingsNav() {
     { id: "tools", label: t("tools") },
     { id: "security", label: t("security") },
     { id: "billing", label: t("billing") },
+    { id: "github", label: t("github") },
   ];
 
   return (
