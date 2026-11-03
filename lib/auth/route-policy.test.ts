@@ -68,6 +68,10 @@ describe("decideRoute", () => {
     });
   });
 
+  it("/pricing reste public sans session (page offres)", () => {
+    assert.deepEqual(decideRoute("/pricing", "", false), { action: "next" });
+  });
+
   it("favicons et icones metadata restent publics sans session", () => {
     for (const pathname of [
       "/favicon.ico",
