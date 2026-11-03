@@ -683,6 +683,34 @@ Leçons dures :
   (fusion plans+simulation en un fichier). Tests 8/8 billing +
   12/12 policy, `tsc` propre. Limite : non relié aux vrais
   entitlements (démo seule, câblage réel = chantier séparé).
+- Fix consentement GitHub (2026-11-03, NON COMMITÉ) : le module
+  crypto jette au chargement sans cles OAUTH_* → import statique
+  banni sur le chemin chat (route 500 "Couldn't send"). Correctif :
+  `await import` paresseux dans `github-connection.ts` (null doux)
+  et route connexion (503 `encryption_unavailable` + clé i18n).
+  Règle : jamais d'import statique d'un module à garde d'env
+  depuis une route.
+- Diagnostic clone fantôme (2026-11-03) : `.data/workspaces/`
+  absent prouve qu'aucune mission web n'a tourné (acquire() le
+  crée toujours) → piste n°1 = checkbox Mission non cochée
+  (défaut OFF → chat simple, réponse fabriquée). Chaîne noyau
+  prouvée OK par sonde jetable (registre réel + spec Atlas +
+  run scripté → fichiers + journal sur disque). Trace "Tools
+  used" ajoutée au rapport (mapping testé) pour trancher à
+  l'avenir. Le GitHub tab force asMission (immunisé).
+- Persistance conversations/missions (2026-11-03, non
+  commité) : migration 0012 (Mission.toolCalls JSON NOT NULL
+  défaut [], Chat.employeeId + UNIQUE(user,employé),
+  Message_v2.missionId SET NULL). 1 fil/ couple via
+  getOrCreateEmployeeChat ; POST chat sauve user systématique
+  + assistant (stream enveloppé, mission avec missionId,
+  texte vide + missionId = needs_acceptance rendu client).
+  GET chat recharge, GET missions + [missionId] pour
+  l'onglet History. runWebMission retourne toolCalls
+  (toStoredToolCalls). Mapping pur +
+  test node --test (8 cas). saveMessages() prend
+  désormais $inferInsert (missionId requis). Tests node
+  --test exclus du tsconfig (convention).
 
 ## 10. Conventions et environnement (rappel)
 
