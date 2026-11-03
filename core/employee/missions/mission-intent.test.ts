@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assertAcceptanceForIntent,
   detectMissionIntent,
+  isGithubMission,
 } from "./mission-intent";
 
 describe("detectMissionIntent", () => {
@@ -61,6 +62,34 @@ describe("detectMissionIntent", () => {
   });
 });
 
+describe("isGithubMission", () => {
+  it("accepts explicit GitHub workflows (verified on GitHub, not on disk)", () => {
+    for (const prompt of [
+      "Fork octocat/Hello-World and fix the typo in the README",
+      "Clone the repo and open a pull request",
+      "Create an issue on your fork, then open a PR",
+      "GitHub demo mission on octocat/Hello-World. Work ONLY on YOUR fork.",
+      "Corrige le typo du README et ouvre une PR sur GitHub",
+      "Fork the repo, create an issue, push a branch and open a pull request",
+    ]) {
+      expect(isGithubMission(prompt), prompt).toBe(true);
+    }
+  });
+
+  it("rejects local work and near-misses", () => {
+    for (const prompt of [
+      "Fix the bug in utils.ts",
+      "Create a config file for the project",
+      "Report the quarterly results",
+      "Check the tissue box inventory",
+      "Read the repository docs",
+      "Corrige le bug de connexion",
+    ]) {
+      expect(isGithubMission(prompt), prompt).toBe(false);
+    }
+  });
+});
+
 describe("assertAcceptanceForIntent", () => {
   it("requires file acceptance for creation intents", () => {
     expect(() =>
@@ -95,5 +124,35 @@ describe("assertAcceptanceForIntent", () => {
     expect(() =>
       assertAcceptanceForIntent("Audit churn", { files: [] })
     ).not.toThrow();
+  });
+
+  it("lets GitHub missions through without local criteria", () => {
+    // Saveur creation de fichier (miroir du prompt du harnais E2E :
+    // "create" dans github_create_issue + "README file").
+    expect(() =>
+      assertAcceptanceForIntent(
+        "Fork octocat/Hello-World with github_fork. " +
+          "Create an issue with github_create_issue. " +
+          "Read the README file from the clone, then open a PR.",
+        { files: [] }
+      )
+    ).not.toThrow();
+    // Saveur bugfix.
+    expect(() =>
+      assertAcceptanceForIntent(
+        "Fork the repo and fix the typo in the README, then open a PR.",
+        { files: [] }
+      )
+    ).not.toThrow();
+  });
+
+  it("keeps detection truthful: only the requirement is lifted for GitHub", () => {
+    expect(
+      detectMissionIntent(
+        "Fork octocat/Hello-World with github_fork. " +
+          "Create an issue with github_create_issue. " +
+          "Read the README file from the clone, then open a PR."
+      ).wantsFileCreation
+    ).toBe(true);
   });
 });

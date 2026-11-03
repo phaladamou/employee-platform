@@ -8,6 +8,7 @@ export interface MissionIntent {
 const CREATE_VERB = String.raw`(?:recreat(?:e[sd]?|ing|ion)|creat(?:e[sd]?|ing|ion)|rewrit(?:e|es|ing|ten)|writ(?:e|es|ing|ten)|rewrote|wrote|generat(?:e[sd]?|ing|ion)|recré(?:er|e|é|ée|ez|ent)|cré(?:er|e|é|ée|ez|ent)|recree(?:r|s|z|nt)?|cree(?:r|s|z|nt)?|réécri(?:t|s|re|vez|vent)|écri(?:t|s|re|vez|vent)|reecri(?:t|s|re|vez|vent)|ecri(?:t|s|re|vez|vent)|gén[èe]r(?:er|e|ez|ent)|genere(?:r|z|nt)?)`;
 const FILE_OBJECT = String.raw`(?:fichiers?|files?|scripts?|[\w][\w.-]*\.[\w]{1,6})`;
 const BUGFIX_WORD = String.raw`(?:bugs?|fix(?:e[sd]?|ing)?|corrig\w*|corrige\w*|debug(?:ging|ger)?|débog\w*|répar\w*|repar\w*|patch(?:e[sd]?|ing)?)`;
+const GITHUB_WORD = String.raw`(?:github|forks?|repos?|issues?)`;
 
 /**
  * Devine l'intention machine-verifiable d'un prompt (creation de
@@ -32,15 +33,39 @@ export function detectMissionIntent(prompt: string): MissionIntent {
 }
 
 /**
+ * Mission GitHub : la verification se fait sur GitHub (fork,
+ * issue/PR + URLs retournees par les outils), pas sur le disque
+ * local. Mots-cles explicites uniquement, bornes unicode strictes
+ * (pas de "repository", "tissue" ni "reporter"). "PR" reste
+ * sensible a la casse, comme le garde du chat web.
+ */
+export function isGithubMission(prompt: string): boolean {
+  if (
+    new RegExp(`(?<![\\p{L}])${GITHUB_WORD}(?![\\p{L}])`, "iu").test(prompt)
+  ) {
+    return true;
+  }
+  if (/(?<![\p{L}])pull request(?![\p{L}])/iu.test(prompt)) {
+    return true;
+  }
+  return /(?<![\p{L}])PR(?![\p{L}])/u.test(prompt);
+}
+
+/**
  * Exige les criteres correspondant a l'intention detectee : pas de
  * creation de fichier sans `--expect-file`, pas de bugfix sans
  * `--expect-test`. Appele a la creation de la mission (tous les
- * chemins de submit partagent ce point de passage).
+ * chemins de submit partagent ce point de passage). Exception :
+ * les missions GitHub se verifient sur GitHub, pas sur le disque
+ * local (voir isGithubMission).
  */
 export function assertAcceptanceForIntent(
   prompt: string,
   acceptance: MissionAcceptance
 ): void {
+  if (isGithubMission(prompt)) {
+    return;
+  }
   const intent = detectMissionIntent(prompt);
   if (intent.wantsFileCreation && acceptance.files.length === 0) {
     throw new Error(
