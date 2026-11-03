@@ -34,6 +34,8 @@
     "chatGreeting": "你好，我是 {name}（{role}）。与我聊天，或勾选“Mission”来委派工作。",
     "chatEmptyReply": "（空回复）",
     "chatSendFailed": "发送失败，请重试。",
+    "chatThinking": "{name} 正在思考…",
+    "chatMissionRunning": "任务执行中…",
     "missionLabel": "任务",
     "missionRef": "任务：{id}",
     "messageLabel": "消息",
@@ -48,6 +50,7 @@
     "treeUnavailable": "文件树不可用。",
     "workspaceEmpty": "工作区暂时为空。",
     "selectFile": "选择一个文件以查看其内容。",
+    "missionNeedsAcceptance": "文件和修复任务需要验收标准——请使用 CLI 的 --expect-file 重新提交。",
     "departments": {
       "engineering": {
         "name": "工程",

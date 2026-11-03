@@ -34,6 +34,8 @@
     "chatGreeting": "Hello, I'm {name} ({role}). Chat with me or check \"Mission\" to assign work.",
     "chatEmptyReply": "(empty reply)",
     "chatSendFailed": "Couldn't send. Try again.",
+    "chatThinking": "{name} is thinking…",
+    "chatMissionRunning": "Mission running…",
     "missionLabel": "Mission",
     "missionRef": "Mission: {id}",
     "messageLabel": "Message",
@@ -48,6 +50,7 @@
     "treeUnavailable": "File tree unavailable.",
     "workspaceEmpty": "Workspace empty for now.",
     "selectFile": "Select a file to see its contents.",
+    "missionNeedsAcceptance": "File and bugfix missions need acceptance criteria — resubmit from the CLI with --expect-file.",
     "departments": {
       "engineering": {
         "name": "Engineering",
