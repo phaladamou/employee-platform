@@ -10,6 +10,7 @@
     "deepResearch": "Deep Research",
     "artefacts": "构件",
     "employees": "AI 员工",
+    "departments": "部门",
     "recruit": "招聘"
   },
   "employees": {
@@ -20,6 +21,33 @@
     "memberCount": "{count} 名成员",
     "emptyDepartment": "暂无员工。",
     "recruitHere": "招聘",
+    "viewDepartment": "查看部门",
+    "departmentsTitle": "部门",
+    "departmentsSubtitle": "选择一个部门查看其员工。",
+    "departmentLoading": "加载中…",
+    "departmentLoadFailed": "加载失败。",
+    "departmentRetry": "重试",
+    "backToList": "返回列表",
+    "openHint": "点击员工以打开其工作区（聊天 + IDE）。",
+    "emptyDepartmentMembers": "该部门暂无员工。请从员工页面招聘。",
+    "openWorkspace": "打开工作区 →",
+    "chatGreeting": "你好，我是 {name}（{role}）。与我聊天，或勾选“Mission”来委派工作。",
+    "chatEmptyReply": "（空回复）",
+    "chatSendFailed": "发送失败，请重试。",
+    "missionLabel": "任务",
+    "missionRef": "任务：{id}",
+    "messageLabel": "消息",
+    "missionPlaceholder": "描述任务…",
+    "chatPlaceholder": "与员工聊天…",
+    "assignLabel": "委派",
+    "sendLabel": "发送",
+    "fileUnreadable": "文件无法读取。",
+    "truncatedPreview": "预览已截断（文件较大）。",
+    "emptyFile": "（空文件）",
+    "filesCount": "{count} 个文件",
+    "treeUnavailable": "文件树不可用。",
+    "workspaceEmpty": "工作区暂时为空。",
+    "selectFile": "选择一个文件以查看其内容。",
     "departments": {
       "engineering": {
         "name": "工程",
@@ -718,5 +746,12 @@
     "dpa": "数据处理协议",
     "subProcessors": "子处理者",
     "logOut": "退出登录"
+  },
+  "cli": {
+    "welcome1": "欢迎使用 Employee CLI。",
+    "welcome2": "输入 “help” 查看命令列表。",
+    "placeholder": "输入命令…",
+    "sessionExpired": "会话已过期 — 请重新登录。",
+    "networkError": "网络错误 — 服务器运行正常吗？"
   }
 }

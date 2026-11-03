@@ -10,6 +10,7 @@
     "history": "Sessions",
     "artefacts": "Artefacts",
     "employees": "AI Employees",
+    "departments": "Departments",
     "recruit": "Recruit"
   },
   "employees": {
@@ -20,6 +21,33 @@
     "memberCount": "{count, plural, one {# member} other {# members}}",
     "emptyDepartment": "No employees yet.",
     "recruitHere": "Recruit one",
+    "viewDepartment": "View Department",
+    "departmentsTitle": "Departments",
+    "departmentsSubtitle": "Choose a department to see its employees.",
+    "departmentLoading": "Loading…",
+    "departmentLoadFailed": "Couldn't load.",
+    "departmentRetry": "Retry",
+    "backToList": "Back to list",
+    "openHint": "Click an employee to open their workspace (chat + IDE).",
+    "emptyDepartmentMembers": "No employees in this department yet. Recruit from the Employees page.",
+    "openWorkspace": "Open workspace →",
+    "chatGreeting": "Hello, I'm {name} ({role}). Chat with me or check \"Mission\" to assign work.",
+    "chatEmptyReply": "(empty reply)",
+    "chatSendFailed": "Couldn't send. Try again.",
+    "missionLabel": "Mission",
+    "missionRef": "Mission: {id}",
+    "messageLabel": "Message",
+    "missionPlaceholder": "Describe the mission…",
+    "chatPlaceholder": "Chat with the employee…",
+    "assignLabel": "Assign",
+    "sendLabel": "Send",
+    "fileUnreadable": "File unreadable.",
+    "truncatedPreview": "Truncated preview (large file).",
+    "emptyFile": "(empty file)",
+    "filesCount": "{count, plural, one {# file} other {# files}}",
+    "treeUnavailable": "File tree unavailable.",
+    "workspaceEmpty": "Workspace empty for now.",
+    "selectFile": "Select a file to see its contents.",
     "departments": {
       "engineering": {
         "name": "Engineering",
@@ -718,5 +746,12 @@
     "dpa": "DPA",
     "subProcessors": "Sub-processors",
     "logOut": "Log out"
+  },
+  "cli": {
+    "welcome1": "Welcome to the Employee CLI.",
+    "welcome2": "Type \"help\" to list commands.",
+    "placeholder": "Type a command…",
+    "sessionExpired": "Session expired — please sign in again.",
+    "networkError": "Network error — is the server running?"
   }
 }

@@ -10,6 +10,7 @@
     "deepResearch": "Deep Research",
     "artefacts": "Artefacts",
     "employees": "Employés IA",
+    "departments": "Départements",
     "recruit": "Recrutement"
   },
   "employees": {
@@ -20,6 +21,33 @@
     "memberCount": "{count, plural, one {# membre} other {# membres}}",
     "emptyDepartment": "Aucun employé pour le moment.",
     "recruitHere": "Recruter",
+    "viewDepartment": "Voir le département",
+    "departmentsTitle": "Départements",
+    "departmentsSubtitle": "Choisissez un département pour voir ses employés.",
+    "departmentLoading": "Chargement…",
+    "departmentLoadFailed": "Chargement impossible.",
+    "departmentRetry": "Réessayer",
+    "backToList": "Retour à la liste",
+    "openHint": "Cliquez sur un employé pour ouvrir son workspace (chat + IDE).",
+    "emptyDepartmentMembers": "Aucun employé dans ce département pour l'instant. Recrutez depuis la page Employés.",
+    "openWorkspace": "Ouvrir le workspace →",
+    "chatGreeting": "Bonjour, je suis {name} ({role}). Discutez avec moi ou cochez \"Mission\" pour me confier un travail.",
+    "chatEmptyReply": "(réponse vide)",
+    "chatSendFailed": "Envoi impossible. Réessayez.",
+    "missionLabel": "Mission",
+    "missionRef": "Mission : {id}",
+    "messageLabel": "Message",
+    "missionPlaceholder": "Décrivez la mission…",
+    "chatPlaceholder": "Discutez avec l'employé…",
+    "assignLabel": "Confier",
+    "sendLabel": "Envoyer",
+    "fileUnreadable": "Fichier illisible.",
+    "truncatedPreview": "Aperçu tronqué (fichier volumineux).",
+    "emptyFile": "(fichier vide)",
+    "filesCount": "{count, plural, one {# fichier} other {# fichiers}}",
+    "treeUnavailable": "Arborescence indisponible.",
+    "workspaceEmpty": "Workspace vide pour l'instant.",
+    "selectFile": "Sélectionnez un fichier pour voir son contenu.",
     "departments": {
       "engineering": {
         "name": "Ingénierie",
@@ -718,5 +746,12 @@
     "dpa": "DPA",
     "subProcessors": "Sous-traitants",
     "logOut": "Se déconnecter"
+  },
+  "cli": {
+    "welcome1": "Bienvenue dans le CLI Employee.",
+    "welcome2": "Tapez \"help\" pour lister les commandes.",
+    "placeholder": "Tapez une commande…",
+    "sessionExpired": "Session expirée — reconnectez-vous.",
+    "networkError": "Erreur réseau — le serveur tourne-t-il ?"
   }
 }
