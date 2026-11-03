@@ -6,6 +6,7 @@ import "server-only";
 import { readdir, stat } from "node:fs/promises";
 import { join, relative, resolve, sep } from "node:path";
 
+import { ACTIVITY_LOG_FILE } from "@/core/employee/tools/github";
 import { EmployeeWorkspaces } from "@/core/employee/workspaces/employee-workspaces";
 import type { WorkspaceFileEntry } from "./files";
 import { MAX_FILE_BYTES } from "./files";
@@ -30,6 +31,9 @@ async function walk(
   const entries = await readdir(dir, { withFileTypes: true });
   for (const entry of entries) {
     if (entry.name === "archive" && dir === base) continue;
+    // Presentation : les entrailles git et le journal d'activite
+    // (affiche dans son propre panneau) ne polluent pas l'arbre.
+    if (entry.name === ".git" || entry.name === ACTIVITY_LOG_FILE) continue;
     const full = join(dir, entry.name);
     if (entry.isDirectory()) {
       await walk(full, base, out);
