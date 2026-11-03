@@ -429,7 +429,16 @@
     "chefIntro1": "Je suis votre Chef, le manager de votre équipe d'employés IA.",
     "chefIntro2": "Je vous aide à recruter le bon spécialiste pour chaque besoin.",
     "chefIntro3": "Je lance leurs missions et je vous rapporte leurs résultats.",
-    "chefIntro4": "Par quoi commençons-nous ?"
+    "chefIntro4": "Par quoi commençons-nous ?",
+    "panelTitle": "Équipe",
+    "panelMembers": "Membres",
+    "panelInProgress": "En cours",
+    "panelReports": "Derniers rapports",
+    "panelViewAll": "Tout voir",
+    "panelEmptyTeam": "Aucun employé pour l'instant.",
+    "panelRecruitCta": "Recrutez votre premier spécialiste",
+    "panelEmptyMissions": "Aucune mission en cours.",
+    "panelEmptyReports": "Aucun rapport pour l'instant."
   },
   "search": {
     "placeholder": "Rechercher dans vos conversations...",

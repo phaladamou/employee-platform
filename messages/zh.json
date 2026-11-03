@@ -429,7 +429,16 @@
     "chefIntro1": "我是您的 Chef，AI 员工团队的管理者。",
     "chefIntro2": "我帮您为每个需求招聘合适的专才。",
     "chefIntro3": "我启动他们的任务，并向您汇报结果。",
-    "chefIntro4": "我们从哪里开始？"
+    "chefIntro4": "我们从哪里开始？",
+    "panelTitle": "团队",
+    "panelMembers": "成员",
+    "panelInProgress": "进行中",
+    "panelReports": "最新报告",
+    "panelViewAll": "查看全部",
+    "panelEmptyTeam": "还没有员工。",
+    "panelRecruitCta": "招聘第一位专才",
+    "panelEmptyMissions": "没有进行中的任务。",
+    "panelEmptyReports": "还没有报告。"
   },
   "search": {
     "placeholder": "搜索您的对话...",

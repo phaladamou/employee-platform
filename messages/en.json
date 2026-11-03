@@ -429,7 +429,16 @@
     "chefIntro1": "I'm your Chef, the manager of your AI employee team.",
     "chefIntro2": "I help you recruit the right specialist for every need.",
     "chefIntro3": "I run their missions and bring you back their reports.",
-    "chefIntro4": "Where should we start?"
+    "chefIntro4": "Where should we start?",
+    "panelTitle": "Team",
+    "panelMembers": "Members",
+    "panelInProgress": "In progress",
+    "panelReports": "Latest reports",
+    "panelViewAll": "View all",
+    "panelEmptyTeam": "No employees yet.",
+    "panelRecruitCta": "Recruit your first specialist",
+    "panelEmptyMissions": "No running missions.",
+    "panelEmptyReports": "No reports yet."
   },
   "search": {
     "placeholder": "Search your conversations...",

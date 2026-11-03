@@ -1,7 +1,7 @@
 // components/workspace/workspace-shell.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   AlertDialog,
@@ -27,6 +27,7 @@ import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { RightPanel } from "./right-panel";
 import { SearchArtifactPanel } from "./search-artifact-panel";
 
 export function ChatShellChat() {
@@ -52,6 +53,11 @@ export function ChatShellChat() {
   } = useActiveChat();
 
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const toggleRightPanel = useCallback(
+    () => setRightPanelOpen((open) => !open),
+    []
+  );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
@@ -155,6 +161,7 @@ export function ChatShellChat() {
           <ChatHeader
             chatId={chatId}
             isReadonly={isReadonly}
+            onToggleRightPanel={toggleRightPanel}
             selectedVisibilityType={visibilityType}
           />
           {isNewEmptyChat ? (
@@ -280,6 +287,9 @@ export function ChatShellChat() {
         ) : null}
       </div>
       <DataStreamHandler />
+      {rightPanelOpen && (
+        <RightPanel onClose={() => setRightPanelOpen(false)} />
+      )}
       <AlertDialog
         onOpenChange={setShowCreditCardAlert}
         open={showCreditCardAlert}

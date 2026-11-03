@@ -89,6 +89,26 @@ describe("chef action cards", () => {
     }
   });
 
+  it("translates the right panel in every locale", () => {
+    for (const locale of LOCALES) {
+      const messages = chatMessages(locale);
+      for (const key of [
+        "panelTitle",
+        "panelMembers",
+        "panelInProgress",
+        "panelReports",
+        "panelViewAll",
+        "panelEmptyTeam",
+        "panelRecruitCta",
+        "panelEmptyMissions",
+        "panelEmptyReports",
+      ]) {
+        assert.equal(typeof messages[key], "string", `${locale}.${key}`);
+        assert.ok(messages[key].trim().length > 0, `${locale}.${key}`);
+      }
+    }
+  });
+
   it("links to existing routes", () => {
     for (const card of CHEF_ACTION_CARDS) {
       if (!card.href) continue;
