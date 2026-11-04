@@ -92,6 +92,13 @@
       "when": 1793733312851,
       "tag": "0012_adorable_wallow",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1793768578331,
+      "tag": "0013_large_hellfire_club",
+      "breakpoints": true
     }
   ]
 }

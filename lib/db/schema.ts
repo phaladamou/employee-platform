@@ -51,17 +51,14 @@ export const chat = pgTable(
     visibility: varchar("visibility", { enum: ["public", "private"] })
       .notNull()
       .default("private"),
-    // Conversation employe : NULL = chat libre, renseigne = la
-    // discussion persistante (user, employe). Contrainte unique
-    // ci-dessous : un seul fil par couple (les NULL restent
-    // multiples, semantique Postgres).
+    // Conversation employe : NULL = chat libre, renseigne = une
+    // session de discussion (user, employe). Plusieurs sessions
+    // par couple (migration 0013 : l'ancienne contrainte unique
+    // a ete supprimee) ; le fil historique devient la session 1.
     employeeId: uuid("employeeId").references(() => employee.id, {
       onDelete: "cascade",
     }),
-  },
-  (table) => [
-    unique("Chat_user_employee_uniq").on(table.userId, table.employeeId),
-  ]
+  }
 );
 
 export type Chat = InferSelectModel<typeof chat>;
