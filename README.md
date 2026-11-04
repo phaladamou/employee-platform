@@ -127,6 +127,39 @@ The result: least privilege follows the employee to every employer. A
 shell-less researcher stays shell-less everywhere — security is a
 property of the worker, not of each client's discipline.
 
+## Powered by Meta models
+
+Employee runs on **Muse Spark 1.3** (`muse-spark-1.3`), Meta's frontier
+reasoning model, called through the **Meta Model API**
+(`https://api.meta.ai/v1`, OpenAI-compatible) with a `MUSE_API_KEY`
+from [dev.meta.ai](https://dev.meta.ai/resources/blog/build-with-muse-spark).
+Every live run quoted in this README — T1–T7, the Atlas N=4 benchmarks,
+the GitHub fork → PR demo — executed on Muse Spark 1.3. The web chat
+streams its first token in ~2.3 s via `reasoning_effort=minimal`, and
+the core stays provider-agnostic (`EMPLOYEE_PROVIDER=muse|deepseek`,
+same `FetchLLMProvider` interface) so no workload is locked to one lab.
+
+Why Meta's stack fits this project, built for the Meta Global AI
+Developer Hackathon (Oct 26 – Nov 4, 2026):
+
+- **Muse Spark 1.3** (Meta Superintelligence Labs, Sept 2, 2026): the
+  model behind Meta AI and Muse Code, 1 M-token context, built for
+  reasoning, coding, and agent work — exactly the ReAct loop Employee
+  runs ([guide](https://www.bitsminds.com/guides/muse-spark-complete-guide),
+  [$1.25/$4.25 per M tokens](https://tokensave.app/blog/muse-spark-1-3-api-pricing)).
+- **Muse Glimmer 30B** (Aug 10, 2026, Apache 2.0, open weights on
+  Hugging Face): Meta's open counterweight for self-hosted inference
+  ([overview](https://moelueker.com/blog/how-to-use-llama4-for-free)).
+- **Llama 4 Scout & Maverick** (Apr 2025, open weights): the MoE herd —
+  Scout (17 B active / 109 B, 10 M context) and Maverick (17 B active /
+  400 B, 1 M context) — still downloadable; Meta's hosted Llama API
+  shut down July 2026, so they live on self-hosted rails
+  ([specs](https://www.secondtalent.com/resources/every-llama-ai-model-explained-compared/)).
+
+Frontier API for production missions, open weights for sovereign
+deployments: the same Employee DNA runs on both, because the trade —
+not the model — is the unit of trust.
+
 ## In numbers
 
 | Signal | Value | Source |
