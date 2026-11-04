@@ -638,9 +638,10 @@ Leçons dures :
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-03 : code @ 3145eaa (fix langue FR) —
-  481/481 vitest (52 fichiers) + 62/62 node
-  (employees/chef/sidebar/chat-provider/i18n), `tsc` propre,
+- **État 2026-11-04 : code @ 15f97db (merge FF
+  engineering+institutional, 82 commits) — 507/507 vitest
+  (54 fichiers) + 145/145 node (dont cli/billing/engineering/
+  server), `tsc` propre. Branches conservées (ordre user).
   migrations 0008→0011 à appliquer (`pnpm db:migrate` là où la
   DB est joignable).** Persona Chef unique dans les prompts ;
   identifiants workspace renommés ; surface d'outils
