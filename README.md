@@ -18,6 +18,115 @@ and professional reputation. Each agent is no longer a disposable
 session, but a worker that accumulates experience and builds a verifiable,
 transferable track record across organizations.
 
+## Why employees, why now
+
+**What an Employee is.** Not a chatbot, not a disposable agent session
+that forgets everything when the tab closes. An Employee is a digital
+worker with a persistent identity (`emp_...`), a locked trade (its DNA:
+tools, permissions, step budget), an employer contract, and a memory of
+every mission it completed — portable from one organization to the next.
+
+**The problem it solves.** Today's AI agents are amnesiac gig workers
+with no papers: no verifiable history, no accountability for what they
+claim, no way for the next employer to trust them. The industry feels
+it — 96 % of enterprises already use AI agents in some capacity, yet
+94 % of IT leaders worry they cannot control what they built
+([OutSystems 2026](https://aivenconsultinggroup.ai/insights/outsystems-ai-agent-sprawl-governance-2026),
+~1 900 leaders surveyed). Gartner predicts over 40 % of agentic AI
+projects will be cancelled by end of 2027
+([source](https://www.gartner.com/en/newsroom/press-releases/2025-06-25-gartner-predicts-over-40-percent-of-agentic-ai-projects-will-be-canceled-by-end-of-2027)).
+The bottleneck is no longer capability — it is **trust, governance,
+and verifiable work**. Employee answers exactly that: declared
+acceptance criteria checked on disk, `succeeded` never self-certified,
+every claim backed by tool evidence or routed to human review.
+
+**Where the world is heading.** The numbers all point the same way:
+
+- 33 % of enterprise software will include agentic AI by 2028, up from
+  <1 % in 2024, and 15 % of day-to-day work decisions will be made
+  autonomously ([Gartner](https://www.gartner.com/en/articles/3-bold-and-actionable-predictions-for-the-future-of-genai)).
+- 40 % of enterprise apps will feature task-specific agents by end of
+  2026, up from <5 % in 2025 ([Gartner, Aug 2025](https://gravity.fast/blog/ai-agent-adoption-statistics-2026/)).
+- 54 % of organizations are actively deploying agents (KPMG Q1 2026),
+  57 % already run them in production (LangChain, 1 340 teams), 67 %
+  among companies with 10 000+ employees
+  ([roundup](https://www.secondtalent.com/resources/ai-agents-statistics/)).
+- The agent market grows from ~$11 B in 2026 to ~$52 B by 2030, ~44 %
+  CAGR ([Precedence/Business Research](https://www.thebusinessresearchcompany.com/report/ai-agents-global-market-report)).
+
+When a third of enterprise software *is* agents, "prompting a session"
+stops scaling. Work will be **assigned to workers, not typed into
+boxes** — recruited by trade, contracted, supervised, and paid by
+result. The interface of work becomes the org chart, not the chat box.
+That is the norm Employee is built for: a Talent Network where you
+recruit an Atlas or an Aria the way you hire a contractor — with a
+signed track record instead of a sales pitch.
+
+**Why cryptography is load-bearing, not decorative.** A CV a worker
+writes about itself is worthless; a CV *no one can forge* is currency.
+Every completed mission carries an Ed25519 completion proof binding
+`(missionId, employerId, artifact hashes)` to the operator key —
+publicly verifiable, one flipped character away from rejection.
+Profiles are SHA-256-pinned (one byte off = refusal to boot), keys live
+only as hashes. Trust then needs no platform blessing: any future
+employer can verify the work mathematically, including selectively
+(disclose the proof, keep the report content private). Portable
+reputation is what turns disposable sessions into **careers** — and
+careers are what make digital employment a labor market instead of a
+demo.
+
+## One trade, one machine: why environments are profession-shaped
+
+**What an AI employee really is.** A model is a brain without hands;
+an AI employee is that brain **embodied in a workstation built for its
+trade**: its tools, its permissions, its files, its shell allowlist, its
+step budget. You would not seat a data analyst at a dev's machine full
+of deploy keys, nor ask a developer to ship code from a laptop with no
+compiler. Same principle here — except the workstation is enforced by
+code, not by IT policy.
+
+**A dev and an analyst have nothing in common operationally.** Compare
+two shipped profiles:
+
+| Need | Atlas (Software Engineer) | Aria (Data Analyst) |
+|---|---|---|
+| Tools | 8: files + shell + 5 GitHub tools | 2: `read_file`, `write_file` — no shell |
+| Shell binaries | `python3`, `pip`, `pytest`, `git` + inspection base | none usable (no `run_shell` at all) |
+| Prerequisites on `PATH` | `python3`, `pip`, `pytest`, `git` — mission refused pre-LLM if missing | none — needs no toolchain |
+| Step budget | 32 (build → test → verify loops) | 12 (read → analyze → report) |
+| Workspace | own directory + Landlock jail for shells | own directory, file tools only |
+
+Atlas can fork a repo, push a branch, and open a PR; Aria literally
+cannot execute a command — the model never even sees `run_shell` in its
+catalog, and attempting it returns `unknown tool`. The ban is
+structural, not a prompt instruction the model could ignore. A
+researcher (Newton: 10 steps, no shell, no prerequisites) or a DevOps
+engineer (Nova: shell but **no** `write_file` — it runs pipelines, it
+never edits source) are shaped just as deliberately. Six trades, six
+machines — see [docs/PROFILES.md](docs/PROFILES.md).
+
+**How we design it: the Mini-Ordinateur.** Each profile carries a
+`computer` block — the machine spec for that trade: allowed binaries
+(every `&&`/`;`/`|` segment checked before execution), timeout and
+memory ceilings, a dedicated workspace directory, and a declared
+network intent. Enforcement is layered and Fail Fast:
+
+1. **Before the first LLM call**: the registry resolves the exact
+   `name@version` DNA, checks tool/permission/step coherence, and
+   verifies `environment` binaries on `PATH` — any gap refuses the
+   mission with zero tokens spent.
+2. **At every tool call**: file tools resolve through `toolRoot()` (one
+   decision point — escapes fail with `path escapes the workspace`);
+   shells run through `emp-sandbox`, where a Landlock policy confines
+   the process to its workspace (RW) with the system read-only.
+3. **After the run**: acceptance criteria (`--expect-file`,
+   `--expect-test`) are verified on disk; GitHub missions are verified
+   through the GitHub API, never by trusting the report.
+
+The result: least privilege follows the employee to every employer. A
+shell-less researcher stays shell-less everywhere — security is a
+property of the worker, not of each client's discipline.
+
 ## In numbers
 
 | Signal | Value | Source |
