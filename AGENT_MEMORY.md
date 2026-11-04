@@ -651,6 +651,23 @@ Leçons dures :
 - Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant
   (drift Biome/Ultracite, config untouched), catalogue Talent
   global sans admin, `.env.local` à recopier à chaque déménagement.
+- Pages institutionnelles P1+P2+P3 (2026-11-03, ex-branche
+  `feat/institutional-pages`, mergée dans engineering) :
+  14 pages `app/(legal)/` (style Terms/Privacy existants,
+  EN hardcodé, footer groupé 4 col. Product/Legal/Trust/
+  Company) — P1 : legal-notice, acceptable-use, security,
+  contact ; P2 : retention, ai-governance,
+  vulnerability-disclosure (canonique, Security §6 y
+  renvoie ; dpa + sub-processors pré-existaient) ; P3 :
+  about, status, changelog, press, partnerships, brand
+  (logo `/images/employee-logo.png` + download), careers.
+  Contenus ancrés produit réel (preuves signées, moindre
+  privilège, OTP, AES-256-GCM, pas d'entraînement),
+  ton honnête pré-lancement (zéro stat/couverture inventée).
+  `route-policy.ts` +14 chemins publics, test node
+  P1/P2+P3 (13/13 verts), `tsc` propre. Commits
+  8ed0d9a (P1) + 67fc645 (P2) + 618ea34 (P3), poussés.
+  Mergée dans feature/engineering-atlas-nova avec la CLI web.
 - GitHub E2E Atlas VERT (2026-11-03, branche
   `feature/engineering-atlas-nova`, commits 0ef8e27/a3f8c65/f80afbb
   poussés sur la branche — PAS main, ordre user) : exemption
@@ -746,7 +763,8 @@ Leçons dures :
 ## 10. Conventions et environnement (rappel)
 
 - Micro-commits par petits blocs (`feat(web):` / `fix(web):` / `test(web):`),
-  push et tags uniquement sur approbation explicite. Ne jamais `localhost:3000`
+  messages TOUJOURS en anglais, jamais en français (règle user absolue).
+  Push et tags uniquement sur approbation explicite. Ne jamais `localhost:3000`
   en dur ; jamais de tests E2E locaux lourds (Codespace sans réseau/DB).
 - `tsc --noEmit` zéro erreur exigé (mesurer le vrai exit code, pas celui du
   pipe). Suites `node:test` : catalog, nav-state, otp-email-template,
