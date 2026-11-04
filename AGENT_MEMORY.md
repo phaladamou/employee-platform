@@ -764,6 +764,8 @@ Leçons dures :
   lecture/écriture, traductions CLI+menus FR/ZH vérifiées).
   Conflits : route-policy+test, messages EN/FR/ZH, mémoire
   (unions). tsc 0, 63/63 node ciblés.
+- Pages légales EN hardcodé = choix assumé (by design) ;
+  l'utilisateur signalera s'il veut les traduire un jour.
 
 ## 10. Conventions et environnement (rappel)
 
