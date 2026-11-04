@@ -82,4 +82,111 @@ describe("tool call records", () => {
     assert.deepEqual(toToolCallRecords({}), []);
     assert.deepEqual(toToolCallRecords("[]"), []);
   });
+
+  it("round-trips thought time and file changes", () => {
+    const calls = [
+      {
+        tool: "write_file",
+        ok: true,
+        title: "Ecriture",
+        thoughtMs: 8120,
+        files: [
+          {
+            path: "app.js",
+            status: "modified" as const,
+            added: 1,
+            removed: 1,
+            rows: [
+              {
+                type: "del" as const,
+                oldNo: 1,
+                newNo: null,
+                text: "const a = 1;",
+              },
+              {
+                type: "add" as const,
+                oldNo: null,
+                newNo: 1,
+                text: "const a = 2;",
+              },
+            ],
+            truncated: false,
+          },
+        ],
+      },
+      { tool: "read_file", ok: true, title: null, thoughtMs: 120 },
+    ];
+    const stored = toStoredToolCalls(calls);
+    assert.deepEqual(stored, [
+      {
+        tool: "write_file",
+        ok: true,
+        title: "Ecriture",
+        thoughtMs: 8120,
+        files: [
+          {
+            path: "app.js",
+            status: "modified",
+            added: 1,
+            removed: 1,
+            rows: [
+              {
+                type: "del",
+                oldNo: 1,
+                newNo: null,
+                text: "const a = 1;",
+              },
+              {
+                type: "add",
+                oldNo: null,
+                newNo: 1,
+                text: "const a = 2;",
+              },
+            ],
+            truncated: false,
+          },
+        ],
+      },
+      { tool: "read_file", ok: true, thoughtMs: 120 },
+    ]);
+    // Relecture : valide, ignores ciblés (fichier sans chemin,
+    // compteur negatif, thoughtMs absurde).
+    assert.deepEqual(
+      toToolCallRecords([
+        ...stored,
+        { tool: "write_file", ok: true, thoughtMs: -5, files: [{ path: "" }] },
+        { tool: "write_file", ok: true, files: "nope" },
+      ]),
+      [
+        ...stored,
+        { tool: "write_file", ok: true, files: [] },
+        { tool: "write_file", ok: true },
+      ]
+    );
+  });
+
+  it("round-trips the agent-written step title", () => {
+    assert.deepEqual(
+      toStoredToolCalls([
+        { tool: "github_fork", ok: true, title: "Fork du dépôt" },
+        { tool: "read_file", ok: true, title: null },
+      ]),
+      [
+        { tool: "github_fork", ok: true, title: "Fork du dépôt" },
+        { tool: "read_file", ok: true },
+      ]
+    );
+    assert.deepEqual(
+      toToolCallRecords([
+        { tool: "github_fork", ok: true, title: "Fork du dépôt" },
+        { tool: "github_fork", ok: true, title: 42 },
+        { tool: "read_file", ok: true },
+      ]),
+      [
+        { tool: "github_fork", ok: true, title: "Fork du dépôt" },
+        { tool: "github_fork", ok: true },
+        { tool: "read_file", ok: true },
+      ]
+    );
+  });
 });

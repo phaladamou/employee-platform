@@ -213,7 +213,7 @@ describe("runReasoningLoop", () => {
     expect(result.reportContent).toBe("The value is 42.");
     expect(result.error).toBeNull();
     expect(result.steps).toBe(2);
-    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: true }]);
+    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) }]);
 
     // L'observation du premier appel est visible au second tour.
     const second = provider.seen[1]?.messages ?? [];
@@ -272,7 +272,7 @@ describe("runReasoningLoop", () => {
     });
 
     expect(result.completed).toBe(true);
-    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: false }]);
+    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: false, title: null, thoughtMs: expect.any(Number) }]);
 
     const contents = provider.seen[1]?.messages.map((m) => m.content) ?? [];
     expect(
@@ -296,7 +296,7 @@ describe("runReasoningLoop", () => {
     });
 
     expect(result.completed).toBe(true);
-    expect(result.toolCalls).toEqual([{ tool: "boom", ok: false }]);
+    expect(result.toolCalls).toEqual([{ tool: "boom", ok: false, title: null, thoughtMs: expect.any(Number) }]);
 
     const contents = provider.seen[1]?.messages.map((m) => m.content) ?? [];
     expect(contents.some((text) => text.includes("kaboom"))).toBe(true);
@@ -446,5 +446,95 @@ describe("runReasoningLoop", () => {
     expect(result.error).toBe("cancelled");
     expect(result.toolCalls).toHaveLength(1);
     expect(provider.seen).toHaveLength(1);
+  });
+
+  it("emits live events in order with the agent-written titles", async () => {
+    const events: Array<{ type: string; step: number }> = [];
+    const provider = new ScriptedProvider([
+      'STEP: Lecture du fichier\nACTION: {"tool": "read_file", "args": {"path": "a.txt"}}',
+      "STEP: Rapport\nFINAL: File contains hello.",
+    ]);
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Read a.txt.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      onEvent: (event) => {
+        events.push(event);
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.toolCalls).toEqual([
+      { tool: "read_file", ok: false, title: "Lecture du fichier", thoughtMs: expect.any(Number) },
+    ]);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      {
+        type: "step",
+        step: 1,
+        title: "Lecture du fichier",
+        tool: "read_file",
+        thoughtMs: expect.any(Number),
+      },
+      { type: "tool_result", step: 1, tool: "read_file", ok: false, files: [] },
+      { type: "thinking", step: 2 },
+      { type: "final", step: 2, title: "Rapport", thoughtMs: expect.any(Number) },
+    ]);
+  });
+
+  it("closes unknown-tool and invalid steps as failed results", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    const provider = new ScriptedProvider([
+      'STEP: Teleportation\nACTION: {"tool": "teleport", "args": {}}',
+      "just chatting",
+      "FINAL: Done anyway.",
+    ]);
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Do it.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      onEvent: (event) => {
+        events.push(event as Record<string, unknown>);
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      { type: "step", step: 1, title: "Teleportation", tool: "teleport", thoughtMs: expect.any(Number) },
+      { type: "tool_result", step: 1, tool: "teleport", ok: false, files: [] },
+      { type: "thinking", step: 2 },
+      { type: "step", step: 2, title: null, tool: null, thoughtMs: expect.any(Number) },
+      { type: "tool_result", step: 2, tool: "protocol", ok: false, files: [] },
+      { type: "thinking", step: 3 },
+      { type: "final", step: 3, title: null, thoughtMs: expect.any(Number) },
+    ]);
+  });
+
+  it("emits a terminal error when the LLM fails", async () => {
+    const events: Array<Record<string, unknown>> = [];
+
+    const result = await runReasoningLoop({
+      provider: new FailingProvider(),
+      profile: makeProfile(),
+      missionPrompt: "Do it.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      onEvent: (event) => {
+        events.push(event as Record<string, unknown>);
+      },
+    });
+
+    expect(result.completed).toBe(false);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      { type: "error", step: 1, message: "LLM timeout" },
+    ]);
   });
 });

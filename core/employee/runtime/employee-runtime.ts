@@ -43,6 +43,7 @@ import {
   DEFAULT_SANDBOX_DIR,
   runReasoningLoop,
   type LLMUsageTotal,
+  type ReactLoopEventHandler,
   type ReactToolCall,
 } from "./react-loop";
 
@@ -94,6 +95,11 @@ export interface EmployeeRuntimeOptions {
    * via `markCancelled` plutot que `markFailed`.
    */
   readonly signal?: JobRunSignal;
+  /**
+   * Observateur live de la boucle de raisonnement (thinking, etapes
+   * titre agent, resultats d'outils). Transmis tel quel a la boucle.
+   */
+  readonly onEvent?: ReactLoopEventHandler;
 }
 
 /**
@@ -251,6 +257,7 @@ export class EmployeeRuntime {
       pastExperience,
       systemPrompt,
       signal: this.options.signal,
+      onEvent: this.options.onEvent,
     });
 
     if (!loop.completed || loop.reportContent === null) {

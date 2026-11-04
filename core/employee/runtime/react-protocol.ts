@@ -5,17 +5,23 @@ import { describeComputerDecl } from "../computer/employee-computer";
 
 export interface ParsedAction {
   readonly type: "action";
+  /** Titre ecrit par l'agent (ligne STEP:), null si absent. */
+  readonly title: string | null;
   readonly tool: string;
   readonly args: { readonly [key: string]: unknown };
 }
 
 export interface ParsedFinal {
   readonly type: "final";
+  /** Titre ecrit par l'agent (ligne STEP:), null si absent. */
+  readonly title: string | null;
   readonly report: string;
 }
 
 export interface ParsedInvalid {
   readonly type: "invalid";
+  /** Titre ecrit par l'agent (ligne STEP:), null si absent. */
+  readonly title: string | null;
   readonly reason: string;
   readonly raw: string;
 }
@@ -24,7 +30,10 @@ export type ParsedStep = ParsedAction | ParsedFinal | ParsedInvalid;
 
 export const ACTION_MARKER = "ACTION:";
 export const FINAL_MARKER = "FINAL:";
+export const STEP_MARKER = "STEP:";
 export const OBSERVATION_MAX_CHARS = 50_000;
+/** Titre d'etape : une ligne courte, bornee pour l'affichage. */
+export const STEP_TITLE_MAX_CHARS = 120;
 
 /**
  * Consigne systeme de la boucle ReAct : identite de l'employe, protocole
@@ -84,6 +93,10 @@ export function buildSystemPrompt(
     `${ACTION_MARKER} {"tool": "<tool name>", "args": { ... }}`,
     `${FINAL_MARKER} <concise work report>`,
     "",
+    "You may start your reply with one title line describing what you " +
+      "are doing now (thinking, searching, forking, verifying...):",
+    `${STEP_MARKER} <short title, one line, your language>`,
+    "",
     "Available tools:",
     ...catalog,
     ...(experience.length > 0
@@ -91,8 +104,9 @@ export function buildSystemPrompt(
       : []),
     "",
     "Rules:",
-    "- Emit exactly one ACTION or one FINAL per reply, no surrounding text.",
+    "- Emit exactly one ACTION or one FINAL per reply, no surrounding text (a STEP: title line is allowed).",
     "- Write raw JSON after ACTION: (markdown fences are tolerated).",
+    "- Keep the STEP: title short (a few words), no quotes, one line.",
     "- Never invent tool results: only use OBSERVATION messages you received.",
     "- Prefer reading before writing, and verify with the tools when possible.",
     "- When the mission is done, reply FINAL: with a report grounded in " +
@@ -108,8 +122,52 @@ function stripFences(text: string): string {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
-function invalid(reason: string, raw: string): ParsedInvalid {
-  return { type: "invalid", reason, raw };
+function invalid(
+  reason: string,
+  raw: string,
+  title: string | null
+): ParsedInvalid {
+  return { type: "invalid", title, reason, raw };
+}
+
+function unquote(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if (
+      (first === '"' && last === '"') ||
+      (first === "'" && last === "'") ||
+      (first === "«" && last === "»")
+    ) {
+      return value.slice(1, -1).trim();
+    }
+  }
+  return value;
+}
+
+/**
+ * Extrait le titre d'etape ecrit par l'agent : la premiere ligne
+ * commencant par STEP: dans le texte AVANT la directive (jamais dans
+ * le JSON ni le rapport). Strict au debut de ligne pour ne pas
+ * confondre avec du bavardage ("next step: ..."). Null si absent.
+ */
+export function extractStepTitle(beforeDirective: string): string | null {
+  for (const line of beforeDirective.split("\n")) {
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith(STEP_MARKER)) {
+      continue;
+    }
+    const title = unquote(
+      trimmed.slice(STEP_MARKER.length).trim()
+    ).replace(/\s+/g, " ");
+    if (!title) {
+      return null;
+    }
+    return title.length > STEP_TITLE_MAX_CHARS
+      ? title.slice(0, STEP_TITLE_MAX_CHARS)
+      : title;
+  }
+  return null;
 }
 
 /**
@@ -186,17 +244,23 @@ export function parseStepOutput(content: string): ParsedStep {
   const marker = locateMarker(text);
 
   if (!marker) {
-    return invalid('reply must contain "ACTION:" or "FINAL:"', content);
+    return invalid(
+      'reply must contain "ACTION:" or "FINAL:"',
+      content,
+      extractStepTitle(text)
+    );
   }
+
+  const title = extractStepTitle(text.slice(0, marker.at));
 
   if (!marker.action) {
     const report = text.slice(marker.at + FINAL_MARKER.length).trim();
 
     if (!report) {
-      return invalid("FINAL requires a non-empty report", content);
+      return invalid("FINAL requires a non-empty report", content, title);
     }
 
-    return { type: "final", report };
+    return { type: "final", title, report };
   }
 
   const payload = stripFences(text.slice(marker.at + ACTION_MARKER.length));
@@ -208,24 +272,25 @@ export function parseStepOutput(content: string): ParsedStep {
     try {
       data = extractJsonObject(payload);
     } catch {
-      return invalid("ACTION payload is not valid JSON", content);
+      return invalid("ACTION payload is not valid JSON", content, title);
     }
   }
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return invalid("ACTION payload must be a JSON object", content);
+    return invalid("ACTION payload must be a JSON object", content, title);
   }
 
   const { tool, args } = data as Record<string, unknown>;
 
   if (typeof tool !== "string" || tool.length === 0) {
-    return invalid('ACTION requires a "tool" string', content);
+    return invalid('ACTION requires a "tool" string', content, title);
   }
   if (typeof args !== "object" || args === null || Array.isArray(args)) {
-    return invalid('ACTION requires an "args" object', content);
+    return invalid('ACTION requires an "args" object', content, title);
   }
 
   return {
     type: "action",
+    title,
     tool,
     args: args as { readonly [key: string]: unknown },
   };

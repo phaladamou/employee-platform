@@ -159,8 +159,122 @@ describe("EmployeeRuntime.run", () => {
     expect(result.error).toBeNull();
     expect(result.mission.status).toBe("completed");
     expect(result.report?.summary).toBe("Sales reached 42 in Q1.");
-    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: true }]);
+    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) }]);
     expect(result.steps).toBe(2);
+  });
+
+  it("tracks written files with diffs for the Changes tab", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "app.js"), "const a = 1;\n", "utf8");
+    const events: Array<Record<string, unknown>> = [];
+    const runtime = new EmployeeRuntime(
+      new ScriptedProvider([
+        'STEP: Ecriture du code\nACTION: {"tool": "write_file", "args": {"path": "app.js", "content": "const a = 2;\\n"}}',
+        'ACTION: {"tool": "write_file", "args": {"path": "new.txt", "content": "hi"}}',
+        "FINAL: Done.",
+      ]),
+      {
+        tools: [createWriteFileTool()],
+        toolContext: ctx,
+        onEvent: (event) => {
+          events.push(event as Record<string, unknown>);
+        },
+      }
+    );
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.toolCalls).toEqual([
+      {
+        tool: "write_file",
+        ok: true,
+        title: "Ecriture du code",
+        thoughtMs: expect.any(Number),
+        files: [
+          {
+            path: "app.js",
+            status: "modified",
+            added: 1,
+            removed: 1,
+            rows: [
+              { type: "del", oldNo: 1, newNo: null, text: "const a = 1;" },
+              { type: "add", oldNo: null, newNo: 1, text: "const a = 2;" },
+              { type: "same", oldNo: 2, newNo: 2, text: "" },
+            ],
+            truncated: false,
+          },
+        ],
+      },
+      {
+        tool: "write_file",
+        ok: true,
+        title: null,
+        thoughtMs: expect.any(Number),
+        files: [
+          {
+            path: "new.txt",
+            status: "added",
+            added: 1,
+            removed: 0,
+            rows: [{ type: "add", oldNo: null, newNo: 1, text: "hi" }],
+            truncated: false,
+          },
+        ],
+      },
+    ]);
+    const results = events.filter((event) => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(
+      (results[0].files as Array<{ path: string }>).map((f) => f.path)
+    ).toEqual(["app.js"]);
+    expect(
+      (results[1].files as Array<{ status: string }>)[0].status
+    ).toBe("added");
+    for (const event of events) {
+      if (event.type === "step" || event.type === "final") {
+        expect(typeof event.thoughtMs).toBe("number");
+      }
+    }
+  });
+
+  it("forwards live loop events to the observer", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const events: Array<Record<string, unknown>> = [];
+    const runtime = new EmployeeRuntime(
+      new ScriptedProvider([
+        'STEP: Lecture des ventes\nACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+        "FINAL: Sales reached 42 in Q1.",
+      ]),
+      {
+        tools: [createReadFileTool()],
+        toolContext: ctx,
+        onEvent: (event) => {
+          events.push(event as Record<string, unknown>);
+        },
+      }
+    );
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.toolCalls).toEqual([
+      { tool: "read_file", ok: true, title: "Lecture des ventes", thoughtMs: expect.any(Number) },
+    ]);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      {
+        type: "step",
+        step: 1,
+        title: "Lecture des ventes",
+        tool: "read_file",
+        thoughtMs: expect.any(Number),
+      },
+      { type: "tool_result", step: 1, tool: "read_file", ok: true, files: [] },
+      { type: "thinking", step: 2 },
+      { type: "final", step: 2, title: null, thoughtMs: expect.any(Number) },
+    ]);
   });
 
   it("restores idle and fails the mission when the LLM fails", async () => {
@@ -442,7 +556,7 @@ describe("EmployeeRuntime.run", () => {
 
     const result = await runtime.run(makeProfile(), makeMission());
 
-    expect(result.toolCalls).toEqual([{ tool: "write_file", ok: false }]);
+    expect(result.toolCalls).toEqual([{ tool: "write_file", ok: false, title: null, thoughtMs: expect.any(Number) }]);
     expect(result.mission.status).toBe("needs_review");
     expect(result.reviewReason).toContain("write_file");
   });
@@ -484,8 +598,8 @@ describe("EmployeeRuntime.run", () => {
     // Un appel a reussi : ni "outils inconnus" ni "tout a echoue".
     // Le blocage cite dans le Final suspend quand meme le jugement.
     expect(result.toolCalls).toEqual([
-      { tool: "write_file", ok: false },
-      { tool: "read_file", ok: true },
+      { tool: "write_file", ok: false, title: null, thoughtMs: expect.any(Number) },
+      { tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) },
     ]);
     expect(result.mission.status).toBe("needs_review");
     expect(result.reviewReason).toContain("security block");
@@ -510,8 +624,8 @@ describe("EmployeeRuntime.run", () => {
     // Un appel a reussi : ni "tout a echoue" ni blocage. L'aveu
     // d'impuissance, corrobore par l'appel echoue, suspend le jugement.
     expect(result.toolCalls).toEqual([
-      { tool: "read_file", ok: false },
-      { tool: "read_file", ok: true },
+      { tool: "read_file", ok: false, title: null, thoughtMs: expect.any(Number) },
+      { tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) },
     ]);
     expect(result.mission.status).toBe("needs_review");
     expect(result.reviewReason).toContain("corroborated by the run record");

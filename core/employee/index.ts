@@ -247,10 +247,15 @@ export {
   parseStepOutput,
 } from "./runtime/react-protocol";
 export type {
+  ReactFileChange,
+  ReactLoopEvent,
+  ReactLoopEventHandler,
   ReactLoopOptions,
   ReactLoopResult,
   ReactToolCall,
 } from "./runtime/react-loop";
+export type { DiffRow, DiffRowType, FileDiff } from "./runtime/file-diff";
+export { DIFF_MAX_ROWS, diffLines } from "./runtime/file-diff";
 export {
   DEFAULT_MAX_STEPS,
   DEFAULT_SANDBOX_DIR,

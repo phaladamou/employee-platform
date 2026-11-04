@@ -112,6 +112,7 @@ describe("parseStepOutput", () => {
 
     expect(parsed).toEqual({
       type: "action",
+      title: null,
       tool: "read_file",
       args: { path: "a.txt" },
     });
@@ -134,6 +135,7 @@ describe("parseStepOutput", () => {
 
     expect(parsed).toEqual({
       type: "final",
+      title: null,
       report: "Mission done.\nDetails...",
     });
   });
@@ -144,6 +146,7 @@ describe("parseStepOutput", () => {
     );
     expect(action).toEqual({
       type: "action",
+      title: null,
       tool: "write_file",
       args: { path: "hello.txt", content: "bonjour" },
     });
@@ -153,6 +156,7 @@ describe("parseStepOutput", () => {
     );
     expect(final).toEqual({
       type: "final",
+      title: null,
       report: "File written and verified.",
     });
   });
@@ -168,6 +172,7 @@ describe("parseStepOutput", () => {
     );
     expect(actionFirst).toEqual({
       type: "action",
+      title: null,
       tool: "read_file",
       args: { path: "a.txt" },
     });
@@ -180,9 +185,69 @@ describe("parseStepOutput", () => {
 
     expect(parsed).toEqual({
       type: "action",
+      title: null,
       tool: "run_shell",
       args: { command: "ls" },
     });
+  });
+
+  it("reads the agent-written step title before the directive", () => {
+    const action = parseStepOutput(
+      'STEP: Fork du dépôt\nACTION: {"tool": "github_fork", "args": {"repo": "acme/app"}}'
+    );
+    expect(action).toEqual({
+      type: "action",
+      title: "Fork du dépôt",
+      tool: "github_fork",
+      args: { repo: "acme/app" },
+    });
+
+    const final = parseStepOutput("STEP: Rapport final\nFINAL: Done.");
+    expect(final).toEqual({
+      type: "final",
+      title: "Rapport final",
+      report: "Done.",
+    });
+  });
+
+  it("leaves the title null without a STEP line (backward compatible)", () => {
+    const action = parseStepOutput(
+      'ACTION: {"tool": "read_file", "args": {"path": "a.txt"}}'
+    );
+    expect(action).toEqual({
+      type: "action",
+      title: null,
+      tool: "read_file",
+      args: { path: "a.txt" },
+    });
+
+    // Un STEP: après la directive (dans le JSON ou le rapport)
+    // n'est pas un titre.
+    const noisy = parseStepOutput(
+      'ACTION: {"tool": "write_file", "args": {"path": "n.txt", "content": "STEP: not a title"}}'
+    );
+    expect(noisy.type).toBe("action");
+    if (noisy.type === "action") {
+      expect(noisy.title).toBeNull();
+    }
+  });
+
+  it("bounds the step title to one short line", () => {
+    const parsed = parseStepOutput(
+      `STEP:   ${"Très longue analyse ".repeat(20)}\nACTION: {"tool": "read_file", "args": {"path": "a.txt"}}`
+    );
+    expect(parsed.type).toBe("action");
+    if (parsed.type === "action") {
+      expect(parsed.title?.length).toBeLessThanOrEqual(120);
+      expect(parsed.title).not.toMatch(/\n/);
+    }
+    const empty = parseStepOutput(
+      'STEP:   \nACTION: {"tool": "read_file", "args": {"path": "a.txt"}}'
+    );
+    expect(empty.type).toBe("action");
+    if (empty.type === "action") {
+      expect(empty.title).toBeNull();
+    }
   });
 
   it("rejects malformed steps with an explicit reason", () => {
