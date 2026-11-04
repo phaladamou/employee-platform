@@ -1,5 +1,6 @@
 // lib/engineering/files.test.ts
-// Contrat des helpers IDE (arbre + langage + securite chemins).
+// Contrat des helpers IDE (arbre + langage + securite chemins +
+// journal d'activite fichier et live).
 // Execution : node --test lib/engineering/files.test.ts
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -11,6 +12,7 @@ import {
   formatActivityTime,
   isSafeWorkspacePath,
   languageForPath,
+  liveActivityEntries,
   parseActivityLog,
 } from "./files.ts";
 
@@ -139,5 +141,71 @@ describe("formatActivityTime", () => {
   it("rend chaine vide si illisible", () => {
     assert.equal(formatActivityTime(""), "");
     assert.equal(formatActivityTime("nope"), "");
+  });
+});
+
+describe("liveActivityEntries", () => {
+  it("rend vide sans donnees de run", () => {
+    assert.deepEqual(
+      liveActivityEntries({ steps: [], thinkingStep: null, failed: null }),
+      []
+    );
+  });
+
+  it("mappe les etapes (titre agent, outil, etat)", () => {
+    assert.deepEqual(
+      liveActivityEntries({
+        steps: [
+          { step: 1, title: "Fork du dépôt", tool: "github_fork", status: "ok" },
+          { step: 2, title: null, tool: "run_shell", status: "running" },
+          { step: 3, title: null, tool: null, status: "failed" },
+        ],
+        thinkingStep: null,
+        failed: null,
+      }),
+      [
+        {
+          ts: "",
+          tool: "github_fork",
+          message: "Fork du dépôt",
+          ok: true,
+          live: true,
+        },
+        {
+          ts: "",
+          tool: "run_shell",
+          message: "run_shell",
+          ok: true,
+          live: true,
+        },
+        { ts: "", tool: "", message: "Step 3", ok: false, live: true },
+      ]
+    );
+  });
+
+  it("ajoute la reflexion en cours et l'erreur terminale", () => {
+    assert.deepEqual(
+      liveActivityEntries({ steps: [], thinkingStep: 2, failed: "boom" }),
+      [
+        { ts: "", tool: "", message: "", ok: true, live: true, thinking: true },
+        { ts: "", tool: "", message: "boom", ok: false, live: true },
+      ]
+    );
+  });
+
+  it("garde les 60 dernieres entrees", () => {
+    const steps = Array.from({ length: 70 }, (_, i) => ({
+      step: i + 1,
+      title: `Etape ${i + 1}`,
+      tool: "run_shell" as const,
+      status: "ok" as const,
+    }));
+    const out = liveActivityEntries({
+      steps,
+      thinkingStep: null,
+      failed: null,
+    });
+    assert.equal(out.length, 60);
+    assert.equal(out[0].message, "Etape 11");
   });
 });

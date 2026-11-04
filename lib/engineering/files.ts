@@ -20,7 +20,14 @@ export interface ActivityEntry {
   tool: string;
   message: string;
   ok: boolean;
+  /** Entree live (run en cours) : pulse, pas d'horodatage. */
+  live?: boolean;
+  /** Reflexion en cours : libelle traduit cote client. */
+  thinking?: boolean;
 }
+
+/** Plafond miroir du journal fichier (60 dernieres). */
+export const LIVE_ACTIVITY_LIMIT = 60;
 
 /**
  * Parse le journal d'activite JSONL ecrit par les outils (une ligne
@@ -54,6 +61,37 @@ export function parseActivityLog(text: string, limit = 20): ActivityEntry[] {
     }
   }
   return out.slice(-Math.max(1, limit));
+}
+
+// Derive les entrees live depuis la progression partagee du run
+// (meme source que la timeline : titres agent, etats, reflexion
+// en cours, erreur terminale). Vide sans donnees de run : l'onglet
+// Activity retombe alors sur le journal fichier. Parametre
+// structurel : ce module reste sans dependance (node --test).
+export function liveActivityEntries(progress: {
+  readonly steps: ReadonlyArray<{
+    readonly step: number;
+    readonly title: string | null;
+    readonly tool: string | null;
+    readonly status: "running" | "ok" | "failed";
+  }>;
+  readonly thinkingStep: number | null;
+  readonly failed: string | null;
+}): ActivityEntry[] {
+  const out: ActivityEntry[] = progress.steps.map((row) => ({
+    ts: "",
+    tool: row.tool ?? "",
+    message: row.title ?? row.tool ?? `Step ${row.step}`,
+    ok: row.status !== "failed",
+    live: true,
+  }));
+  if (progress.thinkingStep !== null) {
+    out.push({ ts: "", tool: "", message: "", ok: true, live: true, thinking: true });
+  }
+  if (progress.failed) {
+    out.push({ ts: "", tool: "", message: progress.failed, ok: false, live: true });
+  }
+  return out.slice(-LIVE_ACTIVITY_LIMIT);
 }
 
 // Extrait la commande d'une ligne "Running: <cmd>" (run_shell).

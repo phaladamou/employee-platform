@@ -21,6 +21,7 @@ import {
   extractShellCommand,
   formatActivityTime,
   languageForPath,
+  liveActivityEntries,
   parseActivityLog,
   type ActivityEntry,
   type FileTreeNode,
@@ -167,7 +168,8 @@ function useStickToBottom(count: number) {
 }
 
 // Journal chronologique structure : heure, pastille d'outil,
-// message, etat.
+// message, etat. Les entrees live (run en cours, meme source que
+// la timeline) pulsent et affichent "live" au lieu de l'heure.
 function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
   const t = useTranslations("employees");
   const scroller = useStickToBottom(entries.length);
@@ -185,17 +187,25 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
         <div
           className="flex items-center gap-2 rounded-md px-2 py-1"
           key={`${index}-${entry.ts}`}
-          title={entry.message}
+          title={entry.thinking ? t("missionThinking") : entry.message}
         >
           <span
             aria-hidden="true"
             className={cn(
               "size-1.5 shrink-0 rounded-full",
-              entry.ok ? "bg-emerald-500" : "bg-red-500"
+              entry.ok ? "bg-emerald-500" : "bg-red-500",
+              entry.live && "animate-pulse"
             )}
           />
-          <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground tabular-nums">
-            {formatActivityTime(entry.ts)}
+          <span
+            className={cn(
+              "shrink-0 font-mono text-[10.5px] tabular-nums",
+              entry.live
+                ? "text-emerald-600 dark:text-emerald-400"
+                : "text-muted-foreground"
+            )}
+          >
+            {entry.live ? t("activityLive") : formatActivityTime(entry.ts)}
           </span>
           {entry.tool && (
             <span className="shrink-0 rounded border border-border px-1 font-mono text-[10px] text-muted-foreground">
@@ -210,7 +220,7 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
                 : "text-red-600 dark:text-red-400"
             )}
           >
-            {entry.message}
+            {entry.thinking ? t("missionThinking") : entry.message}
           </span>
         </div>
       ))}
@@ -282,7 +292,17 @@ export function EmployeeIde({
   const [ideTab, setIdeTab] = useState<
     "files" | "changes" | "activity" | "terminal"
   >("files");
-  const activityEntries = useActivityEntries(employeeId);
+  const fileEntries = useActivityEntries(employeeId);
+  // Run en cours (ou termine) : l'onglet Activity suit le live
+  // (meme source que la timeline, zero delai de poll) ; sinon il
+  // retombe sur le journal fichier. Le Terminal reste sur le
+  // fichier : le texte des commandes n'existe que dans le journal.
+  const liveEntries = useMemo(
+    () => liveActivityEntries(missionProgress),
+    [missionProgress]
+  );
+  const activityEntries =
+    liveEntries.length > 0 ? liveEntries : fileEntries;
 
   const tree = useMemo(
     () => buildFileTree(data?.files ?? []),
@@ -336,6 +356,12 @@ export function EmployeeIde({
         >
           <ActivityIcon className="size-3.5" />
           {t("activityTitle")}
+          {liveEntries.length > 0 && (
+            <span
+              aria-hidden="true"
+              className="size-1.5 shrink-0 animate-pulse rounded-full bg-emerald-500"
+            />
+          )}
         </button>
         <button
           className={cn(
@@ -406,7 +432,7 @@ export function EmployeeIde({
       )}
       {ideTab === "terminal" && (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <TerminalTab entries={activityEntries} />
+          <TerminalTab entries={fileEntries} />
         </div>
       )}
     </div>
