@@ -40,6 +40,7 @@ import { editDocument } from "@/lib/ai/tools/edit-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { newsSearch } from "@/lib/ai/tools/news-search";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
+import { searchEmployees } from "@/lib/ai/tools/search-employees";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { webSearch } from "@/lib/ai/tools/web-search";
 import { resolveChefStep } from "@/lib/chef/resolve";
@@ -366,8 +367,8 @@ export async function POST(request: Request) {
 
     // Latence : getCapabilities() appelle la gateway externe (un HTTP
     // par modele). Seul le flux tool-approval s'en sert : les flux
-    // normal et Chef l'ignorent (le Chef n'a pas d'outils de toute
-    // facon, la directive site ne doit pas s'y injecter).
+    // normal et Chef l'ignorent (la directive site ne doit pas
+    // s'injecter dans le Chef, qui n'a que la recherche d'employes).
     const modelCapabilities = isToolApprovalFlow
       ? await getCapabilities()
       : null;
@@ -485,8 +486,9 @@ export async function POST(request: Request) {
 
       execute: async ({ writer: dataStream }) => {
         // ================================================================
-        // CHEF WELCOME FLOW (sans outils : le Manager guide, il
-        // n'execute pas de missions techniques)
+        // CHEF WELCOME FLOW (un seul outil, en lecture : la recherche
+        // d'employes. Le Manager guide, il n'execute pas de missions
+        // techniques)
         // ================================================================
 
         if (chefStep) {
@@ -495,6 +497,12 @@ export async function POST(request: Request) {
               model: getChatLanguageModel(),
               system: chefStep.systemPrompt,
               messages: filteredMessages,
+              stopWhen: stepCountIs(3),
+              tools: {
+                searchEmployees: searchEmployees({
+                  accountId: chefStep.accountId,
+                }),
+              },
             });
 
             dataStream.merge(

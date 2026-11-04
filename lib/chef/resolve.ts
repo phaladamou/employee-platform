@@ -46,7 +46,10 @@ export function loadChefSystemPrompt(
   return cachedSystemPrompt;
 }
 
-export type ResolvedChefStep = ChefStep & { systemPrompt: string };
+export type ResolvedChefStep = ChefStep & {
+  systemPrompt: string;
+  accountId: string;
+};
 
 export async function resolveChefStep(args: {
   userId: string;
@@ -75,5 +78,5 @@ export async function resolveChefStep(args: {
     userTexts: userTextsFromMessages(args.uiMessages),
   });
   if (!step) return null;
-  return { ...step, systemPrompt: loadChefSystemPrompt() };
+  return { ...step, systemPrompt: loadChefSystemPrompt(), accountId };
 }

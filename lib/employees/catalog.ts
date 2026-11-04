@@ -287,6 +287,51 @@ export function formatTalentProfile(
   };
 }
 
+// Fiche compacte renvoyee par l'outil searchEmployees du Chef :
+// juste assez pour afficher une carte de recommandation dans le
+// chat (la fiche complete vit sur /employees/recruit?talent=<spec>).
+export interface EmployeeSearchResult {
+  spec: string;
+  name: string;
+  role: string;
+  departmentId: string;
+  pitch: string;
+  skills: string[];
+  hired: boolean;
+}
+
+export const SEARCH_PITCH_MAX_LENGTH = 180;
+export const SEARCH_SKILLS_MAX_COUNT = 4;
+
+// Le background brut est un prompt systeme (long) : condense en une
+// accroche d'une phrase, sans couper un mot.
+export function truncatePitch(text: string): string {
+  const collapsed = text.trim().replace(/\s+/g, " ");
+  if (collapsed.length <= SEARCH_PITCH_MAX_LENGTH) return collapsed;
+  const cut = collapsed.slice(0, SEARCH_PITCH_MAX_LENGTH);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${lastSpace > 0 ? cut.slice(0, lastSpace) : cut}…`;
+}
+
+// Projection TalentProfile -> carte de recommandation du Chef.
+export function toEmployeeSearchResult(
+  profile: TalentProfile
+): EmployeeSearchResult {
+  const pitchSource =
+    profile.overview?.trim() || profile.background;
+  const skillsSource =
+    profile.capabilities?.length ? profile.capabilities : profile.technologies;
+  return {
+    spec: profile.spec,
+    name: profile.name,
+    role: profile.role,
+    departmentId: profile.departmentId,
+    pitch: truncatePitch(pitchSource),
+    skills: skillsSource.slice(0, SEARCH_SKILLS_MAX_COUNT),
+    hired: profile.hired === true,
+  };
+}
+
 // Filtre du Talent Network : departement exact + recherche plein texte
 // insensible a la casse (chaque mot doit matcher quelque part).
 export function filterTalents(

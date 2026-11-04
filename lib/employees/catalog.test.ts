@@ -21,6 +21,8 @@ import {
   isGithubCapable,
   isKnownDepartment,
   isMissionStatus,
+  toEmployeeSearchResult,
+  truncatePitch,
   type Employee,
   type TalentProfile,
 } from "./catalog.ts";
@@ -279,5 +281,41 @@ describe("employee catalog", () => {
     assert.deepEqual(filterTalents(TALENTS, "atlas sql", "all"), []);
     // La recherche respecte aussi le filtre departement.
     assert.deepEqual(filterTalents(TALENTS, "aria", "engineering"), []);
+  });
+
+  it("truncates long pitches without cutting words", () => {
+    assert.equal(truncatePitch("Short pitch."), "Short pitch.");
+    assert.equal(
+      truncatePitch("  Collapsed\n  whitespace.  "),
+      "Collapsed whitespace."
+    );
+    const long = `word ${"lorem ipsum dolor sit amet ".repeat(20)}end`;
+    const truncated = truncatePitch(long);
+    assert.ok(truncated.length <= 181, truncated.length);
+    // Pas de mot coupe : on s'arrete a la derniere espace.
+    assert.match(truncated, /[a-z.]…$/);
+  });
+
+  it("projects a talent to a recommendation card", () => {
+    const rich: TalentProfile = {
+      ...TALENTS[0],
+      hired: true,
+      overview: "Builds web apps end to end.",
+      capabilities: ["Coding", "Testing", "Review", "Docs", "Mentoring"],
+    };
+    assert.deepEqual(toEmployeeSearchResult(rich), {
+      spec: "atlas-software-engineer",
+      name: "Atlas",
+      role: "Software Engineer",
+      departmentId: "engineering",
+      pitch: "Builds web apps end to end.",
+      skills: ["Coding", "Testing", "Review", "Docs"],
+      hired: true,
+    });
+    // Sans fiche riche : retombe sur background + technologies.
+    const bare = toEmployeeSearchResult(TALENTS[1]);
+    assert.equal(bare.pitch, "Extracts insights from datasets.");
+    assert.deepEqual(bare.skills, ["SQL", "Reporting"]);
+    assert.equal(bare.hired, false);
   });
 });
