@@ -731,6 +731,11 @@ Leçons dures :
   l'utilisateur, exclu du watch) → compiles à 1-3s.
   Règle : les données runtime restent hors du projet
   surveillé.
+- Charge multi-onglets (2026-11-03, non commité) : le poll
+  arbre IDE (4 s/onglet) rescannait le disque (~110-220 ms
+  + 178 Ko pour 2000 entrées, mesuré) → cache TTL 5 s par
+  employé dans workspace-store (helper pur createTtlCache
+  dans files.ts + 3 tests). Fraîcheur inchangée.
 
 ## 10. Conventions et environnement (rappel)
 
