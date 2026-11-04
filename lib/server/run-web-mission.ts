@@ -8,6 +8,7 @@ import "server-only";
 
 import { resolve } from "node:path";
 
+import type { JobRunSignal } from "@/core/employee/jobs/job-signal";
 import {
   assignMission,
   createEmployeeMission,
@@ -22,6 +23,7 @@ import { loadProfileRegistry } from "@/core/employee/profiles/profile-registry";
 import { EmployeeRuntime } from "@/core/employee/runtime/employee-runtime";
 import { FetchLLMProvider } from "@/core/employee/runtime/fetch-llm-provider";
 import type { EmployeeLLMProvider } from "@/core/employee/runtime/llm-provider";
+import type { ReactLoopEventHandler } from "@/core/employee/runtime/react-loop";
 import { openFileStores } from "@/core/employee/stores/employee-stores";
 import { EmployeeWorkspaces } from "@/core/employee/workspaces/employee-workspaces";
 
@@ -81,6 +83,10 @@ export async function runWebMission(input: {
   talentSpec: string | null;
   specVersion: string | null;
   prompt: string;
+  /** Observateur live (stream NDJSON) : thinking, etapes, resultats. */
+  onEvent?: ReactLoopEventHandler;
+  /** Annulation (deconnexion client) : la mission termine "cancelled". */
+  signal?: JobRunSignal;
 }): Promise<WebMissionResult> {
   // Meme garde que partout : creation de fichier / bugfix exigent
   // des criteres declares. Le chat web n'en saisit pas : revue
@@ -155,6 +161,8 @@ export async function runWebMission(input: {
     memory,
     memoryStore,
     profiles: registry,
+    onEvent: input.onEvent,
+    signal: input.signal,
   });
 
   const result = await runtime.run(profile, mission);
@@ -182,7 +190,7 @@ export async function chatWithEmployee(input: {
     messages: [
       {
         role: "system",
-        content: `You are ${input.employeeName}, ${input.employeeRole} at Employee. Answer concisely in the user's language. You are an AI employee, never claim to be human.`,
+        content: `You are ${input.employeeName}, ${input.employeeRole} at Employee. Answer concisely in the user's language. You are an AI employee, never claim to be human. Discussion mode: you have no tools here and cannot perform actions. When the user asks you to do something (fork, clone, write code, create files, fix bugs, run commands...), briefly tell them to check "Mission" so you can act (GitHub tab for GitHub work) instead of refusing or giving manual instructions.`,
       },
       { role: "user", content: input.message },
     ],

@@ -1,20 +1,26 @@
 // app/(chat)/api/employees/[id]/chat/route.ts
 // Discussion Engineering : reponse LLM reelle + missions executees
 // pour de vrai via le noyau (in-process, dev-first).
-// Persistance : chaque message (user + assistant) est stocke dans
-// Message_v2 sur le fil (user, employe) ; le GET recharge
-// l'historique apres rechargement de page.
+// Persistance multi-sessions : ?session=<id> cible une session,
+// absent = derniere session (GET) ou nouvelle session (POST).
+// Missions : ?stream=1 renvoie les evenements live en NDJSON
+// (thinking, etapes titre agent, resultats) puis une ligne `done`
+// avec la charge utile habituelle ; sinon reponse JSON bloquante.
 import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
+import { InMemoryJobSignal } from "@/core/employee/jobs/job-signal";
+import type { ReactLoopEventHandler } from "@/core/employee/runtime/react-loop";
 import {
+  createEmployeeSession,
   createMission,
   getEmployeeById,
-  getEmployeeChat,
+  getEmployeeSession,
+  getEmployeeSessions,
   getMessagesByChatId,
-  getOrCreateEmployeeChat,
   requireAccountId,
   saveEmployeeMessage,
+  titleSessionFromFirstMessage,
   updateMission,
 } from "@/lib/db/queries";
 import { isMissionStatus } from "@/lib/employees/catalog";
@@ -76,7 +82,7 @@ function persistStreamBody(
 }
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -93,13 +99,40 @@ export async function GET(
     if (!target || target.status === "terminated") {
       return NextResponse.json({ error: "Unknown employee" }, { status: 404 });
     }
-    // Lecture seule : aucun fil cree quand on n'a jamais discute.
-    const conversation = await getEmployeeChat(session.user.id, id);
-    if (!conversation) {
-      return NextResponse.json({ messages: [] });
+    // Lecture seule : aucune session creee ici.
+    const wanted = new URL(request.url).searchParams.get("session");
+    if (wanted) {
+      const conversation = await getEmployeeSession(
+        session.user.id,
+        id,
+        wanted
+      );
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Unknown session" },
+          { status: 404 }
+        );
+      }
+      const rows = await getMessagesByChatId({ id: conversation.id });
+      return NextResponse.json({
+        sessionId: conversation.id,
+        messages: rows.map((row) => ({
+          id: row.id,
+          role: toDisplayRole(row.role),
+          text: partsToText(row.parts),
+          missionId: row.missionId,
+          createdAt: row.createdAt.toISOString(),
+        })),
+      });
     }
-    const rows = await getMessagesByChatId({ id: conversation.id });
+    const sessions = await getEmployeeSessions(session.user.id, id);
+    const latest = sessions[0] ?? null;
+    if (!latest) {
+      return NextResponse.json({ sessionId: null, messages: [] });
+    }
+    const rows = await getMessagesByChatId({ id: latest.id });
     return NextResponse.json({
+      sessionId: latest.id,
       messages: rows.map((row) => ({
         id: row.id,
         role: toDisplayRole(row.role),
@@ -150,19 +183,30 @@ export async function POST(
     if (!target || target.status === "terminated") {
       return NextResponse.json({ error: "Unknown employee" }, { status: 404 });
     }
-    const conversation = await getOrCreateEmployeeChat({
-      userId: session.user.id,
-      employeeId: id,
-      title: target.name,
-    });
+    // Session ciblee ou nouvelle session (jamais de reutilisation
+    // implicite : sans ?session=, le POST ouvre un nouveau fil).
+    const url = new URL(request.url);
+    const wanted = url.searchParams.get("session");
+    const conversation = wanted
+      ? await getEmployeeSession(session.user.id, id, wanted)
+      : await createEmployeeSession({
+          userId: session.user.id,
+          employeeId: id,
+        });
+    if (!conversation) {
+      return NextResponse.json({ error: "Unknown session" }, { status: 404 });
+    }
     await saveEmployeeMessage({
       chatId: conversation.id,
       role: "user",
       text: message,
     });
+    await titleSessionFromFirstMessage({
+      chatId: conversation.id,
+      text: message,
+    });
 
     if (!asMission) {
-      const url = new URL(request.url);
       if (url.searchParams.get("stream") === "1") {
         try {
           const upstream = await streamEmployeeReply({
@@ -181,7 +225,12 @@ export async function POST(
                 text,
               }).then(() => undefined)
             ),
-            { headers: upstream.headers }
+            {
+              headers: {
+                ...Object.fromEntries(upstream.headers),
+                "x-employee-session": conversation.id,
+              },
+            }
           );
         } catch (error) {
           console.error("POST /api/employees/[id]/chat Stream Error:", error);
@@ -202,7 +251,7 @@ export async function POST(
           role: "assistant",
           text: reply,
         });
-        return NextResponse.json({ reply });
+        return NextResponse.json({ reply, sessionId: conversation.id });
       } catch (error) {
         console.error("POST /api/employees/[id]/chat LLM Error:", error);
         return NextResponse.json({ error: "Chat unavailable" }, { status: 500 });
@@ -224,7 +273,10 @@ export async function POST(
       patch: { status: "running" },
     });
 
-    try {
+    // Execution + persistance partagees par les deux reponses
+    // (JSON bloquante et NDJSON) : meme charge utile terminale.
+    const cancelSignal = new InMemoryJobSignal();
+    const runAndPersist = async (onEvent?: ReactLoopEventHandler) => {
       const outcome = await runWebMission({
         userId: session.user.id,
         employeeId: id,
@@ -233,27 +285,39 @@ export async function POST(
         talentSpec: target.talentSpec,
         specVersion: target.specVersion,
         prompt: message,
+        onEvent,
+        signal: onEvent ? cancelSignal : undefined,
+      }).catch((error) => {
+        console.error("POST /api/employees/[id]/chat Run Error:", error);
+        return {
+          status: "failed" as const,
+          summary: String(
+            error instanceof Error ? error.message : error
+          ).slice(0, 500),
+          needsAcceptance: false,
+          toolCalls: [],
+        };
       });
-      const updated = await updateMission({
-        accountId,
-        missionId: created.id,
-        patch: {
-          status: outcome.status,
-          report: outcome.summary || null,
-          toolCalls: outcome.toolCalls,
-        },
-      });
-      // Reponse de mission dans le fil (texte vide + missionId =
-      // needs_acceptance, libelle rendu cote client).
-      await saveEmployeeMessage({
-        chatId: conversation.id,
-        role: "assistant",
-        text: outcome.summary,
-        missionId: created.id,
-      });
-      const row = updated ?? created;
-      return NextResponse.json(
-        {
+      try {
+        const updated = await updateMission({
+          accountId,
+          missionId: created.id,
+          patch: {
+            status: outcome.status,
+            report: outcome.summary || null,
+            toolCalls: outcome.toolCalls,
+          },
+        });
+        // Reponse de mission dans le fil (texte vide + missionId =
+        // needs_acceptance, libelle rendu cote client).
+        await saveEmployeeMessage({
+          chatId: conversation.id,
+          role: "assistant",
+          text: outcome.summary,
+          missionId: created.id,
+        });
+        const row = updated ?? created;
+        return {
           mission: {
             id: row.id,
             title: row.title,
@@ -262,40 +326,71 @@ export async function POST(
           },
           summary: outcome.summary,
           needsAcceptance: outcome.needsAcceptance,
-        },
-        { status: 201 }
-      );
-    } catch (error) {
-      console.error("POST /api/employees/[id]/chat Run Error:", error);
-      const detail = String(
-        error instanceof Error ? error.message : error
-      ).slice(0, 500);
-      const failed = await updateMission({
-        accountId,
-        missionId: created.id,
-        patch: { status: "failed", report: detail },
-      });
-      await saveEmployeeMessage({
-        chatId: conversation.id,
-        role: "assistant",
-        text: detail,
-        missionId: created.id,
-      });
-      const row = failed ?? created;
-      return NextResponse.json(
-        {
+        };
+      } catch (error) {
+        // La persistance ne doit jamais avaler le resultat : la
+        // ligne `done` part quand meme (l'historique manquera,
+        // l'utilisateur a sa reponse, l'erreur est loguee).
+        console.error("POST /api/employees/[id]/chat Persist Error:", error);
+        return {
           mission: {
-            id: row.id,
-            title: row.title,
-            status: "failed",
-            employeeId: row.employeeId,
+            id: created.id,
+            title: created.title,
+            status: outcome.status,
+            employeeId: created.employeeId,
           },
-          summary: detail,
-          needsAcceptance: false,
+          summary: outcome.summary,
+          needsAcceptance: outcome.needsAcceptance,
+        };
+      }
+    };
+
+    if (url.searchParams.get("stream") === "1") {
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      const writeLine = (value: unknown) =>
+        writer.write(encoder.encode(`${JSON.stringify(value)}\n`));
+      // Deconnexion client (ou flux casse) : la boucle s'interrompt
+      // au prochain pas, la mission termine "cancelled".
+      request.signal.addEventListener("abort", () => cancelSignal.cancel(), {
+        once: true,
+      });
+      const onEvent: ReactLoopEventHandler = async (event) => {
+        try {
+          await writeLine(event);
+        } catch {
+          cancelSignal.cancel();
+        }
+      };
+      void (async () => {
+        try {
+          const payload = await runAndPersist(onEvent);
+          await writeLine({
+            type: "done",
+            ...payload,
+            sessionId: conversation.id,
+          });
+        } catch (error) {
+          // Mission deja persistee par runAndPersist : on ferme.
+          console.error("Mission stream write error:", error);
+        } finally {
+          await writer.close().catch(() => {});
+        }
+      })();
+      return new Response(readable, {
+        headers: {
+          "content-type": "application/x-ndjson",
+          "x-employee-session": conversation.id,
         },
-        { status: 201 }
-      );
+      });
     }
+
+    const payload = await runAndPersist();
+    return NextResponse.json(
+      { ...payload, sessionId: conversation.id },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("POST /api/employees/[id]/chat Error:", error);
     return NextResponse.json(

@@ -7,6 +7,8 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/employees/catalog";
+import { MissionExecutionPanel } from "./mission-execution-panel";
+import type { useMissionStream } from "./use-mission-stream";
 
 interface ChatMessage {
   id: string;
@@ -15,7 +17,6 @@ interface ChatMessage {
   missionId?: string;
   pending?: boolean;
   startedAt?: number;
-  mission?: boolean;
 }
 
 interface HistoryRow {
@@ -26,7 +27,19 @@ interface HistoryRow {
   createdAt: string;
 }
 
-export function EmployeeChat({ employee }: { employee: Employee }) {
+export function EmployeeChat({
+  employee,
+  sessionId,
+  mission,
+  onSessionResolved,
+  onFailedSend,
+}: {
+  employee: Employee;
+  sessionId: string | null;
+  mission: ReturnType<typeof useMissionStream>;
+  onSessionResolved: (sessionId: string) => void;
+  onFailedSend: () => void;
+}) {
   const t = useTranslations("employees");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -50,17 +63,46 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
     };
   }, []);
 
-  // Historique persistant : recharge le fil (user, employe) depuis
-  // la base. Conversation vide = on garde la salutation locale.
+  // Historique persistant : recharge la session ciblee depuis
+  // la base. Sans session (page /atlas) = nouvelle session
+  // vierge, jamais la derniere rouverte. L'id resolu remonte
+  // pour synchroniser l'URL. Ne recharge que quand la cible
+  // (employe/session) change : les re-rendus du parent ne doivent
+  // jamais ecraser la discussion visible (message optimiste,
+  // mission en cours, reponse recue).
+  const loadedKeyRef = useRef<string | null>(null);
   useEffect(() => {
+    const loadedKey = `${employee.id}:${sessionId ?? ""}`;
+    if (loadedKeyRef.current === loadedKey) {
+      return;
+    }
+    loadedKeyRef.current = loadedKey;
     let cancelled = false;
+    if (!sessionId) {
+      setMessages([
+        {
+          id: "greeting",
+          role: "employee" as const,
+          text: t("chatGreeting", {
+            name: employee.name,
+            role: employee.role,
+          }),
+        },
+      ]);
+      setHistoryLoading(false);
+      return;
+    }
     setHistoryLoading(true);
-    fetch(`/api/employees/${encodeURIComponent(employee.id)}/chat`)
+    const url = `/api/employees/${encodeURIComponent(employee.id)}/chat?session=${encodeURIComponent(sessionId)}`;
+    fetch(url)
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`history failed: ${response.status}`);
         }
-        return (await response.json()) as { messages?: HistoryRow[] };
+        return (await response.json()) as {
+          sessionId?: string | null;
+          messages?: HistoryRow[];
+        };
       })
       .then((payload) => {
         if (cancelled) {
@@ -69,19 +111,31 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
         const rows = Array.isArray(payload.messages)
           ? payload.messages
           : [];
-        if (rows.length > 0) {
-          setMessages(
-            rows.map((row) => ({
-              id: row.id,
-              role: row.role === "employee" ? "employee" : "user",
-              text:
-                row.text ||
-                (row.missionId
-                  ? t("missionNeedsAcceptance")
-                  : t("chatEmptyReply")),
-              missionId: row.missionId ?? undefined,
-            }))
-          );
+        setMessages(
+          rows.length > 0
+            ? rows.map((row) => ({
+                id: row.id,
+                role: row.role === "employee" ? "employee" : "user",
+                text:
+                  row.text ||
+                  (row.missionId
+                    ? t("missionNeedsAcceptance")
+                    : t("chatEmptyReply")),
+                missionId: row.missionId ?? undefined,
+              }))
+            : [
+                {
+                  id: "greeting",
+                  role: "employee" as const,
+                  text: t("chatGreeting", {
+                    name: employee.name,
+                    role: employee.role,
+                  }),
+                },
+              ]
+        );
+        if (payload.sessionId && payload.sessionId !== sessionId) {
+          onSessionResolved(payload.sessionId);
         }
       })
       .catch(() => {
@@ -96,7 +150,7 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
     return () => {
       cancelled = true;
     };
-  }, [employee.id, t]);
+  }, [employee.id, employee.name, employee.role, sessionId, t, onSessionResolved]);
 
   const hasPending = messages.some((message) => message.pending === true);
 
@@ -130,10 +184,58 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
     setMessages((prev) => prev.filter((message) => message.id !== id));
   };
 
+  const appendMessage = (message: Omit<ChatMessage, "id">) => {
+    idRef.current += 1;
+    const id = `m${idRef.current}`;
+    setMessages((prev) => [...prev, { ...message, id }]);
+  };
+
+  // Envoi mission : pas de bulle d'attente, le panneau d'execution
+  // montre le live ; la reponse conclut la discussion. Partage avec
+  // le bouton Retry (meme flux, meme persistance).
+  const sendMissionMessage = async (text: string) => {
+    if (sending) {
+      return;
+    }
+    setSending(true);
+    setError(null);
+    appendMessage({ role: "user", text });
+    try {
+      const result = await mission.run({
+        employeeId: employee.id,
+        sessionId,
+        message: text,
+      });
+      onSessionResolved(result.sessionId);
+      appendMessage({
+        role: "employee",
+        text:
+          result.needsAcceptance === true
+            ? t("missionNeedsAcceptance")
+            : (result.summary || t("chatEmptyReply")),
+        missionId: result.missionId,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
+      }
+      setError(t("chatSendFailed"));
+      // Le message est peut-etre quand meme en base (session
+      // creee avant l'echec) : il doit apparaitre dans la liste.
+      onFailedSend();
+    } finally {
+      setSending(false);
+    }
+  };
+
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
-    const missionMode = asMission;
+    if (asMission) {
+      setInput("");
+      await sendMissionMessage(text);
+      return;
+    }
     idRef.current += 1;
     const placeholderId = `e${idRef.current}`;
     const controller = new AbortController();
@@ -149,77 +251,56 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
         text: "",
         pending: true,
         startedAt: Date.now(),
-        mission: missionMode,
       },
     ]);
     setInput("");
+    const sessionQuery = sessionId
+      ? `?session=${encodeURIComponent(sessionId)}`
+      : "";
     try {
-      if (missionMode) {
-        const response = await fetch(
-          `/api/employees/${encodeURIComponent(employee.id)}/chat`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ message: text, asMission: true }),
-            signal: controller.signal,
-          }
-        );
-        const payload = (await response.json()) as {
-          mission?: { id: string };
-          summary?: string;
-          needsAcceptance?: boolean;
-          error?: string;
-        };
-        if (!response.ok) {
-          throw new Error(payload.error ?? `chat failed: ${response.status}`);
+      const response = await fetch(
+        `/api/employees/${encodeURIComponent(employee.id)}/chat${sessionQuery ? `${sessionQuery}&stream=1` : "?stream=1"}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ message: text, asMission: false }),
+          signal: controller.signal,
         }
-        const replyText =
-          payload.needsAcceptance === true
-            ? t("missionNeedsAcceptance")
-            : (payload.summary || t("chatEmptyReply"));
-        patchMessage(placeholderId, {
-          pending: false,
-          text: replyText,
-          missionId: payload.mission?.id,
-        });
-      } else {
-        const response = await fetch(
-          `/api/employees/${encodeURIComponent(employee.id)}/chat?stream=1`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ message: text, asMission: false }),
-            signal: controller.signal,
-          }
-        );
-        if (!response.ok || !response.body) {
-          throw new Error(`chat stream failed: ${response.status}`);
-        }
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let received = "";
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-          const chunk = decoder.decode(value, { stream: true });
-          if (chunk) {
-            received += chunk;
-            appendText(placeholderId, chunk);
-          }
-        }
-        if (!received) {
-          throw new Error("chat stream returned nothing");
-        }
-        patchMessage(placeholderId, { pending: false });
+      );
+      if (!response.ok || !response.body) {
+        throw new Error(`chat stream failed: ${response.status}`);
       }
+      const resolvedStreamSession = response.headers.get("x-employee-session");
+      if (resolvedStreamSession) {
+        onSessionResolved(resolvedStreamSession);
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let received = "";
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) {
+          break;
+        }
+        const chunk = decoder.decode(value, { stream: true });
+        if (chunk) {
+          received += chunk;
+          appendText(placeholderId, chunk);
+        }
+      }
+      if (!received) {
+        throw new Error("chat stream returned nothing");
+      }
+      patchMessage(placeholderId, { pending: false });
     } catch {
       if (controller.signal.aborted) {
         return;
       }
       dropMessage(placeholderId);
       setError(t("chatSendFailed"));
+      // Le message est peut-etre quand meme en base (session
+      // creee avant l'echec) : il doit apparaitre dans la liste.
+      onFailedSend();
     } finally {
       if (controllerRef.current === controller) {
         controllerRef.current = null;
@@ -227,6 +308,14 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
       setSending(false);
     }
   };
+
+  const showExecution =
+    mission.running ||
+    mission.progress.steps.length > 0 ||
+    mission.progress.thinkingStep !== null ||
+    mission.progress.failed !== null ||
+    mission.progress.plan.length > 0 ||
+    mission.outcome !== null;
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/60 bg-card">
@@ -250,7 +339,23 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
         </label>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      {showExecution && (
+        <div className="max-h-72 shrink-0 overflow-y-auto border-b border-border/60 px-4 py-3">
+          <MissionExecutionPanel
+            mission={mission}
+            onRetry={() => {
+              if (!sending && mission.lastPrompt) {
+                void sendMissionMessage(mission.lastPrompt);
+              }
+            }}
+          />
+        </div>
+      )}
+
+      <div
+        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        data-testid="employee-messages"
+      >
         {historyLoading && (
           <p className="text-[12px] text-muted-foreground">
             {t("chatHistoryLoading")}
@@ -264,6 +369,7 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
                 ? "self-end bg-foreground text-background"
                 : "self-start bg-muted text-foreground"
             )}
+            data-testid={`employee-message-${message.role}`}
             key={message.id}
           >
             {message.pending === true && !message.text ? (
@@ -276,11 +382,7 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
                       )
                     : 0
                 }
-                label={
-                  message.mission === true
-                    ? t("chatMissionRunning")
-                    : t("chatThinking", { name: employee.name })
-                }
+                label={t("chatThinking", { name: employee.name })}
               />
             ) : (
               message.text
@@ -293,7 +395,12 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
           </div>
         ))}
         {error && (
-          <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>
+          <p
+            className="text-[12px] text-red-600 dark:text-red-400"
+            data-testid="employee-send-error"
+          >
+            {error}
+          </p>
         )}
       </div>
 
