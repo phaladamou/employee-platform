@@ -2,12 +2,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import {
-  encryptToken,
-  exchangeCode,
-  getProvider,
-  verifyState,
-} from "@/lib/connectors";
+import { exchangeCode } from "@/lib/connectors/core/oauth";
+import { getProvider } from "@/lib/connectors/core/registry";
 import { createNotification, upsertConnector } from "@/lib/db/queries";
 
 const APP_URL = process.env.APP_URL ?? "http://localhost:3000";
@@ -43,7 +39,17 @@ export async function GET(
     return redirect("/computer/connectors/callback?error=missing_state");
   }
 
-  const verified = verifyState(signedState);
+  // Import paresseux OBLIGATOIRE : le module crypto jette au
+  // chargement sans ses cles OAUTH_* — un import statique (ou via
+  // le barrel) casserait le build sur les serveurs sans OAuth.
+  let crypto: typeof import("@/lib/connectors/core/crypto");
+  try {
+    crypto = await import("@/lib/connectors/core/crypto");
+  } catch {
+    return redirect("/computer/connectors/callback?error=oauth_unavailable");
+  }
+
+  const verified = crypto.verifyState(signedState);
   if (!verified || verified !== state) {
     return redirect("/computer/connectors/callback?error=invalid_state");
   }
@@ -62,9 +68,9 @@ export async function GET(
     await upsertConnector({
       userId: session.user.id,
       provider: providerId,
-      accessToken: encryptToken(tokenData.access_token),
+      accessToken: crypto.encryptToken(tokenData.access_token),
       refreshToken: tokenData.refresh_token
-        ? encryptToken(tokenData.refresh_token)
+        ? crypto.encryptToken(tokenData.refresh_token)
         : null,
       expiresAt,
       scope:
