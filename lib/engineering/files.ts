@@ -56,6 +56,29 @@ export function parseActivityLog(text: string, limit = 20): ActivityEntry[] {
   return out.slice(-Math.max(1, limit));
 }
 
+// Extrait la commande d'une ligne "Running: <cmd>" (run_shell).
+// Null pour tout autre format (jamais d'exception).
+export function extractShellCommand(message: string): string | null {
+  const prefix = "Running: ";
+  if (!message.startsWith(prefix)) {
+    return null;
+  }
+  const command = message.slice(prefix.length).trim();
+  return command ? command : null;
+}
+
+// Horodatage compact "HH:MM:SS" (heure locale), "" si illisible.
+export function formatActivityTime(ts: string): string {
+  if (!ts) {
+    return "";
+  }
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toTimeString().slice(0, 8);
+}
+
 // Taille max servie par l'API fichier (socle : lecture seule).
 export const MAX_FILE_BYTES = 200_000;
 

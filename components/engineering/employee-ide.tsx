@@ -1,17 +1,28 @@
 // components/engineering/employee-ide.tsx
 "use client";
 
-import { useMemo, useState } from "react";
-import type { BundledLanguage } from "shiki";
+import {
+  ActivityIcon,
+  FileDiffIcon,
+  FilesIcon,
+  TerminalIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { BundledLanguage } from "shiki";
 import useSWR from "swr";
 
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { cn } from "@/lib/utils";
+import { toolLabel, type MissionProgressState } from "@/lib/employees/mission-events";
+import { MissionChanges } from "./mission-changes";
 import {
   buildFileTree,
+  extractShellCommand,
+  formatActivityTime,
   languageForPath,
   parseActivityLog,
+  type ActivityEntry,
   type FileTreeNode,
   type WorkspaceFileEntry,
 } from "@/lib/engineering/files";
@@ -127,46 +138,140 @@ function FileViewer({
   );
 }
 
-function ActivityFeed({ employeeId }: { employeeId: string }) {
-  const t = useTranslations("employees");
+function useActivityEntries(employeeId: string) {
   const { data } = useSWR<{ content: string }>(
     `/api/employees/${encodeURIComponent(employeeId)}/files/${ACTIVITY_LOG_PATH}`,
     fetcher,
     { revalidateOnFocus: false, refreshInterval: 2000 }
   );
-  const entries = useMemo(
-    () => (data ? parseActivityLog(data.content, 10) : []),
+  return useMemo(
+    () => (data ? parseActivityLog(data.content, 60) : []),
     [data]
   );
+}
 
-  return (
-    <div className="max-h-32 shrink-0 overflow-y-auto border-b border-border/60 p-2">
-      <p className="px-2 pb-1 text-[11px] font-medium text-foreground">
-        {t("activityTitle")}
+// Reste colle en bas quand l'utilisateur y est deja (n'arrache
+// jamais la lecture d'une ligne superieure).
+function useStickToBottom(count: number) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) {
+      return;
+    }
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 80) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [count]);
+  return ref;
+}
+
+// Journal chronologique structure : heure, pastille d'outil,
+// message, etat.
+function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
+  const t = useTranslations("employees");
+  const scroller = useStickToBottom(entries.length);
+
+  if (entries.length === 0) {
+    return (
+      <p className="p-4 text-[12px] text-muted-foreground">
+        {t("activityEmpty")}
       </p>
-      {entries.length === 0 ? (
-        <p className="px-2 py-1 text-[12px] text-muted-foreground">
-          {t("activityEmpty")}
-        </p>
-      ) : (
-        entries.map((entry, index) => (
-          <p
+    );
+  }
+  return (
+    <div className="min-h-0 flex-1 overflow-y-auto p-2" ref={scroller}>
+      {entries.map((entry, index) => (
+        <div
+          className="flex items-center gap-2 rounded-md px-2 py-1"
+          key={`${index}-${entry.ts}`}
+          title={entry.message}
+        >
+          <span
+            aria-hidden="true"
             className={cn(
-              "truncate px-2 py-0.5 font-mono text-[11px]",
-              entry.ok ? "text-muted-foreground" : "text-red-600 dark:text-red-400"
+              "size-1.5 shrink-0 rounded-full",
+              entry.ok ? "bg-emerald-500" : "bg-red-500"
             )}
-            key={`${index}-${entry.ts}`}
-            title={entry.message}
+          />
+          <span className="shrink-0 font-mono text-[10.5px] text-muted-foreground tabular-nums">
+            {formatActivityTime(entry.ts)}
+          </span>
+          {entry.tool && (
+            <span className="shrink-0 rounded border border-border px-1 font-mono text-[10px] text-muted-foreground">
+              {toolLabel(entry.tool)}
+            </span>
+          )}
+          <span
+            className={cn(
+              "min-w-0 flex-1 truncate text-[12px]",
+              entry.ok
+                ? "text-foreground"
+                : "text-red-600 dark:text-red-400"
+            )}
           >
             {entry.message}
-          </p>
-        ))
-      )}
+          </span>
+        </div>
+      ))}
     </div>
   );
 }
 
-export function EmployeeIde({ employeeId }: { employeeId: string }) {
+// Commandes executees (run_shell), ordre chronologique. Les sorties
+// stdout/stderr ne sortent pas du moteur : cet onglet liste les
+// commandes, pas leurs sorties (phase moteur ulterieure).
+function TerminalTab({ entries }: { entries: ActivityEntry[] }) {
+  const t = useTranslations("employees");
+  const commands = useMemo(
+    () =>
+      entries
+        .filter((entry) => entry.tool === "run_shell")
+        .map((entry) => ({
+          ts: entry.ts,
+          command: extractShellCommand(entry.message) ?? entry.message,
+        })),
+    [entries]
+  );
+  const scroller = useStickToBottom(commands.length);
+
+  if (commands.length === 0) {
+    return (
+      <p className="p-4 text-[12px] text-muted-foreground">
+        {t("terminalEmpty")}
+      </p>
+    );
+  }
+  return (
+    <div
+      className="min-h-0 flex-1 overflow-y-auto bg-zinc-950 p-3 dark:bg-black"
+      ref={scroller}
+    >
+      {commands.map((line, index) => (
+        <div
+          className="flex items-baseline gap-2 py-0.5 font-mono text-[11.5px]"
+          key={`${index}-${line.ts}`}
+        >
+          <span className="shrink-0 select-none text-[10px] text-zinc-500 tabular-nums">
+            {formatActivityTime(line.ts)}
+          </span>
+          <span className="shrink-0 select-none text-emerald-400">$</span>
+          <span className="min-w-0 flex-1 break-all text-zinc-100">
+            {line.command}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function EmployeeIde({
+  employeeId,
+  missionProgress,
+}: {
+  employeeId: string;
+  missionProgress: MissionProgressState;
+}) {
   const t = useTranslations("employees");
   const { data, error, isLoading } = useSWR<{ files: WorkspaceFileEntry[] }>(
     `/api/employees/${encodeURIComponent(employeeId)}/files`,
@@ -174,6 +279,10 @@ export function EmployeeIde({ employeeId }: { employeeId: string }) {
     { revalidateOnFocus: false, refreshInterval: 4000 }
   );
   const [selected, setSelected] = useState<string | null>(null);
+  const [ideTab, setIdeTab] = useState<
+    "files" | "changes" | "activity" | "terminal"
+  >("files");
+  const activityEntries = useActivityEntries(employeeId);
 
   const tree = useMemo(
     () => buildFileTree(data?.files ?? []),
@@ -183,50 +292,123 @@ export function EmployeeIde({ employeeId }: { employeeId: string }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-card">
-      <div className="border-b border-border/60 px-4 py-3">
-        <p className="text-[13px] font-medium text-foreground">Workspace</p>
-        <p className="text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-border/60 px-2 py-2">
+        <button
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium",
+            ideTab === "files"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setIdeTab("files")}
+          type="button"
+        >
+          <FilesIcon className="size-3.5" />
+          {t("ideFilesTab")}
+        </button>
+        <button
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium",
+            ideTab === "changes"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setIdeTab("changes")}
+          type="button"
+        >
+          <FileDiffIcon className="size-3.5" />
+          {t("ideChangesTab")}
+          {missionProgress.changes.length > 0 && (
+            <span className="rounded-full bg-primary/15 px-1.5 py-px font-mono text-[10px] tabular-nums text-primary">
+              {missionProgress.changes.length}
+            </span>
+          )}
+        </button>
+        <button
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium",
+            ideTab === "activity"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setIdeTab("activity")}
+          type="button"
+        >
+          <ActivityIcon className="size-3.5" />
+          {t("activityTitle")}
+        </button>
+        <button
+          className={cn(
+            "inline-flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[12.5px] font-medium",
+            ideTab === "terminal"
+              ? "bg-muted text-foreground"
+              : "text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setIdeTab("terminal")}
+          type="button"
+        >
+          <TerminalIcon className="size-3.5" />
+          {t("ideTerminalTab")}
+        </button>
+        <p className="ml-auto shrink-0 px-2 text-[11px] text-muted-foreground tabular-nums">
           {data ? t("filesCount", { count: data.files.length }) : "…"}
         </p>
       </div>
 
-      <ActivityFeed employeeId={employeeId} />
+      {ideTab === "files" && (
+        <>
+          <div className="max-h-48 shrink-0 overflow-y-auto border-b border-border/60 p-2">
+            {isLoading ? (
+              <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                {t("departmentLoading")}
+              </p>
+            ) : error ? (
+              <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                {t("treeUnavailable")}
+              </p>
+            ) : tree.length === 0 ? (
+              <p className="px-2 py-1 text-[12px] text-muted-foreground">
+                {t("workspaceEmpty")}
+              </p>
+            ) : (
+              tree.map((node) => (
+                <TreeNode
+                  depth={0}
+                  key={node.path}
+                  node={node}
+                  onSelect={setSelected}
+                  selected={active}
+                />
+              ))
+            )}
+          </div>
 
-      <div className="max-h-48 shrink-0 overflow-y-auto border-b border-border/60 p-2">
-        {isLoading ? (
-          <p className="px-2 py-1 text-[12px] text-muted-foreground">
-            {t("departmentLoading")}
-          </p>
-        ) : error ? (
-          <p className="px-2 py-1 text-[12px] text-muted-foreground">
-            {t("treeUnavailable")}
-          </p>
-        ) : tree.length === 0 ? (
-          <p className="px-2 py-1 text-[12px] text-muted-foreground">
-            {t("workspaceEmpty")}
-          </p>
-        ) : (
-          tree.map((node) => (
-            <TreeNode
-              depth={0}
-              key={node.path}
-              node={node}
-              onSelect={setSelected}
-              selected={active}
-            />
-          ))
-        )}
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col">
-        {active ? (
-          <FileViewer employeeId={employeeId} path={active} />
-        ) : (
-          <p className="p-4 text-[12px] text-muted-foreground">
-            {t("selectFile")}
-          </p>
-        )}
-      </div>
+          <div className="flex min-h-0 flex-1 flex-col">
+            {active ? (
+              <FileViewer employeeId={employeeId} path={active} />
+            ) : (
+              <p className="p-4 text-[12px] text-muted-foreground">
+                {t("selectFile")}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+      {ideTab === "changes" && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <MissionChanges changes={missionProgress.changes} />
+        </div>
+      )}
+      {ideTab === "activity" && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <ActivityTab entries={activityEntries} />
+        </div>
+      )}
+      {ideTab === "terminal" && (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <TerminalTab entries={activityEntries} />
+        </div>
+      )}
     </div>
   );
 }

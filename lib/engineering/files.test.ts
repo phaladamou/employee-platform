@@ -7,6 +7,8 @@ import assert from "node:assert/strict";
 import {
   buildFileTree,
   createTtlCache,
+  extractShellCommand,
+  formatActivityTime,
   isSafeWorkspacePath,
   languageForPath,
   parseActivityLog,
@@ -111,5 +113,31 @@ describe("createTtlCache", () => {
     cache.set("a", "v");
     cache.clear();
     assert.equal(cache.get("a"), undefined);
+  });
+});
+
+describe("extractShellCommand", () => {
+  it("extrait la commande des lignes Running", () => {
+    assert.equal(extractShellCommand("Running: ls -la"), "ls -la");
+    assert.equal(extractShellCommand("Running:   python3 x.py  "), "python3 x.py");
+  });
+
+  it("rend null pour les autres formats", () => {
+    assert.equal(extractShellCommand("Reading a.txt..."), null);
+    assert.equal(extractShellCommand("Running:"), null);
+    assert.equal(extractShellCommand("Running:   "), null);
+    assert.equal(extractShellCommand(""), null);
+  });
+});
+
+describe("formatActivityTime", () => {
+  it("formate HH:MM:SS en heure locale", () => {
+    const out = formatActivityTime("2026-11-04T14:23:05.123Z");
+    assert.match(out, /^\d{2}:\d{2}:\d{2}$/);
+  });
+
+  it("rend chaine vide si illisible", () => {
+    assert.equal(formatActivityTime(""), "");
+    assert.equal(formatActivityTime("nope"), "");
   });
 });
