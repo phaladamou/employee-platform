@@ -203,6 +203,31 @@ export function EmployeeChat({
     mission.progress.plan.length > 0 ||
     mission.outcome !== null;
 
+  // Ordre chronologique : le panneau d'execution vit APRES le
+  // message qui l'a declenche, dans le meme defilement. Le flux
+  // reste colle au bas pendant un run, sauf si l'utilisateur est
+  // remonte lire l'historique (on ne lui arrache jamais la
+  // lecture).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node || !stickToBottomRef.current) {
+      return;
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [mission.running, mission.progress, mission.outcome, messages.length]);
+
+  const handleScroll = () => {
+    const node = scrollRef.current;
+    if (!node) {
+      return;
+    }
+    stickToBottomRef.current =
+      node.scrollHeight - node.scrollTop - node.clientHeight < 120;
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/60 bg-card">
       <div className="border-b border-border/60 px-4 py-3">
@@ -214,22 +239,11 @@ export function EmployeeChat({
         </p>
       </div>
 
-      {showExecution && (
-        <div className="max-h-72 shrink-0 overflow-y-auto border-b border-border/60 px-4 py-3">
-          <MissionExecutionPanel
-            mission={mission}
-            onRetry={() => {
-              if (!sending && mission.lastPrompt) {
-                void sendMissionMessage(mission.lastPrompt);
-              }
-            }}
-          />
-        </div>
-      )}
-
       <div
         className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
         data-testid="employee-messages"
+        onScroll={handleScroll}
+        ref={scrollRef}
       >
         {historyLoading && (
           <p className="text-[12px] text-muted-foreground">
@@ -255,6 +269,18 @@ export function EmployeeChat({
             )}
           </div>
         ))}
+        {showExecution && (
+          <div className="w-full border-t border-border/60 pt-3">
+            <MissionExecutionPanel
+              mission={mission}
+              onRetry={() => {
+                if (!sending && mission.lastPrompt) {
+                  void sendMissionMessage(mission.lastPrompt);
+                }
+              }}
+            />
+          </div>
+        )}
         {error && (
           <p
             className="text-[12px] text-red-600 dark:text-red-400"
