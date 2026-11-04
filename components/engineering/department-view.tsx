@@ -168,7 +168,7 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
         </div>
 
         <div className="mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-4 px-8 pb-8 lg:flex-row">
-          <div className="min-h-0 flex-1 lg:basis-[60%]">
+          <div className="min-h-0 flex-1 lg:basis-[60%] lg:min-w-[40%]">
             <div className="flex h-full min-h-0 flex-col gap-3">
               <div className="flex shrink-0 gap-1 self-start rounded-lg border border-border/60 bg-card p-1">
                 {tabs.map((item) => (
@@ -206,7 +206,7 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
               </div>
             </div>
           </div>
-          <div className="min-h-0 flex-1 lg:basis-[40%]">
+          <div className="min-h-0 min-w-0 flex-1 lg:basis-[40%]">
             <EmployeeIde employeeId={selected.id} />
           </div>
         </div>
