@@ -61,6 +61,7 @@
     "lib/employees/rich-profiles.test.ts",
     "lib/engineering/cli-commands.test.ts",
     "lib/engineering/files.test.ts",
+    "lib/i18n/locale.test.ts",
     "lib/otp-email-template.test.ts",
     "lib/sidebar/nav-state.test.ts",
     "core/employee/**/*.test.ts",

@@ -638,13 +638,14 @@ Leçons dures :
   lib/employees + 27 cargo, cas adversarial computer, limites
   honnêtes), PROFILES.md réécrit (schéma réel + catalogue 6),
   README noyau documente computer/.
-- **État 2026-11-03 : code @ 4dfbe84 (Muse-only +
-  latence + logs) — 481/481 vitest (52 fichiers) + 57/57 node
-  (employees/chef/sidebar/chat-provider), `tsc` propre,
+- **État 2026-11-03 : code @ 3145eaa (fix langue FR) —
+  481/481 vitest (52 fichiers) + 62/62 node
+  (employees/chef/sidebar/chat-provider/i18n), `tsc` propre,
   migrations 0008→0011 à appliquer (`pnpm db:migrate` là où la
-  DB est joignable).** Provider = Muse seul (DeepSeek retiré,
-  hackathon Meta) ; caps gateway paresseuses ; lectures route
-  parallèles ; historique pré-chargé ; logs [CHAT-TIME].
+  DB est joignable).** Persona Chef unique dans les prompts ;
+  identifiants workspace renommés ; surface d'outils
+  simplifiée. TTFT 2.3s via `reasoning_effort=minimal`
+  (MUSE_REASONING_EFFORT).
   (Convention : cette ligne suit le dernier commit de CODE ; les
   commits mémoire/docs seuls ne la font pas bouger.)
 - Résiduels assumés : cf §8 + `pnpm check` cassé pré-existant

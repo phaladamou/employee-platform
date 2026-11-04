@@ -28,6 +28,7 @@ import { Card } from "@/components/workspace/settings/shared/card";
 import { Row } from "@/components/workspace/settings/shared/row";
 import { SectionLabel } from "@/components/workspace/settings/shared/section-label";
 import { getChatHistoryPaginationKey } from "@/components/workspace/sidebar-history";
+import { buildLocaleCookie } from "@/lib/i18n/locale";
 import { useIntl } from "@/components/intl-provider";
 import {
   AlertDialog,
@@ -144,7 +145,7 @@ export function GeneralForm({
 
   function changeLocale(newLocale: string) {
     setSelectedLocale(newLocale);
-    document.cookie = `NEXT_LOCALE=${newLocale};path=/;max-age=31536000`;
+    document.cookie = buildLocaleCookie(newLocale);
     savePrefs({
       ...initialPreferences,
       linkedAccounts,

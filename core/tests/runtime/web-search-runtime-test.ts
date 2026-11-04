@@ -14,7 +14,7 @@ async function main() {
     query: "latest scientific discoveries in artificial intelligence",
   });
 
-  console.log("Scientia Labs Web Search result:");
+  console.log("Employee Platform Web Search result:");
   console.dir(result, { depth: null });
 }
 

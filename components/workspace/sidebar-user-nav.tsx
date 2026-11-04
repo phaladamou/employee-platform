@@ -17,7 +17,6 @@ import { useRouter } from "next/navigation";
 import type { User as NextAuthUser } from "next-auth";
 import { signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
-import { usePathname } from "next/navigation";
 import useSWR from "swr";
 
 import {
@@ -37,6 +36,7 @@ import {
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 import { clearStickyUser } from "@/lib/auth/sticky-session";
+import { buildLocaleCookie } from "@/lib/i18n/locale";
 import { NotificationsBell } from "./notifications-bell";
 import { toast } from "./toast";
 import { useStickySession } from "./use-sticky-session";
@@ -118,7 +118,6 @@ const menuItemClass =
 
 export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
   const router = useRouter();
-  const pathname = usePathname();
   const locale = useLocale();
   // Sticky : une coupure serveur ne doit pas afficher l'etat "login".
   // Seul un logout confirme (sonde serveur) fait basculer.
@@ -145,12 +144,10 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
   const displayName = getDisplayName(currentUser);
 
   const changeLocale = (nextLocale: string) => {
-    const segments = pathname.split("/").filter(Boolean);
-    if (segments.length > 0 && ["en", "fr", "zh"].includes(segments[0])) {
-      segments.shift();
-    }
-    const nextPath = `/${nextLocale}${segments.length > 0 ? `/${segments.join("/")}` : ""}`;
-    router.push(nextPath);
+    // La langue est geree par cookie (NEXT_LOCALE), pas par URL :
+    // naviguer vers /fr/... rendrait une 404 (aucune route prefixee).
+    document.cookie = buildLocaleCookie(nextLocale);
+    window.location.reload();
   };
 
   if (status !== "authenticated") {
