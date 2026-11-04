@@ -5,42 +5,82 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildDepartmentUrl,
+  buildEmployeeUrl,
   EMPLOYEE_PARAM,
   parseEmployeeParam,
+  resolveEmployeeSlug,
+  slugifyEmployeeName,
 } from "./department-url.ts";
 
-describe("buildDepartmentUrl", () => {
-  it("builds the list url without an employee", () => {
-    assert.equal(buildDepartmentUrl("engineering", null), "/departments/engineering");
-    assert.equal(buildDepartmentUrl("engineering", ""), "/departments/engineering");
+describe("slugifyEmployeeName", () => {
+  it("lowercases and trims names", () => {
+    assert.equal(slugifyEmployeeName("Atlas"), "atlas");
+    assert.equal(slugifyEmployeeName("  Nova  "), "nova");
   });
 
-  it("builds the employee url with the query param", () => {
+  it("strips accents and unsafe chars", () => {
+    assert.equal(slugifyEmployeeName("André R&D"), "andre-r-d");
+    assert.equal(slugifyEmployeeName("a/b?c"), "a-b-c");
+  });
+
+  it("falls back for empty names", () => {
+    assert.equal(slugifyEmployeeName(""), "employee");
+    assert.equal(slugifyEmployeeName("---"), "employee");
+  });
+});
+
+describe("resolveEmployeeSlug", () => {
+  const members = [
+    { id: "id-atlas", name: "Atlas" },
+    { id: "id-pm", name: "Project Manager" },
+  ];
+
+  it("matches slugs case-insensitively", () => {
+    assert.equal(resolveEmployeeSlug(members, "atlas")?.id, "id-atlas");
     assert.equal(
-      buildDepartmentUrl("engineering", "atlas-id"),
-      `/departments/engineering?${EMPLOYEE_PARAM}=atlas-id`
+      resolveEmployeeSlug(members, "project-manager")?.id,
+      "id-pm"
     );
   });
 
-  it("encodes department and employee segments", () => {
+  it("accepts raw ids for compatibility", () => {
+    assert.equal(resolveEmployeeSlug(members, "id-atlas")?.id, "id-atlas");
+  });
+
+  it("returns null for unknown slugs", () => {
+    assert.equal(resolveEmployeeSlug(members, "nope"), null);
+    assert.equal(resolveEmployeeSlug(members, ""), null);
+  });
+});
+
+describe("buildEmployeeUrl", () => {
+  it("builds the workspace url without a session", () => {
     assert.equal(
-      buildDepartmentUrl("r&d", "a/b?c"),
-      "/departments/r%26d?employee=a%2Fb%3Fc"
+      buildEmployeeUrl("engineering", "atlas", null),
+      "/departments/engineering/atlas"
+    );
+  });
+
+  it("builds the session url with a session id", () => {
+    assert.equal(
+      buildEmployeeUrl("engineering", "atlas", "s1"),
+      "/departments/engineering/atlas/s1"
+    );
+  });
+
+  it("encodes segments", () => {
+    assert.equal(
+      buildEmployeeUrl("r&d", "a/b", "s 1"),
+      "/departments/r%26d/a%2Fb/s%201"
     );
   });
 });
 
-describe("parseEmployeeParam", () => {
-  it("returns the trimmed id", () => {
-    assert.equal(parseEmployeeParam("atlas-id"), "atlas-id");
-    assert.equal(parseEmployeeParam("  atlas-id  "), "atlas-id");
-  });
-
-  it("returns null when absent or blank", () => {
+describe("legacy employee param", () => {
+  it("keeps the compat parser", () => {
+    assert.equal(EMPLOYEE_PARAM, "employee");
+    assert.equal(parseEmployeeParam("abc"), "abc");
     assert.equal(parseEmployeeParam(null), null);
-    assert.equal(parseEmployeeParam(undefined), null);
-    assert.equal(parseEmployeeParam(""), null);
     assert.equal(parseEmployeeParam("   "), null);
   });
 });

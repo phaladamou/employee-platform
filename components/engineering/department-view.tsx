@@ -1,29 +1,25 @@
 // components/engineering/department-view.tsx
 "use client";
 
-import { ArrowLeftIcon, Code2Icon } from "lucide-react";
+import { Code2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   getEmployeesByDepartment,
-  isGithubCapable,
   type Employee,
 } from "@/lib/employees/catalog";
 import {
-  buildDepartmentUrl,
+  buildEmployeeUrl,
   EMPLOYEE_PARAM,
   parseEmployeeParam,
+  slugifyEmployeeName,
 } from "@/lib/employees/department-url";
 import { fetcher } from "@/lib/utils";
-import { EmployeeChat } from "./employee-chat";
-import { EmployeeIde } from "./employee-ide";
-import { EmployeeMissionHistory } from "./employee-mission-history";
-import { GithubMissionPanel } from "./github-mission-panel";
 
 type EmployeesResponse = {
   departments: string[];
@@ -35,8 +31,6 @@ const STATUS_STYLES: Record<Employee["status"], string> = {
   working: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700",
   completed: "border-sky-500/30 bg-sky-500/10 text-sky-700",
 };
-
-
 
 function EmployeeListCard({
   employee,
@@ -85,33 +79,13 @@ function EmployeeListCard({
 
 export function DepartmentView({ departmentId }: { departmentId: string }) {
   const t = useTranslations("employees");
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const { data, error, isLoading, mutate } = useSWR<EmployeesResponse>(
     "/api/employees",
     fetcher,
     { revalidateOnFocus: false }
   );
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const [selectedId, setSelectedId] = useState<string | null>(() =>
-    parseEmployeeParam(searchParams.get(EMPLOYEE_PARAM))
-  );
-  const [tab, setTab] = useState<"chat" | "history" | "github">("chat");
-
-  // L'URL est la source de verite : retour navigateur, liens
-  // profonds et rechargements resynchronisent la selection.
-  useEffect(() => {
-    setSelectedId(parseEmployeeParam(searchParams.get(EMPLOYEE_PARAM)));
-  }, [searchParams]);
-
-  const openEmployee = (employeeId: string) => {
-    setSelectedId(employeeId);
-    router.push(buildDepartmentUrl(departmentId, employeeId));
-  };
-  const closeEmployee = () => {
-    setSelectedId(null);
-    void mutate();
-    router.push(buildDepartmentUrl(departmentId, null));
-  };
 
   // Meme pattern que la page Employes : noms traduits quand connus,
   // identifiant brut sinon.
@@ -127,92 +101,29 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
     data?.employees ?? [],
     departmentId
   );
-  const selected = members.find((item) => item.id === selectedId) ?? null;
 
-  if (selected) {
-    const tabs: Array<{
-      id: "chat" | "history" | "github";
-      label: string;
-    }> = [
-      { id: "chat", label: t("chatTab") },
-      { id: "history", label: t("historyTab") },
-      ...(isGithubCapable(selected.talentSpec)
-        ? [{ id: "github" as const, label: t("githubTab") }]
-        : []),
-    ];
-    return (
-      <div className="flex h-dvh w-full flex-col overflow-hidden bg-background">
-        <div className="mx-auto w-full max-w-7xl shrink-0 px-8 pt-6 pb-4">
-          <button
-            className="mb-3 flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-            onClick={closeEmployee}
-            type="button"
-          >
-            <ArrowLeftIcon className="size-4" />
-            {t("backToList")}
-          </button>
-          <div className="flex items-center gap-2.5">
-            <Code2Icon className="size-4 text-muted-foreground" />
-            <h1 className="text-[17px] font-semibold tracking-tight text-foreground">
-              {selected.name} — Workspace
-            </h1>
-            <span
-              className={cn(
-                "inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium",
-                STATUS_STYLES[selected.status]
-              )}
-            >
-              {t(`status.${selected.status}`)}
-            </span>
-          </div>
-        </div>
+  // Compat : l'ancien ?employee=<id> redirige vers l'URL slug.
+  useEffect(() => {
+    if (!data) {
+      return;
+    }
+    const legacy = parseEmployeeParam(searchParams.get(EMPLOYEE_PARAM));
+    if (!legacy) {
+      return;
+    }
+    const found = members.find((item) => item.id === legacy) ?? null;
+    if (found) {
+      router.replace(
+        buildEmployeeUrl(departmentId, slugifyEmployeeName(found.name), null)
+      );
+    }
+  }, [data, members, searchParams, router, departmentId]);
 
-        <div className="mx-auto flex w-full max-w-7xl min-h-0 flex-1 flex-col gap-4 px-8 pb-8 lg:flex-row">
-          <div className="min-h-0 flex-1 lg:basis-[60%] lg:min-w-[40%]">
-            <div className="flex h-full min-h-0 flex-col gap-3">
-              <div className="flex shrink-0 gap-1 self-start rounded-lg border border-border/60 bg-card p-1">
-                {tabs.map((item) => (
-                  <button
-                    className={cn(
-                      "rounded-md px-3 py-1.5 text-[13px] font-medium",
-                      tab === item.id
-                        ? "bg-foreground text-background"
-                        : "text-muted-foreground hover:text-foreground"
-                    )}
-                    key={item.id}
-                    onClick={() => setTab(item.id)}
-                    type="button"
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-              <div className="min-h-0 flex-1">
-                {tab === "github" &&
-                isGithubCapable(selected.talentSpec) ? (
-                  <GithubMissionPanel
-                    employee={selected}
-                    key={`github-${selected.id}`}
-                  />
-                ) : tab === "history" ? (
-                  <EmployeeMissionHistory
-                    employeeId={selected.id}
-                    employeeName={selected.name}
-                    key={`history-${selected.id}`}
-                  />
-                ) : (
-                  <EmployeeChat employee={selected} key={selected.id} />
-                )}
-              </div>
-            </div>
-          </div>
-          <div className="min-h-0 min-w-0 flex-1 lg:basis-[40%]">
-            <EmployeeIde employeeId={selected.id} />
-          </div>
-        </div>
-      </div>
+  const openEmployee = (employee: Employee) => {
+    router.push(
+      buildEmployeeUrl(departmentId, slugifyEmployeeName(employee.name), null)
     );
-  }
+  };
 
   return (
     <div className="flex h-dvh w-full flex-col overflow-hidden bg-background">
@@ -258,7 +169,7 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
                 <EmployeeListCard
                   employee={employee}
                   key={employee.id}
-                  onOpen={() => openEmployee(employee.id)}
+                  onOpen={() => openEmployee(employee)}
                 />
               ))}
             </div>
