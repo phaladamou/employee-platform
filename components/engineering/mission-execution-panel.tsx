@@ -42,9 +42,57 @@ function BannerIcon({ status }: { status: MissionDisplayStatus | "running" }) {
   return <BanIcon className="size-4 shrink-0 text-muted-foreground" />;
 }
 
+// Plan annonce par l'agent avant d'agir (live seul) : etapes
+// numerotees, en attente pendant le run, cochees si reussi.
+function PlanBlock({
+  plan,
+  done,
+}: {
+  plan: readonly string[];
+  done: boolean;
+}) {
+  const t = useTranslations("employees");
+  if (plan.length === 0) {
+    return null;
+  }
+  return (
+    <div className="flex flex-col gap-1">
+      <p className="text-[11px] font-medium text-muted-foreground">
+        {t("planTitle")}
+      </p>
+      <ol className="flex flex-col gap-0.5">
+        {plan.map((stepText, index) => (
+          <li
+            className="flex items-baseline gap-2 text-[12.5px]"
+            key={`${index}-${stepText}`}
+          >
+            <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+              {index + 1}.
+            </span>
+            <span className="min-w-0 flex-1 truncate text-foreground">
+              {stepText}
+            </span>
+            <span
+              className={cn(
+                "shrink-0 text-[11px] font-medium",
+                done
+                  ? "text-emerald-600 dark:text-emerald-400"
+                  : "text-muted-foreground"
+              )}
+            >
+              {done ? t("stepDone") : t("missionStatus.queued")}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
 // Panneau d'execution (centre, au-dessus de la discussion) : statut
-// reel de la mission, preuves, actions Retry/Inspect, puis timeline
-// numerotee en temps reel. Le parent l'affiche quand un run existe.
+// reel de la mission, preuves, actions Retry/Inspect, plan annonce
+// puis timeline numerotee en temps reel. Le parent l'affiche quand
+// un run existe.
 export function MissionExecutionPanel({
   mission,
   onRetry,
@@ -160,6 +208,7 @@ export function MissionExecutionPanel({
           )}
         </div>
       )}
+      <PlanBlock done={display === "succeeded"} plan={progress.plan} />
       <MissionTimeline
         elapsed={running ? elapsed : undefined}
         numbered

@@ -83,7 +83,7 @@ export function useMissionStream() {
           {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ message, asMission: true }),
+            body: JSON.stringify({ message }),
             signal: controller.signal,
           }
         );

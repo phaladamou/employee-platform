@@ -1,11 +1,11 @@
 // app/(chat)/api/employees/[id]/chat/route.ts
-// Discussion Engineering : reponse LLM reelle + missions executees
-// pour de vrai via le noyau (in-process, dev-first).
-// Persistance multi-sessions : ?session=<id> cible une session,
-// absent = derniere session (GET) ou nouvelle session (POST).
-// Missions : ?stream=1 renvoie les evenements live en NDJSON
-// (thinking, etapes titre agent, resultats) puis une ligne `done`
-// avec la charge utile habituelle ; sinon reponse JSON bloquante.
+// Espace Engineering (mode unique) : chaque message passe par la
+// boucle agentique du noyau (plan ecrit, puis execution in-process,
+// dev-first). Persistance multi-sessions : ?session=<id> cible une
+// session, absent = derniere session (GET) ou nouvelle (POST).
+// ?stream=1 renvoie les evenements live en NDJSON (thinking, plan,
+// etapes titre agent, resultats) puis une ligne `done` avec la
+// charge utile habituelle ; sinon reponse JSON bloquante.
 import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
@@ -24,62 +24,11 @@ import {
   updateMission,
 } from "@/lib/db/queries";
 import { isMissionStatus } from "@/lib/employees/catalog";
-import { streamEmployeeReply } from "@/lib/server/employee-chat-stream";
 import {
   partsToText,
   toDisplayRole,
 } from "@/lib/server/employee-conversation-mapping";
-import {
-  chatWithEmployee,
-  runWebMission,
-} from "@/lib/server/run-web-mission";
-
-// Enveloppe un flux texte : octets transmis tels quels, texte
-// integral sauvegarde a la fin (ou a l'annulation : ce qui a ete
-// recu). La sauvegarde ne casse jamais le flux (log seule).
-function persistStreamBody(
-  upstream: ReadableStream<Uint8Array>,
-  onComplete: (text: string) => Promise<void>
-): ReadableStream<Uint8Array> {
-  const reader = upstream.getReader();
-  const decoder = new TextDecoder();
-  let received = "";
-  let saved = false;
-  const finish = async () => {
-    if (saved) {
-      return;
-    }
-    saved = true;
-    if (!received) {
-      return;
-    }
-    try {
-      await onComplete(received);
-    } catch (error) {
-      console.error("Employee chat stream persist error:", error);
-    }
-  };
-  return new ReadableStream<Uint8Array>({
-    async pull(controller) {
-      try {
-        const { done, value } = await reader.read();
-        if (done) {
-          controller.close();
-          await finish();
-          return;
-        }
-        received += decoder.decode(value, { stream: true });
-        controller.enqueue(value);
-      } catch (error) {
-        controller.error(error);
-      }
-    },
-    cancel(reason) {
-      void reader.cancel(reason);
-      void finish();
-    },
-  });
-}
+import { runWebMission } from "@/lib/server/run-web-mission";
 
 export async function GET(
   request: Request,
@@ -172,7 +121,6 @@ export async function POST(
   }
 
   const message = typeof body.message === "string" ? body.message.trim() : "";
-  const asMission = body.asMission === true;
   if (!message) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
   }
@@ -206,58 +154,8 @@ export async function POST(
       text: message,
     });
 
-    if (!asMission) {
-      if (url.searchParams.get("stream") === "1") {
-        try {
-          const upstream = await streamEmployeeReply({
-            name: target.name,
-            role: target.role,
-            message,
-          });
-          if (!upstream.body) {
-            throw new Error("LLM stream has no body");
-          }
-          return new Response(
-            persistStreamBody(upstream.body, (text) =>
-              saveEmployeeMessage({
-                chatId: conversation.id,
-                role: "assistant",
-                text,
-              }).then(() => undefined)
-            ),
-            {
-              headers: {
-                ...Object.fromEntries(upstream.headers),
-                "x-employee-session": conversation.id,
-              },
-            }
-          );
-        } catch (error) {
-          console.error("POST /api/employees/[id]/chat Stream Error:", error);
-          return NextResponse.json(
-            { error: "Chat unavailable" },
-            { status: 500 }
-          );
-        }
-      }
-      try {
-        const reply = await chatWithEmployee({
-          employeeName: target.name,
-          employeeRole: target.role,
-          message,
-        });
-        await saveEmployeeMessage({
-          chatId: conversation.id,
-          role: "assistant",
-          text: reply,
-        });
-        return NextResponse.json({ reply, sessionId: conversation.id });
-      } catch (error) {
-        console.error("POST /api/employees/[id]/chat LLM Error:", error);
-        return NextResponse.json({ error: "Chat unavailable" }, { status: 500 });
-      }
-    }
-
+    // Mode unique : chaque message passe par la boucle agentique
+    // (plan ecrit, puis execution en direct).
     const [created] = await createMission({
       accountId,
       employeeId: id,

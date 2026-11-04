@@ -15,8 +15,6 @@ interface ChatMessage {
   role: "user" | "employee";
   text: string;
   missionId?: string;
-  pending?: boolean;
-  startedAt?: number;
 }
 
 interface HistoryRow {
@@ -49,19 +47,10 @@ export function EmployeeChat({
     },
   ]);
   const [input, setInput] = useState("");
-  const [asMission, setAsMission] = useState(false);
   const [sending, setSending] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [, setTick] = useState(0);
   const idRef = useRef(0);
-  const controllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    return () => {
-      controllerRef.current?.abort();
-    };
-  }, []);
 
   // Historique persistant : recharge la session ciblee depuis
   // la base. Sans session (page /atlas) = nouvelle session
@@ -152,47 +141,16 @@ export function EmployeeChat({
     };
   }, [employee.id, employee.name, employee.role, sessionId, t, onSessionResolved]);
 
-  const hasPending = messages.some((message) => message.pending === true);
-
-  useEffect(() => {
-    if (!hasPending) {
-      return;
-    }
-    const timer = setInterval(() => setTick((tick) => tick + 1), 500);
-    return () => clearInterval(timer);
-  }, [hasPending]);
-
-  const patchMessage = (id: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === id ? { ...message, ...patch } : message
-      )
-    );
-  };
-
-  const appendText = (id: string, chunk: string) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === id
-          ? { ...message, text: message.text + chunk }
-          : message
-      )
-    );
-  };
-
-  const dropMessage = (id: string) => {
-    setMessages((prev) => prev.filter((message) => message.id !== id));
-  };
-
   const appendMessage = (message: Omit<ChatMessage, "id">) => {
     idRef.current += 1;
     const id = `m${idRef.current}`;
     setMessages((prev) => [...prev, { ...message, id }]);
   };
 
-  // Envoi mission : pas de bulle d'attente, le panneau d'execution
-  // montre le live ; la reponse conclut la discussion. Partage avec
-  // le bouton Retry (meme flux, meme persistance).
+  // Envoi unique (plus de double mode) : chaque message passe par
+  // la boucle agentique (plan ecrit, puis execution). Pas de bulle
+  // d'attente : le panneau d'execution montre le live, la reponse
+  // conclut la discussion. Partage avec Retry (meme flux).
   const sendMissionMessage = async (text: string) => {
     if (sending) {
       return;
@@ -230,83 +188,11 @@ export function EmployeeChat({
 
   const send = async () => {
     const text = input.trim();
-    if (!text || sending) return;
-    if (asMission) {
-      setInput("");
-      await sendMissionMessage(text);
+    if (!text || sending) {
       return;
     }
-    idRef.current += 1;
-    const placeholderId = `e${idRef.current}`;
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    setSending(true);
-    setError(null);
-    setMessages((prev) => [
-      ...prev,
-      { id: `u${idRef.current}`, role: "user", text },
-      {
-        id: placeholderId,
-        role: "employee",
-        text: "",
-        pending: true,
-        startedAt: Date.now(),
-      },
-    ]);
     setInput("");
-    const sessionQuery = sessionId
-      ? `?session=${encodeURIComponent(sessionId)}`
-      : "";
-    try {
-      const response = await fetch(
-        `/api/employees/${encodeURIComponent(employee.id)}/chat${sessionQuery ? `${sessionQuery}&stream=1` : "?stream=1"}`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ message: text, asMission: false }),
-          signal: controller.signal,
-        }
-      );
-      if (!response.ok || !response.body) {
-        throw new Error(`chat stream failed: ${response.status}`);
-      }
-      const resolvedStreamSession = response.headers.get("x-employee-session");
-      if (resolvedStreamSession) {
-        onSessionResolved(resolvedStreamSession);
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let received = "";
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) {
-          break;
-        }
-        const chunk = decoder.decode(value, { stream: true });
-        if (chunk) {
-          received += chunk;
-          appendText(placeholderId, chunk);
-        }
-      }
-      if (!received) {
-        throw new Error("chat stream returned nothing");
-      }
-      patchMessage(placeholderId, { pending: false });
-    } catch {
-      if (controller.signal.aborted) {
-        return;
-      }
-      dropMessage(placeholderId);
-      setError(t("chatSendFailed"));
-      // Le message est peut-etre quand meme en base (session
-      // creee avant l'echec) : il doit apparaitre dans la liste.
-      onFailedSend();
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
-      }
-      setSending(false);
-    }
+    await sendMissionMessage(text);
   };
 
   const showExecution =
@@ -319,24 +205,13 @@ export function EmployeeChat({
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/60 bg-card">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-foreground">
-            {employee.name}
-          </p>
-          <p className="truncate text-[12px] text-muted-foreground">
-            {employee.role}
-          </p>
-        </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
-          <input
-            checked={asMission}
-            className="size-4 accent-foreground"
-            onChange={(event) => setAsMission(event.target.checked)}
-            type="checkbox"
-          />
-          {t("missionLabel")}
-        </label>
+      <div className="border-b border-border/60 px-4 py-3">
+        <p className="truncate text-[14px] font-medium text-foreground">
+          {employee.name}
+        </p>
+        <p className="truncate text-[12px] text-muted-foreground">
+          {employee.role}
+        </p>
       </div>
 
       {showExecution && (
@@ -372,21 +247,7 @@ export function EmployeeChat({
             data-testid={`employee-message-${message.role}`}
             key={message.id}
           >
-            {message.pending === true && !message.text ? (
-              <ThinkingLine
-                elapsed={
-                  message.startedAt
-                    ? Math.max(
-                        0,
-                        Math.floor((Date.now() - message.startedAt) / 1000)
-                      )
-                    : 0
-                }
-                label={t("chatThinking", { name: employee.name })}
-              />
-            ) : (
-              message.text
-            )}
+            {message.text}
             {message.missionId && (
               <span className="mt-1 block text-[11px] opacity-70">
                 {t("missionRef", { id: message.missionId.slice(0, 8) })}
@@ -416,9 +277,7 @@ export function EmployeeChat({
               void send();
             }
           }}
-          placeholder={
-            asMission ? t("missionPlaceholder") : t("chatPlaceholder")
-          }
+          placeholder={t("missionPlaceholder")}
           value={input}
         />
         <Button
@@ -428,30 +287,9 @@ export function EmployeeChat({
           type="button"
           variant="brand"
         >
-          {sending ? "…" : asMission ? t("assignLabel") : t("sendLabel")}
+          {sending ? "…" : t("assignLabel")}
         </Button>
       </div>
     </div>
-  );
-}
-
-function ThinkingLine({ label, elapsed }: { label: string; elapsed: number }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-muted-foreground">
-      <span aria-hidden="true" className="inline-flex gap-1">
-        <span className="size-1.5 animate-pulse rounded-full bg-current" />
-        <span
-          aria-hidden="true"
-          className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]"
-        />
-        <span
-          aria-hidden="true"
-          className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:300ms]"
-        />
-      </span>
-      <span>
-        {label} · <span className="tabular-nums">{elapsed}s</span>
-      </span>
-    </span>
   );
 }

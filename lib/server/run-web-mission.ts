@@ -179,21 +179,3 @@ export async function runWebMission(input: {
     toolCalls: toStoredToolCalls(result.toolCalls ?? []),
   };
 }
-
-export async function chatWithEmployee(input: {
-  employeeName: string;
-  employeeRole: string;
-  message: string;
-}): Promise<string> {
-  const provider = resolveProvider();
-  const response = await provider.generate({
-    messages: [
-      {
-        role: "system",
-        content: `You are ${input.employeeName}, ${input.employeeRole} at Employee. Answer concisely in the user's language. You are an AI employee, never claim to be human. Discussion mode: you have no tools here and cannot perform actions. When the user asks you to do something (fork, clone, write code, create files, fix bugs, run commands...), briefly tell them to check "Mission" so you can act (GitHub tab for GitHub work) instead of refusing or giving manual instructions.`,
-      },
-      { role: "user", content: input.message },
-    ],
-  });
-  return response.content.trim();
-}

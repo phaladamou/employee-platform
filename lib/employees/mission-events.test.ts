@@ -89,12 +89,22 @@ describe("parseMissionMessage", () => {
     });
   });
 
+  it("parses plan announcements", () => {
+    assert.deepEqual(
+      parseMissionMessage('{"type":"plan","step":1,"steps":["inspect","fix"]}'),
+      { type: "plan", step: 1, steps: ["inspect", "fix"] }
+    );
+  });
+
   it("drops malformed lines without throwing", () => {
     for (const line of [
       "",
       "   ",
       "not json",
       '{"type":"thinking"}',
+      '{"type":"plan","step":1,"steps":[]}',
+      '{"type":"plan","step":1,"steps":["ok",42]}',
+      '{"type":"plan","step":1}',
       '{"type":"thinking","step":-1}',
       '{"type":"step","step":1,"title":"x"}',
       '{"type":"step","step":1,"title":null,"tool":"x","thoughtMs":-1}',
@@ -221,6 +231,19 @@ describe("applyMissionEvent", () => {
     assert.equal(state.failed, null);
   });
 
+  it("records the announced plan", () => {
+    let state = emptyMissionProgress();
+    assert.deepEqual(state.plan, []);
+    state = applyMissionEvent(state, { type: "thinking", step: 1 });
+    state = applyMissionEvent(state, {
+      type: "plan",
+      step: 1,
+      steps: ["inspect", "fix"],
+    });
+    assert.deepEqual(state.plan, ["inspect", "fix"]);
+    assert.equal(state.thinkingStep, null);
+  });
+
   it("marks failed results and terminal errors", () => {
     let state = emptyMissionProgress();
     state = applyMissionEvent(state, {
@@ -306,6 +329,7 @@ describe("applyMissionEvent", () => {
         finalThoughtMs: null,
         failed: null,
         changes: [],
+        plan: [],
       }
     );
   });

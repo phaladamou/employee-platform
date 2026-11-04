@@ -7,7 +7,8 @@
 // `node --test lib/employees/mission-events.test.ts`.
 
 // Miroir de ReactLoopEvent (core/employee/runtime/react-loop.ts) :
-// `thinking` avant chaque appel LLM, `step` (titre agent + outil + temps de
+// `thinking` avant chaque appel LLM, `plan` (etapes annoncees par
+// l'agent au premier tour), `step` (titre agent + outil + temps de
 // reflexion), `tool_result` qui clot l'etape (fichiers modifies),
 // `final` sur le rapport, `error` terminal. Les numeros d'etape
 // sont en base 1, dans l'ordre.
@@ -29,6 +30,7 @@ export interface MissionFileChange {
 
 export type MissionStreamEvent =
   | { type: "thinking"; step: number }
+  | { type: "plan"; step: number; steps: string[] }
   | {
       type: "step";
       step: number;
@@ -202,6 +204,22 @@ function asFileChange(value: unknown): MissionFileChange | null {
   };
 }
 
+// Etapes annoncees : tableau non vide de chaines non vides, borne
+// defensive (le noyau plafonne deja a 12).
+function asPlanSteps(value: unknown): string[] | null {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 24) {
+    return null;
+  }
+  const steps: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !entry.trim()) {
+      return null;
+    }
+    steps.push(entry);
+  }
+  return steps;
+}
+
 function asFileChanges(value: unknown): MissionFileChange[] | null {
   if (!Array.isArray(value)) {
     return null;
@@ -263,6 +281,13 @@ export function parseMissionMessage(line: string): MissionStreamMessage | null {
   switch (data.type) {
     case "thinking":
       return { type: "thinking", step };
+    case "plan": {
+      const steps = asPlanSteps(data.steps);
+      if (steps === null) {
+        return null;
+      }
+      return { type: "plan", step, steps };
+    }
     case "step": {
       const title = asNullableString(data.title);
       const tool = asNullableString(data.tool);
@@ -362,6 +387,8 @@ export interface MissionProgressState {
   failed: string | null;
   /** Fichiers modifies (onglet Changes), derniere version par chemin. */
   changes: MissionFileChange[];
+  /** Etapes annoncees par l'agent (live seul, jamais persiste). */
+  plan: string[];
 }
 
 export function emptyMissionProgress(): MissionProgressState {
@@ -372,6 +399,7 @@ export function emptyMissionProgress(): MissionProgressState {
     finalThoughtMs: null,
     failed: null,
     changes: [],
+    plan: [],
   };
 }
 
@@ -398,6 +426,7 @@ export function progressFromRecords(
     finalThoughtMs: null,
     failed: null,
     changes: [],
+    plan: [],
   };
 }
 
@@ -443,6 +472,8 @@ export function applyMissionEvent(
   switch (event.type) {
     case "thinking":
       return { ...state, thinkingStep: event.step };
+    case "plan":
+      return { ...state, plan: [...event.steps], thinkingStep: null };
     case "step": {
       const steps = state.steps.filter((row) => row.step !== event.step);
       steps.push({
