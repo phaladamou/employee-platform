@@ -759,6 +759,11 @@ Leçons dures :
   cleanup outils, langue cookie, licence). Conflits : README
   (même texte) + tsconfig (union) ; AGENT_MEMORY fusionnée
   (entrées main + branche cohérentes). tsc 0, 38/38 node.
+- Merge institutional→engineering (2026-11-03, 9ed8386, non
+  poussé) : 10 commits (pages P1+P2+P3, menu compte, CLI web
+  lecture/écriture, traductions CLI+menus FR/ZH vérifiées).
+  Conflits : route-policy+test, messages EN/FR/ZH, mémoire
+  (unions). tsc 0, 63/63 node ciblés.
 
 ## 10. Conventions et environnement (rappel)
 
