@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 
 import {
   buildFileTree,
+  createTtlCache,
   isSafeWorkspacePath,
   languageForPath,
   parseActivityLog,
@@ -79,5 +80,36 @@ describe("parseActivityLog", () => {
       entries.map((e) => e.message),
       ["m4", "m5"]
     );
+  });
+});
+
+describe("createTtlCache", () => {
+  it("retourne la valeur avant expiration", () => {
+    let clock = 1000;
+    const cache = createTtlCache<string>(5000, () => clock);
+    assert.equal(cache.get("a"), undefined);
+    cache.set("a", "v");
+    clock += 4999;
+    assert.equal(cache.get("a"), "v");
+  });
+
+  it("expire apres le TTL et isole les cles", () => {
+    let clock = 0;
+    const cache = createTtlCache<string>(100, () => clock);
+    cache.set("a", "va");
+    cache.set("b", "vb");
+    clock += 100;
+    assert.equal(cache.get("a"), undefined);
+    assert.equal(cache.get("b"), undefined);
+    cache.set("a", "va2");
+    assert.equal(cache.get("a"), "va2");
+    assert.equal(cache.get("b"), undefined);
+  });
+
+  it("clear vide le cache", () => {
+    const cache = createTtlCache<string>(60000);
+    cache.set("a", "v");
+    cache.clear();
+    assert.equal(cache.get("a"), undefined);
   });
 });

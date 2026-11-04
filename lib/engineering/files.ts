@@ -150,3 +150,40 @@ export function buildFileTree(
   sortNodes(root);
   return root;
 }
+
+/**
+ * Mini-cache a duree de vie (memoire du processus) : le scan disque
+ * de l'arbre coute ~100-200 ms pour 2000 entrees, repete toutes les
+ * 4 s par onglet IDE ouvert. Un TTL court absorbe les polls
+ * redondants (N onglets -> 1 scan) sans fraicheur perdue.
+ * Horloge injectable pour des tests deterministes.
+ */
+export function createTtlCache<T>(
+  ttlMs: number,
+  now: () => number = () => Date.now()
+): {
+  get: (key: string) => T | undefined;
+  set: (key: string, value: T) => void;
+  clear: () => void;
+} {
+  const entries = new Map<string, { value: T; expiresAt: number }>();
+  return {
+    get(key) {
+      const found = entries.get(key);
+      if (!found) {
+        return undefined;
+      }
+      if (found.expiresAt <= now()) {
+        entries.delete(key);
+        return undefined;
+      }
+      return found.value;
+    },
+    set(key, value) {
+      entries.set(key, { value, expiresAt: now() + Math.max(0, ttlMs) });
+    },
+    clear() {
+      entries.clear();
+    },
+  };
+}

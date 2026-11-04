@@ -9,7 +9,13 @@ import { join, relative, resolve, sep } from "node:path";
 import { ACTIVITY_LOG_FILE } from "@/core/employee/tools/activity";
 import { EmployeeWorkspaces } from "@/core/employee/workspaces/employee-workspaces";
 import type { WorkspaceFileEntry } from "./files";
-import { MAX_FILE_BYTES } from "./files";
+import { MAX_FILE_BYTES, createTtlCache } from "./files";
+
+// Le poll IDE (toutes les 4 s par onglet) rescanne le disque :
+// TTL court, un seul scan pour N onglets (fraicheur inchangee
+// a un cycle pres, memoire bornee : un tableau par employe).
+const TREE_TTL_MS = 5000;
+const treeCache = createTtlCache<WorkspaceFileEntry[]>(TREE_TTL_MS);
 
 export function workspaceRoot(): string {
   return resolve(
@@ -54,6 +60,10 @@ async function walk(
 export async function listWorkspaceFiles(
   employeeId: string
 ): Promise<WorkspaceFileEntry[]> {
+  const cached = treeCache.get(employeeId);
+  if (cached) {
+    return cached;
+  }
   const dir = workspacePathOf(employeeId);
   try {
     const info = await stat(dir);
@@ -64,6 +74,7 @@ export async function listWorkspaceFiles(
   const out: WorkspaceFileEntry[] = [];
   await walk(dir, dir, out);
   out.sort((a, b) => a.path.localeCompare(b.path));
+  treeCache.set(employeeId, out);
   return out;
 }
 
