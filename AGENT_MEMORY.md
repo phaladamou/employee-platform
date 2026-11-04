@@ -711,6 +711,26 @@ Leçons dures :
   test node --test (8 cas). saveMessages() prend
   désormais $inferInsert (missionId requis). Tests node
   --test exclus du tsconfig (convention).
+- URL employé + largeur chat (2026-11-03, non commité) :
+  `?employee=<id>` porte la sélection (helpers purs
+  lib/employees/department-url.ts + test, source de vérité
+  = URL, retour navigateur OK, Suspense déjà au layout).
+  Chat `lg:min-w-[40%]`, IDE `min-w-0` (défilement interne
+  existant).
+- Fix build connecteurs (2026-11-03, non commité) : les 4
+  routes API importaient le barrel qui évalue le garde
+  crypto au chargement → imports directs registry/oauth +
+  lazy crypto (callback/connect) avec dégradation gracieuse
+  (redirect oauth_unavailable / 503). Garde maintenu
+  lib/connectors/load-safety.test.ts (4 cas). Preuve
+  comportementale par sonde vitest jetable (server-only
+  stubé, alias @/ absent sous vitest).
+- Perf dev (2026-11-03) : `.data/` (559 Mo, 28k fichiers
+  clonés) ralentissait les compiles Turbopack (60-100s) →
+  timeout proxy 502. Fix : `.data/` au .gitignore (fait par
+  l'utilisateur, exclu du watch) → compiles à 1-3s.
+  Règle : les données runtime restent hors du projet
+  surveillé.
 
 ## 10. Conventions et environnement (rappel)
 
