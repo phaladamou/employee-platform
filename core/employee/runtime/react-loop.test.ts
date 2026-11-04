@@ -537,4 +537,109 @@ describe("runReasoningLoop", () => {
       { type: "error", step: 1, message: "LLM timeout" },
     ]);
   });
+
+  it("records a first-turn plan then executes it step by step", async () => {
+    const events: Array<Record<string, unknown>> = [];
+    const provider = new ScriptedProvider([
+      'PLAN: ["inspect repo", "write fix"]',
+      'STEP: Inspecting\nACTION: {"tool": "read_file", "args": {"path": "a.txt"}}',
+      "FINAL: done",
+    ]);
+
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Fix it.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      onEvent: (event) => {
+        events.push(event as Record<string, unknown>);
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.steps).toBe(3);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      { type: "plan", step: 1, steps: ["inspect repo", "write fix"] },
+      { type: "thinking", step: 2 },
+      {
+        type: "step",
+        step: 2,
+        title: "Inspecting",
+        tool: "read_file",
+        thoughtMs: expect.any(Number),
+      },
+      {
+        type: "tool_result",
+        step: 2,
+        tool: "read_file",
+        ok: false,
+        files: [],
+      },
+      { type: "thinking", step: 3 },
+      { type: "final", step: 3, title: null, thoughtMs: expect.any(Number) },
+    ]);
+    // L'observation d'enregistrement pousse l'agent vers l'etape 1
+    // (le tableau des messages est partage : on cherche dedans,
+    // pas a la fin fige au moment de l'appel).
+    const seenContents = (provider.seen[1]?.messages ?? []).map(
+      (message) => message.content
+    );
+    expect(
+      seenContents.some((content) =>
+        content.includes("Plan recorded (2 steps)")
+      )
+    ).toBe(true);
+  });
+
+  it("skips the plan turn for direct FINAL replies", async () => {
+    const events: Array<Record<string, unknown>> = [];
+
+    const result = await runReasoningLoop({
+      provider: new ScriptedProvider(["FINAL: hello to you too"]),
+      profile: makeProfile(),
+      missionPrompt: "Hello.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      onEvent: (event) => {
+        events.push(event as Record<string, unknown>);
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.steps).toBe(1);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      { type: "final", step: 1, title: null, thoughtMs: expect.any(Number) },
+    ]);
+  });
+
+  it("executes directly when the first reply has no plan", async () => {
+    const events: Array<Record<string, unknown>> = [];
+
+    const result = await runReasoningLoop({
+      provider: new ScriptedProvider([
+        'ACTION: {"tool": "read_file", "args": {"path": "a.txt"}}',
+        "FINAL: done",
+      ]),
+      profile: makeProfile(),
+      missionPrompt: "Read it.",
+      tools: [createReadFileTool()],
+      toolContext: { sandboxRoot: tmpdir() },
+      onEvent: (event) => {
+        events.push(event as Record<string, unknown>);
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.steps).toBe(2);
+    expect(events.map((event) => event["type"])).toEqual([
+      "thinking",
+      "step",
+      "tool_result",
+      "thinking",
+      "final",
+    ]);
+  });
 });

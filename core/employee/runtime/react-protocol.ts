@@ -34,6 +34,10 @@ export const STEP_MARKER = "STEP:";
 export const OBSERVATION_MAX_CHARS = 50_000;
 /** Titre d'etape : une ligne courte, bornee pour l'affichage. */
 export const STEP_TITLE_MAX_CHARS = 120;
+/** Plan annonce par l'agent avant d'agir (premier tour, borne). */
+export const PLAN_MARKER = "PLAN:";
+export const PLAN_MAX_STEPS = 12;
+export const PLAN_STEP_MAX_CHARS = 140;
 
 /**
  * Consigne systeme de la boucle ReAct : identite de l'employe, protocole
@@ -88,8 +92,13 @@ export function buildSystemPrompt(
 
   return [
     ...identity,
-    "You accomplish missions by reasoning in a loop. At each step, reply " +
-      "with EXACTLY one of these two forms:",
+    "You accomplish missions by reasoning in a loop: think, plan, act, verify.",
+    "FIRST, announce your plan (unless the message is trivial small talk):",
+    `${PLAN_MARKER} ["first step", "second step", ...] (JSON array, max ${PLAN_MAX_STEPS} short steps)`,
+    "or one numbered line per step after PLAN:. You will then execute it step by step.",
+    "For trivial greetings or small talk, skip the plan and reply FINAL: directly.",
+    "",
+    "Then reply with EXACTLY one of these two forms per turn:",
     `${ACTION_MARKER} {"tool": "<tool name>", "args": { ... }}`,
     `${FINAL_MARKER} <concise work report>`,
     "",
@@ -105,6 +114,7 @@ export function buildSystemPrompt(
     "",
     "Rules:",
     "- Emit exactly one ACTION or one FINAL per reply, no surrounding text (a STEP: title line is allowed).",
+    "- Write PLAN: at most once, on your first reply only; then execute with ACTION:/FINAL:.",
     "- Write raw JSON after ACTION: (markdown fences are tolerated).",
     "- Keep the STEP: title short (a few words), no quotes, one line.",
     "- Never invent tool results: only use OBSERVATION messages you received.",
@@ -168,6 +178,84 @@ export function extractStepTitle(beforeDirective: string): string | null {
       : title;
   }
   return null;
+}
+
+/** Nettoie une etape de plan : gras, puce/numerotation, espaces, borne. */
+function cleanPlanStep(raw: string): string | null {
+  let text = raw.replace(/\s+/g, " ").trim();
+  text = text.replace(/^\*\*(.+)\*\*$/, "$1").trim();
+  text = text.replace(/^(?:\d+[.)]|\d+\)|[-*•])\s+/, "").trim();
+  if (!text) {
+    return null;
+  }
+  return text.length > PLAN_STEP_MAX_CHARS
+    ? text.slice(0, PLAN_STEP_MAX_CHARS)
+    : text;
+}
+
+function planStepsFromLines(remainder: string): string[] {
+  const steps: string[] = [];
+  for (const line of remainder.split("\n")) {
+    if (steps.length >= PLAN_MAX_STEPS) {
+      break;
+    }
+    const step = cleanPlanStep(line);
+    if (step !== null) {
+      steps.push(step);
+    }
+  }
+  return steps;
+}
+
+/**
+ * Lit le plan annonce par l'agent : la premiere ligne commencant par
+ * PLAN: dans le texte AVANT toute directive (jamais apres), suivie
+ * d'un tableau JSON ou d'une etape numerotee/pucee par ligne.
+ * Null si absent ou vide : le tour suit alors le chemin normal.
+ */
+export function parsePlanTurn(content: string): string[] | null {
+  const text = content.replace(/\r\n/g, "\n");
+  const marker = locateMarker(text);
+  const head = marker === null ? text : text.slice(0, marker.at);
+  const lines = head.split("\n");
+  const index = lines.findIndex((line) =>
+    line.trimStart().startsWith(PLAN_MARKER)
+  );
+  if (index === -1) {
+    return null;
+  }
+  const first = lines[index].trimStart().slice(PLAN_MARKER.length);
+  const remainder = [first, ...lines.slice(index + 1)].join("\n").trim();
+  if (!remainder) {
+    return null;
+  }
+
+  const jsonMatch = /\[[\s\S]*\]/.exec(remainder);
+  if (jsonMatch !== null) {
+    try {
+      const data: unknown = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(data)) {
+        const steps: string[] = [];
+        for (const entry of data) {
+          if (steps.length >= PLAN_MAX_STEPS) {
+            break;
+          }
+          const step = cleanPlanStep(String(entry ?? ""));
+          if (step !== null) {
+            steps.push(step);
+          }
+        }
+        if (steps.length > 0) {
+          return steps;
+        }
+      }
+    } catch {
+      // JSON casse : repli sur la lecture ligne par ligne.
+    }
+  }
+
+  const steps = planStepsFromLines(remainder);
+  return steps.length > 0 ? steps : null;
 }
 
 /**

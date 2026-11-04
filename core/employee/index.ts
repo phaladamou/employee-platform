@@ -244,7 +244,10 @@ export {
   PAST_EXPERIENCE_MAX_ITEMS,
   buildSystemPrompt,
   formatObservation,
+  parsePlanTurn,
   parseStepOutput,
+  PLAN_MARKER,
+  PLAN_MAX_STEPS,
 } from "./runtime/react-protocol";
 export type {
   ReactFileChange,

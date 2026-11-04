@@ -15,6 +15,7 @@ import type { EmployeeLLMMessage, EmployeeLLMProvider } from "./llm-provider";
 import {
   buildSystemPrompt,
   formatObservation,
+  parsePlanTurn,
   parseStepOutput,
 } from "./react-protocol";
 
@@ -74,11 +75,18 @@ export interface ReactFileChange {
  * chaque appel LLM, puis `step` (titre agent + outil), puis
  * `tool_result` qui clot l'etape (outil inconnu ou reponse hors
  * protocole = ok:false, l'agent se corrige a l'etape suivante).
+ * `plan` (premier tour, optionnel) annonce les etapes ecrites par
+ * l'agent avant d'agir.
  * `final` clot sur le rapport, `error` est terminal (panne LLM,
  * boucle epuisee, annulation).
  */
 export type ReactLoopEvent =
   | { readonly type: "thinking"; readonly step: number }
+  | {
+      readonly type: "plan";
+      readonly step: number;
+      readonly steps: readonly string[];
+    }
   | {
       readonly type: "step";
       readonly step: number;
@@ -247,6 +255,22 @@ export async function runReasoningLoop(
 
     steps += 1;
     messages.push({ role: "assistant", content });
+
+    // Premier tour : l'agent peut annoncer son plan avant d'agir
+    // (tour de reflexion ecrit, comme une liste de taches).
+    if (steps === 1) {
+      const plan = parsePlanTurn(content);
+      if (plan !== null) {
+        await notify({ type: "plan", step: steps, steps: plan });
+        messages.push({
+          role: "user",
+          content:
+            `OBSERVATION: Plan recorded (${plan.length} steps). Execute step 1 now: ` +
+            `reply with STEP: + ACTION: (or FINAL: if no action is needed).`,
+        });
+        continue;
+      }
+    }
 
     const parsed = parseStepOutput(content);
 

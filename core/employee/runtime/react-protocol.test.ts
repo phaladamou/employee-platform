@@ -7,7 +7,10 @@ import {
   formatObservation,
   formatSpecializationBlock,
   OBSERVATION_MAX_CHARS,
+  parsePlanTurn,
   parseStepOutput,
+  PLAN_MARKER,
+  PLAN_MAX_STEPS,
 } from "./react-protocol";
 
 function makeProfile() {
@@ -291,5 +294,58 @@ describe("formatObservation", () => {
     expect(formatted.length).toBeLessThanOrEqual(
       OBSERVATION_MAX_CHARS + 100
     );
+  });
+});
+
+describe("parsePlanTurn", () => {
+  it("parses a JSON array plan", () => {
+    expect(
+      parsePlanTurn(`${PLAN_MARKER} ["inspect repo", "write fix", "run tests"]`)
+    ).toEqual(["inspect repo", "write fix", "run tests"]);
+  });
+
+  it("parses numbered and bulleted plans", () => {
+    expect(
+      parsePlanTurn("PLAN:\n1. Inspect the repo\n2) Write the fix\n- Run tests")
+    ).toEqual(["Inspect the repo", "Write the fix", "Run tests"]);
+  });
+
+  it("accepts a plan after chatter, before any ACTION/FINAL", () => {
+    expect(
+      parsePlanTurn(
+        "Let me think about this.\nPLAN:\n1. Inspect\n2. Fix\nFINAL: unused"
+      )
+    ).toEqual(["Inspect", "Fix"]);
+  });
+
+  it("caps steps and truncates long steps", () => {
+    const lines = Array.from(
+      { length: PLAN_MAX_STEPS + 5 },
+      (_, i) => `${i + 1}. step ${i + 1}`
+    );
+    const plan = parsePlanTurn(`PLAN:\n${lines.join("\n")}`);
+
+    expect(plan).toHaveLength(PLAN_MAX_STEPS);
+    expect(parsePlanTurn(`PLAN: ["${"x".repeat(500)}"]`)?.[0].length).toBeLessThanOrEqual(140);
+  });
+
+  it("returns null without a plan", () => {
+    expect(parsePlanTurn("ACTION: {invalid")).toBeNull();
+    expect(parsePlanTurn("PLAN:")).toBeNull();
+    expect(parsePlanTurn("PLAN: \n\n  \n")).toBeNull();
+    expect(parsePlanTurn("Just chatting, no work.")).toBeNull();
+  });
+
+  it("ignores a PLAN line hidden after ACTION/FINAL", () => {
+    expect(
+      parsePlanTurn('ACTION: {"tool": "run_shell"}\nPLAN: ["late"]')
+    ).toBeNull();
+  });
+
+  it("announces the plan directive in the system prompt", () => {
+    const prompt = buildSystemPrompt(makeProfile(), createCoreTools());
+
+    expect(prompt).toContain("PLAN:");
+    expect(prompt).toContain("small talk");
   });
 });
