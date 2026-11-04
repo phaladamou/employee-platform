@@ -65,6 +65,7 @@
     "lib/i18n/locale.test.ts",
     "lib/otp-email-template.test.ts",
     "lib/sidebar/nav-state.test.ts",
+    "lib/db/chat-scope.test.ts",
     "core/employee/**/*.test.ts",
     "core/models/chat-provider.test.ts",
     "vitest.config.ts"

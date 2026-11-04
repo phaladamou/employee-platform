@@ -44,6 +44,7 @@ import {
   talentProfile,
   type User,
   user,
+  userMainChatsCondition,
   userSettings,
   vote,
 } from "./schema";
@@ -128,7 +129,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId));
+      .where(userMainChatsCondition(userId));
 
     if (userChats.length === 0) {
       return { deletedCount: 0 };
@@ -142,7 +143,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     const deletedChats = await db
       .delete(chat)
-      .where(eq(chat.userId, userId))
+      .where(userMainChatsCondition(userId))
       .returning();
 
     return { deletedCount: deletedChats.length };
@@ -176,8 +177,8 @@ export async function getChatsByUserId({
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+            ? and(whereCondition, userMainChatsCondition(id))
+            : userMainChatsCondition(id)
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -1916,7 +1917,8 @@ export async function getMissionsByEmployee(
 }
 
 // Premier chat de l'utilisateur = le chat d'accueil du Chef (cree au
-// provisioning, avant tout autre chat possible).
+// provisioning, avant tout autre chat possible). Sessions employe
+// exclues : une session Atlas ne doit jamais passer pour l'accueil.
 export async function getFirstChatIdForUser(
   userId: string
 ): Promise<string | null> {
@@ -1925,7 +1927,7 @@ export async function getFirstChatIdForUser(
     const [row] = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId))
+      .where(userMainChatsCondition(userId))
       .orderBy(asc(chat.createdAt))
       .limit(1);
     return row?.id ?? null;

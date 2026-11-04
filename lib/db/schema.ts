@@ -1,5 +1,5 @@
 // lib/db/schema.ts
-import type { InferSelectModel } from "drizzle-orm";
+import { and, eq, isNull, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
@@ -62,6 +62,17 @@ export const chat = pgTable(
 );
 
 export type Chat = InferSelectModel<typeof chat>;
+
+/**
+ * Portee "chats libres" (espace Chef) : les sessions employe
+ * partagent la table Chat avec employeeId renseigne. Toute requete
+ * d'historique principal DOIT passer par ici : sans le filtre
+ * employeeId IS NULL, les sessions Atlas fuient dans l'historique
+ * du Chef, et "tout supprimer" les detruit avec.
+ */
+export function userMainChatsCondition(userId: string) {
+  return and(eq(chat.userId, userId), isNull(chat.employeeId));
+}
 
 export const message = pgTable("Message_v2", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
