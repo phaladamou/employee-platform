@@ -737,6 +737,11 @@ Leçons dures :
   + 178 Ko pour 2000 entrées, mesuré) → cache TTL 5 s par
   employé dans workspace-store (helper pur createTtlCache
   dans files.ts + 3 tests). Fraîcheur inchangée.
+- Merge main→branche (2026-11-03, 5971380, non poussé) :
+  9 commits main intégrés (reasoning, prompts, renames UI,
+  cleanup outils, langue cookie, licence). Conflits : README
+  (même texte) + tsconfig (union) ; AGENT_MEMORY fusionnée
+  (entrées main + branche cohérentes). tsc 0, 38/38 node.
 
 ## 10. Conventions et environnement (rappel)
 
