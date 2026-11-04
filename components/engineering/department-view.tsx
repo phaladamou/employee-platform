@@ -3,7 +3,8 @@
 
 import { ArrowLeftIcon, Code2Icon } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,11 @@ import {
   isGithubCapable,
   type Employee,
 } from "@/lib/employees/catalog";
+import {
+  buildDepartmentUrl,
+  EMPLOYEE_PARAM,
+  parseEmployeeParam,
+} from "@/lib/employees/department-url";
 import { fetcher } from "@/lib/utils";
 import { EmployeeChat } from "./employee-chat";
 import { EmployeeIde } from "./employee-ide";
@@ -84,8 +90,28 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
     fetcher,
     { revalidateOnFocus: false }
   );
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    parseEmployeeParam(searchParams.get(EMPLOYEE_PARAM))
+  );
   const [tab, setTab] = useState<"chat" | "history" | "github">("chat");
+
+  // L'URL est la source de verite : retour navigateur, liens
+  // profonds et rechargements resynchronisent la selection.
+  useEffect(() => {
+    setSelectedId(parseEmployeeParam(searchParams.get(EMPLOYEE_PARAM)));
+  }, [searchParams]);
+
+  const openEmployee = (employeeId: string) => {
+    setSelectedId(employeeId);
+    router.push(buildDepartmentUrl(departmentId, employeeId));
+  };
+  const closeEmployee = () => {
+    setSelectedId(null);
+    void mutate();
+    router.push(buildDepartmentUrl(departmentId, null));
+  };
 
   // Meme pattern que la page Employes : noms traduits quand connus,
   // identifiant brut sinon.
@@ -119,10 +145,7 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
         <div className="mx-auto w-full max-w-7xl shrink-0 px-8 pt-6 pb-4">
           <button
             className="mb-3 flex items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => {
-              setSelectedId(null);
-              void mutate();
-            }}
+            onClick={closeEmployee}
             type="button"
           >
             <ArrowLeftIcon className="size-4" />
@@ -235,7 +258,7 @@ export function DepartmentView({ departmentId }: { departmentId: string }) {
                 <EmployeeListCard
                   employee={employee}
                   key={employee.id}
-                  onOpen={() => setSelectedId(employee.id)}
+                  onOpen={() => openEmployee(employee.id)}
                 />
               ))}
             </div>
