@@ -50,6 +50,8 @@
     "lib/cli/parser.test.ts",
     "lib/chef/onboarding.test.ts",
     "lib/employees/catalog.test.ts",
+    "lib/employees/department-url.test.ts",
+    "lib/connectors/load-safety.test.ts",
     "lib/employees/departments.test.ts",
     "lib/server/web-mission-mapping.test.ts",
     "lib/server/sse-parse.test.ts",
