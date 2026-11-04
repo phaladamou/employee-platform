@@ -7,23 +7,15 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/employees/catalog";
+import {
+  mapSessionHistory,
+  type SessionHistoryMessage,
+  type SessionHistoryRow,
+} from "@/lib/employees/session-history";
 import { MissionExecutionPanel } from "./mission-execution-panel";
 import type { useMissionStream } from "./use-mission-stream";
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "employee";
-  text: string;
-  missionId?: string;
-}
-
-interface HistoryRow {
-  id: string;
-  role: string;
-  text: string;
-  missionId: string | null;
-  createdAt: string;
-}
+type ChatMessage = SessionHistoryMessage;
 
 export function EmployeeChat({
   employee,
@@ -51,14 +43,26 @@ export function EmployeeChat({
   const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const idRef = useRef(0);
+  // Epoques d'envoi : un telechargement d'historique qui se
+  // termine APRES le debut d'un envoi est perime (il ecraserait
+  // les messages optimistes) et doit etre ignore.
+  const sendEpochRef = useRef(0);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
+  const greeting = (): ChatMessage => ({
+    id: "greeting",
+    role: "employee",
+    text: t("chatGreeting", { name: employee.name, role: employee.role }),
+  });
 
   // Historique persistant : recharge la session ciblee depuis
   // la base. Sans session (page /atlas) = nouvelle session
-  // vierge, jamais la derniere rouverte. L'id resolu remonte
-  // pour synchroniser l'URL. Ne recharge que quand la cible
-  // (employe/session) change : les re-rendus du parent ne doivent
-  // jamais ecraser la discussion visible (message optimiste,
-  // mission en cours, reponse recue).
+  // vierge, jamais la derniere rouverte. Ne recharge que quand la
+  // cible (employe/session) change : les re-rendus du parent ne
+  // doivent jamais ecraser la discussion visible. Le nettoyage
+  // libere la cle : en dev (StrictMode), le double montage ne
+  // doit pas avaler le seul telechargement.
   const loadedKeyRef = useRef<string | null>(null);
   useEffect(() => {
     const loadedKey = `${employee.id}:${sessionId ?? ""}`;
@@ -66,18 +70,10 @@ export function EmployeeChat({
       return;
     }
     loadedKeyRef.current = loadedKey;
+    const fetchEpoch = sendEpochRef.current;
     let cancelled = false;
     if (!sessionId) {
-      setMessages([
-        {
-          id: "greeting",
-          role: "employee" as const,
-          text: t("chatGreeting", {
-            name: employee.name,
-            role: employee.role,
-          }),
-        },
-      ]);
+      setMessages([greeting()]);
       setHistoryLoading(false);
       return;
     }
@@ -89,43 +85,24 @@ export function EmployeeChat({
           throw new Error(`history failed: ${response.status}`);
         }
         return (await response.json()) as {
-          sessionId?: string | null;
-          messages?: HistoryRow[];
+          messages?: SessionHistoryRow[];
         };
       })
       .then((payload) => {
-        if (cancelled) {
+        // Perime : annule (navigation, demontage) ou depasse par
+        // un envoi parti entre-temps (l'envoi est proprietaire de
+        // la discussion visible jusqu'a son terme).
+        if (cancelled || fetchEpoch !== sendEpochRef.current) {
           return;
         }
         const rows = Array.isArray(payload.messages)
           ? payload.messages
           : [];
-        setMessages(
-          rows.length > 0
-            ? rows.map((row) => ({
-                id: row.id,
-                role: row.role === "employee" ? "employee" : "user",
-                text:
-                  row.text ||
-                  (row.missionId
-                    ? t("missionNeedsAcceptance")
-                    : t("chatEmptyReply")),
-                missionId: row.missionId ?? undefined,
-              }))
-            : [
-                {
-                  id: "greeting",
-                  role: "employee" as const,
-                  text: t("chatGreeting", {
-                    name: employee.name,
-                    role: employee.role,
-                  }),
-                },
-              ]
-        );
-        if (payload.sessionId && payload.sessionId !== sessionId) {
-          onSessionResolved(payload.sessionId);
-        }
+        const mapped = mapSessionHistory(rows, {
+          emptyReply: t("chatEmptyReply"),
+          needsAcceptance: t("missionNeedsAcceptance"),
+        });
+        setMessages(mapped.length > 0 ? mapped : [greeting()]);
       })
       .catch(() => {
         // Historique indisponible : on garde la salutation, le
@@ -138,8 +115,11 @@ export function EmployeeChat({
       });
     return () => {
       cancelled = true;
+      if (loadedKeyRef.current === loadedKey) {
+        loadedKeyRef.current = null;
+      }
     };
-  }, [employee.id, employee.name, employee.role, sessionId, t, onSessionResolved]);
+  }, [employee.id, employee.name, employee.role, sessionId, t]);
 
   const appendMessage = (message: Omit<ChatMessage, "id">) => {
     idRef.current += 1;
@@ -150,20 +130,34 @@ export function EmployeeChat({
   // Envoi unique (plus de double mode) : chaque message passe par
   // la boucle agentique (plan ecrit, puis execution). Pas de bulle
   // d'attente : le panneau d'execution montre le live, la reponse
-  // conclut la discussion. Partage avec Retry (meme flux).
+  // conclut la discussion. Partage avec Retry (meme flux). Chaque
+  // envoi perime les telechargements d'historique anterieurs (ils
+  // ecraseraient les messages optimistes) et, s'il se termine
+  // apres une navigation, ne touche ni a la vue ni a l'URL.
   const sendMissionMessage = async (text: string) => {
     if (sending) {
       return;
     }
+    sendEpochRef.current += 1;
+    const sendSessionId = sessionId;
     setSending(true);
     setError(null);
     appendMessage({ role: "user", text });
     try {
       const result = await mission.run({
         employeeId: employee.id,
-        sessionId,
+        sessionId: sendSessionId,
         message: text,
       });
+      if (
+        sendSessionId !== null &&
+        sessionIdRef.current !== sendSessionId
+      ) {
+        // Navigation entre-temps : la reponse est en base, la
+        // liste se rafraichit, la vue visitee reste intacte.
+        onFailedSend();
+        return;
+      }
       onSessionResolved(result.sessionId);
       appendMessage({
         role: "employee",

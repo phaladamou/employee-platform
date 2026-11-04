@@ -60,6 +60,7 @@
     "lib/employees/talents.test.ts",
     "lib/employees/rich-profiles.test.ts",
     "lib/employees/mission-events.test.ts",
+    "lib/employees/session-history.test.ts",
     "lib/engineering/cli-commands.test.ts",
     "lib/engineering/files.test.ts",
     "lib/i18n/locale.test.ts",
