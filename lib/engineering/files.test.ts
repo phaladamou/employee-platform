@@ -13,7 +13,10 @@ import {
   isSafeWorkspacePath,
   languageForPath,
   liveActivityEntries,
+  mergeWorkspaceEntries,
+  nextIdeTabOnRunningChange,
   parseActivityLog,
+  workspaceTreeCacheKey,
 } from "./files.ts";
 
 describe("isSafeWorkspacePath", () => {
@@ -170,6 +173,7 @@ describe("liveActivityEntries", () => {
           message: "Fork du dépôt",
           ok: true,
           live: true,
+          running: false,
         },
         {
           ts: "",
@@ -177,8 +181,16 @@ describe("liveActivityEntries", () => {
           message: "run_shell",
           ok: true,
           live: true,
+          running: true,
         },
-        { ts: "", tool: "", message: "Step 3", ok: false, live: true },
+        {
+          ts: "",
+          tool: "",
+          message: "Step 3",
+          ok: false,
+          live: true,
+          running: false,
+        },
       ]
     );
   });
@@ -207,5 +219,69 @@ describe("liveActivityEntries", () => {
     });
     assert.equal(out.length, 60);
     assert.equal(out[0].message, "Etape 11");
+  });
+});
+
+describe("mergeWorkspaceEntries", () => {
+  it("unit disque et DB, disque prioritaire, tri par chemin", () => {
+    const out = mergeWorkspaceEntries(
+      [
+        { path: "b.py", size: 20 },
+        { path: "a.py", size: 10 },
+      ],
+      [
+        { path: "a.py", size: 999 },
+        { path: "legacy.py", size: 5 },
+      ]
+    );
+    assert.deepEqual(
+      out.map((entry) => entry.path),
+      ["a.py", "b.py", "legacy.py"]
+    );
+    assert.equal(out[0]?.size, 10);
+  });
+
+  it("disque vide -> plein miroir DB (apres redeploiement)", () => {
+    const out = mergeWorkspaceEntries([], [{ path: "a.py", size: 3 }]);
+    assert.deepEqual(out, [{ path: "a.py", size: 3 }]);
+  });
+});
+
+describe("nextIdeTabOnRunningChange", () => {
+  it("ouvre Activity au demarrage, Files a la fin", () => {
+    assert.equal(nextIdeTabOnRunningChange(false, true), "activity");
+    assert.equal(nextIdeTabOnRunningChange(true, false), "files");
+  });
+
+  it("laisse la navigation manuelle tranquille sinon", () => {
+    assert.equal(nextIdeTabOnRunningChange(false, false), null);
+    assert.equal(nextIdeTabOnRunningChange(true, true), null);
+  });
+});
+
+describe("workspaceTreeCacheKey", () => {
+  it("scope par compte, employe et session", () => {
+    assert.equal(
+      workspaceTreeCacheKey("acc", "emp", "s1"),
+      "acc:emp:s1"
+    );
+    assert.equal(workspaceTreeCacheKey(undefined, "emp", "s1"), "emp:s1");
+    assert.notEqual(
+      workspaceTreeCacheKey("acc", "emp", "s1"),
+      workspaceTreeCacheKey("acc", "emp", "s2")
+    );
+  });
+});
+
+describe("createTtlCache remove", () => {
+  it("supprime une entree sans toucher aux autres", () => {
+    const cache = createTtlCache<string>(5000);
+    cache.set("a", "1");
+    cache.set("b", "2");
+    cache.remove("a");
+    assert.equal(cache.get("a"), undefined);
+    assert.equal(cache.get("b"), "2");
+    cache.remove("absente");
+    assert.equal(cache.get("b"), "2");
   });
 });

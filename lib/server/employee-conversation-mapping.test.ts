@@ -5,6 +5,8 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  GREETING_MAX_LENGTH,
+  normalizeGreetingInput,
   partsToText,
   textToParts,
   toDisplayRole,
@@ -188,5 +190,24 @@ describe("tool call records", () => {
         { tool: "read_file", ok: true },
       ]
     );
+  });
+});
+
+describe("normalizeGreetingInput", () => {
+  it("accepte un texte simple, rogne les espaces", () => {
+    assert.equal(normalizeGreetingInput("  Bonjour !  "), "Bonjour !");
+  });
+
+  it("refuse le vide et le non-texte", () => {
+    assert.equal(normalizeGreetingInput(""), null);
+    assert.equal(normalizeGreetingInput("   "), null);
+    assert.equal(normalizeGreetingInput(null), null);
+    assert.equal(normalizeGreetingInput(42), null);
+    assert.equal(normalizeGreetingInput({ text: "x" }), null);
+  });
+
+  it("plafonne au maximum", () => {
+    const long = `x`.repeat(GREETING_MAX_LENGTH + 50);
+    assert.equal(normalizeGreetingInput(long)?.length, GREETING_MAX_LENGTH);
   });
 });

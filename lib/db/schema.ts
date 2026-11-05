@@ -418,6 +418,9 @@ export const mission = pgTable(
     // Trace d'execution : [{tool, ok}] dans l'ordre, prouve ce
     // qui a vraiment tourne (anti-hallucination).
     toolCalls: json("toolCalls").notNull().default([]),
+    // Plan annonce par l'agent avant d'agir : [string]. Fait
+    // partie de la reponse (restaure avec le processus).
+    plan: json("plan").notNull().default([]),
     kernelJobId: text("kernelJobId"),
     expectFile: text("expectFile"),
     expectTest: boolean("expectTest").notNull().default(false),
@@ -428,3 +431,59 @@ export const mission = pgTable(
 );
 
 export type Mission = InferSelectModel<typeof mission>;
+
+// ============ MODULE WORKSPACE (miroir DB des fichiers employe) ============
+
+// Miroir en base du workspace disque d'un employe, scope par session
+// (`EMPLOYEE_WORKSPACES_DIR/<employeeId>/<sessionId>/`). Le disque
+// reste la source de verite pendant un run (l'agent y ecrit) ; cette
+// table est la copie durable en ligne : apres chaque mission, le
+// workspace de la session est synchronise ici (voir
+// lib/engineering/workspace-sync.ts). En cas de redeploiement ou de
+// disque vide, l'IDE lit ce miroir au lieu d'un dossier local.
+// Un (session, chemin) = une ligne (dernier etat connu de la
+// session, pas d'historique) : revisiter une session retrouve SES
+// fichiers, meme si une session plus recente a reecrit les memes
+// chemins dans son propre sandbox.
+export const workspaceFile = pgTable(
+  "WorkspaceFile",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    employeeId: uuid("employeeId")
+      .notNull()
+      .references(() => employee.id, { onDelete: "cascade" }),
+    // Session (Chat) proprietaire : le sandbox source du fichier.
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id, { onDelete: "cascade" }),
+    // Chemin relatif dans le workspace (ex: "src/app.py").
+    path: text("path").notNull(),
+    content: text("content").notNull(),
+    size: integer("size").notNull(),
+    // SHA-256 hex du contenu : la synchro n'ecrit que ce qui a change.
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    // Derniere mission ayant ecrit ce fichier (NULL si inconnu).
+    missionId: uuid("missionId").references(() => mission.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("WorkspaceFile_account_employee_chat_idx").on(
+      table.accountId,
+      table.employeeId,
+      table.chatId
+    ),
+    unique("WorkspaceFile_account_employee_chat_path_uniq").on(
+      table.accountId,
+      table.employeeId,
+      table.chatId,
+      table.path
+    ),
+  ]
+);
+
+export type WorkspaceFile = InferSelectModel<typeof workspaceFile>;

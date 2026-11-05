@@ -8,10 +8,15 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/employees/catalog";
 import {
+  parseStoredPlan,
+  progressFromRecords,
+} from "@/lib/employees/mission-events";
+import {
   mapSessionHistory,
   type SessionHistoryMessage,
   type SessionHistoryRow,
 } from "@/lib/employees/session-history";
+import { toToolCallRecords } from "@/lib/server/employee-conversation-mapping";
 import { MissionExecutionPanel } from "./mission-execution-panel";
 import type { useMissionStream } from "./use-mission-stream";
 
@@ -56,6 +61,14 @@ export function EmployeeChat({
     text: t("chatGreeting", { name: employee.name, role: employee.role }),
   });
 
+  // Changement de session sans remontage : le brouillon et
+  // l'erreur appartiennent a la session quittee (l'historique
+  // recharge via l'effet ci-dessous).
+  useEffect(() => {
+    setInput("");
+    setError(null);
+  }, [sessionId]);
+
   // Historique persistant : recharge la session ciblee depuis
   // la base. Sans session (page /atlas) = nouvelle session
   // vierge, jamais la derniere rouverte. Ne recharge que quand la
@@ -75,6 +88,9 @@ export function EmployeeChat({
     if (!sessionId) {
       setMessages([greeting()]);
       setHistoryLoading(false);
+      // Vue neuve : le seau d'attente ne montre plus le run
+      // termine de la precedente vue neuve.
+      mission.resetPending();
       return;
     }
     setHistoryLoading(true);
@@ -86,6 +102,14 @@ export function EmployeeChat({
         }
         return (await response.json()) as {
           messages?: SessionHistoryRow[];
+          lastMission?: {
+            id: unknown;
+            status: unknown;
+            summary: unknown;
+            needsAcceptance: unknown;
+            toolCalls: unknown;
+            plan: unknown;
+          } | null;
         };
       })
       .then((payload) => {
@@ -103,6 +127,32 @@ export function EmployeeChat({
           needsAcceptance: t("missionNeedsAcceptance"),
         });
         setMessages(mapped.length > 0 ? mapped : [greeting()]);
+        // Le processus fait partie de la reponse : plan, etapes
+        // et fichiers restaures dans le panneau (no-op si un run
+        // est en cours : le live gagne sur le restaure).
+        const last = payload.lastMission;
+        if (
+          last &&
+          typeof last.id === "string" &&
+          typeof last.status === "string" &&
+          typeof last.summary === "string"
+        ) {
+          const records = toToolCallRecords(last.toolCalls);
+          mission.restore({
+            sessionId,
+            progress: {
+              ...progressFromRecords(records),
+              plan: parseStoredPlan(last.plan),
+            },
+            outcome: {
+              missionId: last.id,
+              summary: last.summary,
+              needsAcceptance: last.needsAcceptance === true,
+              sessionId,
+              status: last.status,
+            },
+          });
+        }
       })
       .catch(() => {
         // Historique indisponible : on garde la salutation, le
@@ -148,6 +198,10 @@ export function EmployeeChat({
         employeeId: employee.id,
         sessionId: sendSessionId,
         message: text,
+        // Vue neuve : l'accueil affiche persiste en premier
+        // (le serveur ne le garde que si la session est vierge).
+        greeting:
+          sendSessionId === null ? greeting().text : undefined,
       });
       if (
         sendSessionId !== null &&

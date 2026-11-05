@@ -2,11 +2,19 @@ import { mkdir, rename, stat } from "node:fs/promises";
 import { join } from "node:path";
 
 /**
- * Dossiers de travail par employe : `<root>/<employeeId>/`.
+ * Dossiers de travail par employe : `<root>/<employeeId>/`, avec un
+ * sous-dossier par session web : `<root>/<employeeId>/<sessionId>/`.
  *
- * - `acquire` (hire, demarrage de job) : cree le dossier, idempotent.
+ * - `acquire` (hire, jobs CLI/serveur) : cree le dossier employe,
+ *   idempotent. Chemin historique, sans session.
+ * - `acquireSession` (missions web) : cree le dossier de la session,
+ *   idempotent. Chaque session a son sandbox : une nouvelle session
+ *   demarre vierge, revisiter une session retrouve ses fichiers et
+ *   son journal d'activite (fichiers, Activity et Terminal de l'IDE
+ *   sont scopes par construction).
  * - `archive` (terminate) : deplace vers `archive/<id>-<horodatage>/`
- *   (jamais de suppression : audit). No-op si absent.
+ *   (jamais de suppression : audit). No-op si absent. Les sessions
+ *   partent avec le dossier employe.
  * - Les outils se confinent via `ToolContext.workspaceRoot` (voir
  *   toolRoot dans tools/tool.ts).
  *
@@ -39,9 +47,34 @@ export class EmployeeWorkspaces {
     return join(this.root, EmployeeWorkspaces.sanitizeId(employeeId));
   }
 
+  /**
+   * Chemin du workspace d'une session (pur) :
+   * `<root>/<employeeId>/<sessionId>/`. Les deux ids sont
+   * assainis : aucun separateur ni `..` ne peut s'echapper.
+   */
+  sessionPathOf(employeeId: string, sessionId: string): string {
+    return join(
+      this.pathOf(employeeId),
+      EmployeeWorkspaces.sanitizeId(sessionId)
+    );
+  }
+
   /** Cree le workspace si absent (idempotent). Retourne son chemin. */
   async acquire(employeeId: string): Promise<string> {
     const path = this.pathOf(employeeId);
+    await mkdir(path, { recursive: true });
+    return path;
+  }
+
+  /**
+   * Cree le workspace d'une session si absent (idempotent).
+   * Retourne son chemin.
+   */
+  async acquireSession(
+    employeeId: string,
+    sessionId: string
+  ): Promise<string> {
+    const path = this.sessionPathOf(employeeId, sessionId);
     await mkdir(path, { recursive: true });
     return path;
   }

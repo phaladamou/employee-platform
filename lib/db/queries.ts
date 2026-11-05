@@ -14,6 +14,7 @@ import {
   isNull,
   lt,
   ne,
+  notInArray,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -47,6 +48,8 @@ import {
   userMainChatsCondition,
   userSettings,
   vote,
+  type WorkspaceFile,
+  workspaceFile,
 } from "./schema";
 import { getDb } from "./client";
 import { generateHashedPassword } from "./utils";
@@ -1660,6 +1663,7 @@ export async function updateMission({
     report?: string | null;
     kernelJobId?: string | null;
     toolCalls?: unknown;
+    plan?: unknown;
   };
 }): Promise<Mission | null> {
   try {
@@ -1912,6 +1916,180 @@ export async function getMissionsByEmployee(
     throw new ChatbotError(
       "bad_request:database",
       "Failed to get employee missions"
+    );
+  }
+}
+
+// ============ MIROIR WORKSPACE (fichiers employe en base) ============
+
+// Liste le miroir DB d'un workspace de session (tri : appelant).
+export async function listWorkspaceFilesDb({
+  accountId,
+  employeeId,
+  chatId,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+}): Promise<WorkspaceFile[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId)
+        )
+      );
+  } catch (_error) {
+    console.error("listWorkspaceFilesDb DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to list workspace files"
+    );
+  }
+}
+
+// Lit un fichier du miroir de session (NULL si absent).
+export async function readWorkspaceFileDb({
+  accountId,
+  employeeId,
+  chatId,
+  path,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  path: string;
+}): Promise<WorkspaceFile | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId),
+          eq(workspaceFile.path, path)
+        )
+      )
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("readWorkspaceFileDb DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to read workspace file"
+    );
+  }
+}
+
+// Insere ou met a jour des fichiers du miroir de session
+// (conflit = meme chemin dans la meme session).
+export async function upsertWorkspaceFiles({
+  accountId,
+  employeeId,
+  chatId,
+  missionId,
+  files,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  missionId: string | null;
+  files: ReadonlyArray<{
+    path: string;
+    content: string;
+    size: number;
+    sha256: string;
+  }>;
+}): Promise<void> {
+  if (files.length === 0) {
+    return;
+  }
+  try {
+    const db = await getDb();
+    for (const file of files) {
+      await db
+        .insert(workspaceFile)
+        .values({
+          accountId,
+          employeeId,
+          chatId,
+          path: file.path,
+          content: file.content,
+          size: file.size,
+          sha256: file.sha256,
+          missionId,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [
+            workspaceFile.accountId,
+            workspaceFile.employeeId,
+            workspaceFile.chatId,
+            workspaceFile.path,
+          ],
+          set: {
+            content: file.content,
+            size: file.size,
+            sha256: file.sha256,
+            missionId,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  } catch (_error) {
+    console.error("upsertWorkspaceFiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to save workspace files"
+    );
+  }
+}
+
+// Supprime du miroir de session les chemins absents du disque
+// (renommages, suppressions agent). Liste vide = le disque ne
+// montre rien : ne supprime RIEN (un workspace momentanement
+// vide ne doit jamais effacer la copie durable).
+export async function deleteStaleWorkspaceFiles({
+  accountId,
+  employeeId,
+  chatId,
+  keepPaths,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  keepPaths: ReadonlyArray<string>;
+}): Promise<number> {
+  if (keepPaths.length === 0) {
+    return 0;
+  }
+  try {
+    const db = await getDb();
+    const removed = await db
+      .delete(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId),
+          notInArray(workspaceFile.path, [...keepPaths])
+        )
+      )
+      .returning({ id: workspaceFile.id });
+    return removed.length;
+  } catch (_error) {
+    console.error("deleteStaleWorkspaceFiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to prune workspace files"
     );
   }
 }

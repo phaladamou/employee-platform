@@ -94,7 +94,15 @@ function StepRow({
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
-            <p className="min-w-0 flex-1 truncate text-[13px] font-medium text-foreground">
+            <p
+              className={cn(
+                "min-w-0 flex-1 truncate text-[13px] font-medium",
+                // Etape annoncee avant execution : le titre pulse
+                // jusqu'au resultat (le shimmer impose sa couleur,
+                // exclusif avec la couleur statique).
+                active ? "step-title-live" : "text-foreground"
+              )}
+            >
               {row.title ?? (row.tool ? toolLabel(row.tool) : "…")}
             </p>
             <StepStatusWord status={row.status} />

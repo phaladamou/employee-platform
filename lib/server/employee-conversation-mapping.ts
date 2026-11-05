@@ -23,6 +23,20 @@ export function textToParts(text: string): Array<{
   return [{ type: "text", text }];
 }
 
+/** Plafond du message d'accueil (premier message persiste). */
+export const GREETING_MAX_LENGTH = 500;
+
+// Normalise le message d'accueil envoye par le client (texte
+// affiche, deja traduit cote UI) : rogne, plafonne, refuse le
+// vide et le non-texte. NULL = rien a sauvegarder.
+export function normalizeGreetingInput(value: unknown): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const text = value.trim().slice(0, GREETING_MAX_LENGTH);
+  return text ? text : null;
+}
+
 export function partsToText(parts: unknown): string {
   if (!Array.isArray(parts)) {
     return "";

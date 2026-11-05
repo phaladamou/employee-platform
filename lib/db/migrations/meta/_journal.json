@@ -99,6 +99,27 @@
       "when": 1793768578331,
       "tag": "0013_large_hellfire_club",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1793837239115,
+      "tag": "0014_workspace_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1793838361001,
+      "tag": "0015_workspace_session_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1793839771548,
+      "tag": "0016_mission_plan",
+      "breakpoints": true
     }
   ]
 }

@@ -64,4 +64,43 @@ describe("EmployeeWorkspaces", () => {
     expect(await store.archive("emp_2")).toBeNull();
     expect(await readdir(join(dir, "workspaces", "archive"))).toHaveLength(1);
   });
+
+  it("isolates one directory per session, idempotently", async () => {
+    const { store } = await workspaces();
+
+    const sessionA = await store.acquireSession("emp_1", "session-a");
+    const sameA = await store.acquireSession("emp_1", "session-a");
+    const sessionB = await store.acquireSession("emp_1", "session-b");
+
+    expect(sameA).toBe(sessionA);
+    expect(sessionA.endsWith(join("workspaces", "emp_1", "session-a"))).toBe(true);
+    expect(sessionB.endsWith(join("workspaces", "emp_1", "session-b"))).toBe(true);
+    // Une session n'ecrase jamais sa voisine.
+    await writeFile(join(sessionA, "app.py"), "v1");
+    await writeFile(join(sessionB, "app.py"), "v2");
+    expect(await readFile(join(sessionA, "app.py"), "utf8")).toBe("v1");
+    expect(await readFile(join(sessionB, "app.py"), "utf8")).toBe("v2");
+  });
+
+  it("sanitizes hostile session ids", async () => {
+    const { store } = await workspaces();
+
+    expect(store.sessionPathOf("emp_1", "../../etc")).not.toContain("..");
+    expect(() => store.sessionPathOf("emp_1", "")).toThrow("cannot be empty");
+    const path = await store.acquireSession("emp_1", "a/b");
+    expect(path.endsWith(join("workspaces", "emp_1", "a_b"))).toBe(true);
+  });
+
+  it("archives sessions along with the employee directory", async () => {
+    const { store } = await workspaces();
+    const session = await store.acquireSession("emp_7", "session-a");
+    await writeFile(join(session, "work.log"), "evidence");
+
+    const archived = await store.archive("emp_7", new Date("2026-10-31T00:00:00.000Z"));
+
+    expect(archived).toContain(join("archive", "emp_7-2026-10-31T00-00-00-000Z"));
+    expect(await readFile(join(archived as string, "session-a", "work.log"), "utf8")).toBe(
+      "evidence"
+    );
+  });
 });

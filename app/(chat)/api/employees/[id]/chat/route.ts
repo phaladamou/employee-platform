@@ -14,17 +14,65 @@ import type { ReactLoopEventHandler } from "@/core/employee/runtime/react-loop";
 import {
   createEmployeeSession,
   createMission,
+  deleteStaleWorkspaceFiles,
   getEmployeeById,
   getEmployeeSession,
   getEmployeeSessions,
   getMessagesByChatId,
+  getMissionById,
+  listWorkspaceFilesDb,
   requireAccountId,
   saveEmployeeMessage,
   titleSessionFromFirstMessage,
   updateMission,
+  upsertWorkspaceFiles,
 } from "@/lib/db/queries";
 import { isMissionStatus } from "@/lib/employees/catalog";
+import { syncWorkspaceToDb } from "@/lib/engineering/workspace-sync";
 import {
+  invalidateWorkspaceTree,
+  workspacePathOf,
+} from "@/lib/engineering/workspace-store";
+
+// Processus de la derniere mission de la session (plan + appels
+// + statut) : le client restaure le panneau d'execution avec
+// (le processus fait partie de la reponse). NULL sans mission.
+async function loadLastMissionProcess(
+  accountId: string,
+  rows: ReadonlyArray<{ missionId: string | null }>
+): Promise<{
+  id: string;
+  status: string;
+  summary: string;
+  needsAcceptance: boolean;
+  toolCalls: unknown;
+  plan: unknown;
+} | null> {
+  let missionId: string | null = null;
+  for (let index = rows.length - 1; index >= 0; index -= 1) {
+    if (rows[index]?.missionId) {
+      missionId = rows[index].missionId;
+      break;
+    }
+  }
+  if (!missionId) {
+    return null;
+  }
+  const mission = await getMissionById(accountId, missionId);
+  if (!mission) {
+    return null;
+  }
+  return {
+    id: mission.id,
+    status: mission.status,
+    summary: mission.report ?? "",
+    needsAcceptance: mission.status === "needs_review",
+    toolCalls: mission.toolCalls,
+    plan: mission.plan,
+  };
+}
+import {
+  normalizeGreetingInput,
   partsToText,
   toDisplayRole,
 } from "@/lib/server/employee-conversation-mapping";
@@ -72,6 +120,7 @@ export async function GET(
           missionId: row.missionId,
           createdAt: row.createdAt.toISOString(),
         })),
+        lastMission: await loadLastMissionProcess(accountId, rows),
       });
     }
     const sessions = await getEmployeeSessions(session.user.id, id);
@@ -89,6 +138,7 @@ export async function GET(
         missionId: row.missionId,
         createdAt: row.createdAt.toISOString(),
       })),
+      lastMission: await loadLastMissionProcess(accountId, rows),
     });
   } catch (error) {
     console.error("GET /api/employees/[id]/chat Error:", error);
@@ -124,6 +174,9 @@ export async function POST(
   if (!message) {
     return NextResponse.json({ error: "Missing message" }, { status: 400 });
   }
+  // Accueil affiche par le client (deja traduit) : sauvegarde comme
+  // premier message si la session est encore vierge (voir ci-dessous).
+  const greeting = normalizeGreetingInput(body.greeting);
 
   try {
     const accountId = await requireAccountId(session.user.id);
@@ -143,6 +196,20 @@ export async function POST(
         });
     if (!conversation) {
       return NextResponse.json({ error: "Unknown session" }, { status: 404 });
+    }
+    // Ordre de sauvegarde : accueil (session vierge) PUIS message
+    // utilisateur PUIS reponse mission. Awaits sequentiels :
+    // `createdAt` distingue chaque ligne, le GET les rend dans cet
+    // ordre (aucune egalite de timestamp constatee en base).
+    if (greeting) {
+      const existing = await getMessagesByChatId({ id: conversation.id });
+      if (existing.length === 0) {
+        await saveEmployeeMessage({
+          chatId: conversation.id,
+          role: "assistant",
+          text: greeting,
+        });
+      }
     }
     await saveEmployeeMessage({
       chatId: conversation.id,
@@ -182,6 +249,7 @@ export async function POST(
         employeeRole: target.role,
         talentSpec: target.talentSpec,
         specVersion: target.specVersion,
+        sessionId: conversation.id,
         prompt: message,
         onEvent,
         signal: onEvent ? cancelSignal : undefined,
@@ -194,6 +262,7 @@ export async function POST(
           ).slice(0, 500),
           needsAcceptance: false,
           toolCalls: [],
+          plan: [],
         };
       });
       try {
@@ -204,8 +273,51 @@ export async function POST(
             status: outcome.status,
             report: outcome.summary || null,
             toolCalls: outcome.toolCalls,
+            plan: outcome.plan,
           },
         });
+        // Miroir durable : le travail de la session quitte son
+        // dossier local pour la base en ligne (scope session).
+        // Echec isole : une synchro en panne ne doit jamais avaler
+        // le resultat mission.
+        try {
+          await syncWorkspaceToDb({
+            dir: workspacePathOf(id, conversation.id),
+            store: {
+              list: async () =>
+                (
+                  await listWorkspaceFilesDb({
+                    accountId,
+                    employeeId: id,
+                    chatId: conversation.id,
+                  })
+                ).map((row) => ({ path: row.path, sha256: row.sha256 })),
+              upsert: async (files) =>
+                upsertWorkspaceFiles({
+                  accountId,
+                  employeeId: id,
+                  chatId: conversation.id,
+                  missionId: created.id,
+                  files,
+                }),
+              deleteNotIn: async (paths) =>
+                deleteStaleWorkspaceFiles({
+                  accountId,
+                  employeeId: id,
+                  chatId: conversation.id,
+                  keepPaths: paths,
+                }),
+            },
+          });
+          // Arbre disque frais a la prochaine lecture (l'IDE
+          // rebascule sur Files avec des fichiers a jour).
+          invalidateWorkspaceTree(accountId, id, conversation.id);
+        } catch (syncError) {
+          console.error(
+            "POST /api/employees/[id]/chat Sync Error:",
+            syncError
+          );
+        }
         // Reponse de mission dans le fil (texte vide + missionId =
         // needs_acceptance, libelle rendu cote client).
         await saveEmployeeMessage({

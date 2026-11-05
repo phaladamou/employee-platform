@@ -63,6 +63,7 @@
     "lib/employees/session-history.test.ts",
     "lib/engineering/cli-commands.test.ts",
     "lib/engineering/files.test.ts",
+    "lib/engineering/workspace-sync.test.ts",
     "lib/i18n/locale.test.ts",
     "lib/otp-email-template.test.ts",
     "lib/sidebar/nav-state.test.ts",

@@ -13,6 +13,7 @@ import {
   formatThoughtSecs,
   parseLegacyMissionResult,
   parseMissionMessage,
+  parseStoredPlan,
   progressFromRecords,
   resolveMissionDisplayStatus,
   toolLabel,
@@ -404,5 +405,69 @@ describe("tool presentation", () => {
     assert.equal(toolLabel("read_file"), "Read");
     assert.equal(toolLabel("protocol"), "Format");
     assert.equal(toolLabel("teleport"), "Teleport");
+  });
+});
+
+describe("parseStoredPlan", () => {
+  it("keeps non-empty strings, drops the rest", () => {
+    assert.deepEqual(parseStoredPlan(["a", "b"]), ["a", "b"]);
+    assert.deepEqual(parseStoredPlan(["a", "", "  ", 42, null, "b"]), [
+      "a",
+      "b",
+    ]);
+  });
+
+  it("fails closed on non-arrays and caps length", () => {
+    assert.deepEqual(parseStoredPlan(null), []);
+    assert.deepEqual(parseStoredPlan({ steps: ["a"] }), []);
+    assert.deepEqual(parseStoredPlan("a"), []);
+    assert.equal(parseStoredPlan(Array(30).fill("x")).length, 24);
+  });
+});
+
+describe("progressFromRecords files", () => {
+  const rows = [{ type: "add", oldNo: null, newNo: 1, text: "x" } as const];
+  const change = (path: string, status: "added" | "modified") => ({
+    path,
+    status,
+    added: 1,
+    removed: 0,
+    rows,
+    truncated: false,
+  });
+  it("restores file changes, last version per path", () => {
+    const out = progressFromRecords([
+      { tool: "write_file", ok: true, files: [change("a.py", "added")] },
+      { tool: "write_file", ok: true, files: [change("a.py", "modified")] },
+    ]);
+    assert.deepEqual(
+      out.changes.map((file) => [file.path, file.status]),
+      [["a.py", "modified"]]
+    );
+  });
+
+  it("skips a record with a malformed file, keeps the rest", () => {
+    const out = progressFromRecords([
+      { tool: "write_file", ok: true, files: [change("a.py", "added")] },
+      {
+        tool: "write_file",
+        ok: true,
+        files: [change("b.py", "added"), { path: "c.py" }],
+      },
+    ]);
+    assert.deepEqual(
+      out.changes.map((file) => file.path),
+      ["a.py"]
+    );
+  });
+
+  it("ignores missing or malformed files", () => {
+    const out = progressFromRecords([
+      { tool: "run_shell", ok: true },
+      { tool: "write_file", ok: true, files: "nope" },
+      { tool: "write_file", ok: true, files: [{ path: "a.py" }] },
+    ]);
+    assert.deepEqual(out.changes, []);
+    assert.equal(out.steps.length, 3);
   });
 });

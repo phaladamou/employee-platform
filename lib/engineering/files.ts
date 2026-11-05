@@ -24,6 +24,8 @@ export interface ActivityEntry {
   live?: boolean;
   /** Reflexion en cours : libelle traduit cote client. */
   thinking?: boolean;
+  /** Etape en cours d'execution : titre anime (jamais sur fichier). */
+  running?: boolean;
 }
 
 /** Plafond miroir du journal fichier (60 dernieres). */
@@ -84,6 +86,7 @@ export function liveActivityEntries(progress: {
     message: row.title ?? row.tool ?? `Step ${row.step}`,
     ok: row.status !== "failed",
     live: true,
+    running: row.status === "running",
   }));
   if (progress.thinkingStep !== null) {
     out.push({ ts: "", tool: "", message: "", ok: true, live: true, thinking: true });
@@ -119,6 +122,52 @@ export function formatActivityTime(ts: string): string {
 
 // Taille max servie par l'API fichier (socle : lecture seule).
 export const MAX_FILE_BYTES = 200_000;
+
+// Navigation auto des onglets IDE sur transition de run : le
+// demarrage ouvre Activity (suivi live), la fin ouvre Files
+// (travail termine). Transition -> onglet, sinon null (la
+// navigation manuelle en cours de run n'est jamais confisquee).
+export function nextIdeTabOnRunningChange(
+  wasRunning: boolean,
+  running: boolean
+): "activity" | "files" | null {
+  if (running && !wasRunning) {
+    return "activity";
+  }
+  if (!running && wasRunning) {
+    return "files";
+  }
+  return null;
+}
+
+// Cle du cache d'arbre disque (workspace-store) : une entree par
+// session (compte + employe + session) pour ne jamais melanger.
+export function workspaceTreeCacheKey(
+  accountId: string | undefined,
+  employeeId: string,
+  sessionId: string
+): string {
+  return accountId
+    ? `${accountId}:${employeeId}:${sessionId}`
+    : `${employeeId}:${sessionId}`;
+}
+
+// Fusionne l'arbre disque (frais, prioritaire) et le miroir DB
+// (durable, bouche les trous apres redeploiement) : union par
+// chemin, disque gagnant, tri par chemin.
+export function mergeWorkspaceEntries(
+  disk: ReadonlyArray<WorkspaceFileEntry>,
+  db: ReadonlyArray<WorkspaceFileEntry>
+): WorkspaceFileEntry[] {
+  const merged = new Map<string, WorkspaceFileEntry>();
+  for (const entry of db) {
+    merged.set(entry.path, entry);
+  }
+  for (const entry of disk) {
+    merged.set(entry.path, entry);
+  }
+  return [...merged.values()].sort((a, b) => a.path.localeCompare(b.path));
+}
 
 // Refuse les echappatoires (.. , absolu, segments vides).
 export function isSafeWorkspacePath(value: string): boolean {
@@ -225,6 +274,7 @@ export function createTtlCache<T>(
 ): {
   get: (key: string) => T | undefined;
   set: (key: string, value: T) => void;
+  remove: (key: string) => void;
   clear: () => void;
 } {
   const entries = new Map<string, { value: T; expiresAt: number }>();
@@ -242,6 +292,9 @@ export function createTtlCache<T>(
     },
     set(key, value) {
       entries.set(key, { value, expiresAt: now() + Math.max(0, ttlMs) });
+    },
+    remove(key) {
+      entries.delete(key);
     },
     clear() {
       entries.clear();

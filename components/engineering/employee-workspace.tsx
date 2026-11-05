@@ -109,8 +109,10 @@ export function EmployeeWorkspaceView({
   }, [goSession]);
   // Une seule mission a la fois par employe : le flux est partage
   // entre la discussion, le panneau GitHub et l'onglet Changes de
-  // l'IDE (timeline + fichiers en temps reel, meme source).
-  const mission = useMissionStream();
+  // l'IDE (timeline + fichiers en temps reel, meme source), mais
+  // scope par session active (un run en tache de fond n'ecrit pas
+  // dans la vue visitee).
+  const mission = useMissionStream(sessionId);
 
   if (!selected) {
     return (
@@ -237,8 +239,10 @@ export function EmployeeWorkspaceView({
         <div className="min-h-0 min-w-0 flex-1 lg:basis-[40%]">
           <EmployeeIde
             employeeId={selected.id}
-            key={`ide-${selected.id}-${newVersion}`}
+            key={`ide-${selected.id}-${sessionId ?? "new"}-${newVersion}`}
             missionProgress={mission.progress}
+            running={mission.running}
+            sessionId={sessionId}
           />
         </div>
       </div>

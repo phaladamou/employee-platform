@@ -403,16 +403,52 @@ export function emptyMissionProgress(): MissionProgressState {
   };
 }
 
-// Reconstruit une timeline terminee depuis les appels stockes
-// (onglet Historique : memes lignes, sans le live).
+// Revalide le plan stocke (JSON Mission.plan) : chaines non
+// vides uniquement, borne defensive, jamais d'exception.
+export function parseStoredPlan(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const steps: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !entry.trim()) {
+      continue;
+    }
+    steps.push(entry);
+    if (steps.length >= 24) {
+      break;
+    }
+  }
+  return steps;
+}
+
+// Reconstruit un processus termine depuis les appels stockes
+// (relecture : memes lignes, sans le live) : etapes + fichiers
+// modifies (onglet Changes restaure). Entrees malformees ignorees.
 export function progressFromRecords(
   records: ReadonlyArray<{
     tool: string;
     ok: boolean;
     title?: string;
     thoughtMs?: number;
+    files?: unknown;
   }>
 ): MissionProgressState {
+  const changes: MissionFileChange[] = [];
+  for (const record of records) {
+    const files = asFileChanges(record.files);
+    if (!files) {
+      continue;
+    }
+    for (const file of files) {
+      const at = changes.findIndex((change) => change.path === file.path);
+      if (at === -1) {
+        changes.push(file);
+      } else {
+        changes[at] = file;
+      }
+    }
+  }
   return {
     steps: records.map((record, index) => ({
       step: index + 1,
@@ -425,7 +461,7 @@ export function progressFromRecords(
     finalTitle: null,
     finalThoughtMs: null,
     failed: null,
-    changes: [],
+    changes,
     plan: [],
   };
 }

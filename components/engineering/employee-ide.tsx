@@ -22,6 +22,7 @@ import {
   formatActivityTime,
   languageForPath,
   liveActivityEntries,
+  nextIdeTabOnRunningChange,
   parseActivityLog,
   type ActivityEntry,
   type FileTreeNode,
@@ -88,9 +89,11 @@ function TreeNode({
 
 function FileViewer({
   employeeId,
+  sessionId,
   path,
 }: {
   employeeId: string;
+  sessionId: string | null;
   path: string;
 }) {
   const t = useTranslations("employees");
@@ -99,10 +102,12 @@ function FileViewer({
     content: string;
     truncated: boolean;
   }>(
-    `/api/employees/${encodeURIComponent(employeeId)}/files/${path
-      .split("/")
-      .map(encodeURIComponent)
-      .join("/")}`,
+    sessionId
+      ? `/api/employees/${encodeURIComponent(employeeId)}/files/${path
+          .split("/")
+          .map(encodeURIComponent)
+          .join("/")}?session=${encodeURIComponent(sessionId)}`
+      : null,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -139,9 +144,14 @@ function FileViewer({
   );
 }
 
-function useActivityEntries(employeeId: string) {
+function useActivityEntries(
+  employeeId: string,
+  sessionId: string | null
+) {
   const { data } = useSWR<{ content: string }>(
-    `/api/employees/${encodeURIComponent(employeeId)}/files/${ACTIVITY_LOG_PATH}`,
+    sessionId
+      ? `/api/employees/${encodeURIComponent(employeeId)}/files/${ACTIVITY_LOG_PATH}?session=${encodeURIComponent(sessionId)}`
+      : null,
     fetcher,
     { revalidateOnFocus: false, refreshInterval: 2000 }
   );
@@ -215,9 +225,13 @@ function ActivityTab({ entries }: { entries: ActivityEntry[] }) {
           <span
             className={cn(
               "min-w-0 flex-1 truncate text-[12px]",
-              entry.ok
-                ? "text-foreground"
-                : "text-red-600 dark:text-red-400"
+              // Etape en cours : titre anime (annonce avant
+              // execution), exclusif avec la couleur statique.
+              entry.live === true && entry.running === true
+                ? "step-title-live"
+                : entry.ok
+                  ? "text-foreground"
+                  : "text-red-600 dark:text-red-400"
             )}
           >
             {entry.thinking ? t("missionThinking") : entry.message}
@@ -277,22 +291,49 @@ function TerminalTab({ entries }: { entries: ActivityEntry[] }) {
 
 export function EmployeeIde({
   employeeId,
+  sessionId,
   missionProgress,
+  running,
 }: {
   employeeId: string;
+  sessionId: string | null;
   missionProgress: MissionProgressState;
+  /** Run en cours dans la session (flux scope) : pilote les onglets. */
+  running: boolean;
 }) {
   const t = useTranslations("employees");
-  const { data, error, isLoading } = useSWR<{ files: WorkspaceFileEntry[] }>(
-    `/api/employees/${encodeURIComponent(employeeId)}/files`,
+  const { data, error, isLoading, mutate } = useSWR<{
+    files: WorkspaceFileEntry[];
+  }>(
+    sessionId
+      ? `/api/employees/${encodeURIComponent(employeeId)}/files?session=${encodeURIComponent(sessionId)}`
+      : null,
     fetcher,
     { revalidateOnFocus: false, refreshInterval: 4000 }
   );
   const [selected, setSelected] = useState<string | null>(null);
   const [ideTab, setIdeTab] = useState<
     "files" | "changes" | "activity" | "terminal"
-  >("files");
-  const fileEntries = useActivityEntries(employeeId);
+  >(running ? "activity" : "files");
+  // Recharge le fichier affiche a la fin du run (contenu frais).
+  const [refreshKey, setRefreshKey] = useState(0);
+  const fileEntries = useActivityEntries(employeeId, sessionId);
+  // Navigation auto sur transition de run uniquement : demarrage
+  // -> Activity (suivi live), fin -> Files + relecture immediate
+  // (le serveur a invalide son cache apres synchro). La navigation
+  // manuelle en cours de run n'est jamais confisquee.
+  const wasRunningRef = useRef(running);
+  useEffect(() => {
+    const target = nextIdeTabOnRunningChange(wasRunningRef.current, running);
+    wasRunningRef.current = running;
+    if (target === "activity") {
+      setIdeTab("activity");
+    } else if (target === "files") {
+      setIdeTab("files");
+      void mutate();
+      setRefreshKey((value) => value + 1);
+    }
+  }, [running, mutate]);
   // Run en cours (ou termine) : l'onglet Activity suit le live
   // (meme source que la timeline, zero delai de poll) ; sinon il
   // retombe sur le journal fichier. Le Terminal reste sur le
@@ -320,6 +361,7 @@ export function EmployeeIde({
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
+          data-testid="ide-tab-files"
           onClick={() => setIdeTab("files")}
           type="button"
         >
@@ -333,6 +375,7 @@ export function EmployeeIde({
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
+          data-testid="ide-tab-changes"
           onClick={() => setIdeTab("changes")}
           type="button"
         >
@@ -351,6 +394,7 @@ export function EmployeeIde({
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
+          data-testid="ide-tab-activity"
           onClick={() => setIdeTab("activity")}
           type="button"
         >
@@ -370,6 +414,7 @@ export function EmployeeIde({
               ? "bg-muted text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
+          data-testid="ide-tab-terminal"
           onClick={() => setIdeTab("terminal")}
           type="button"
         >
@@ -411,7 +456,12 @@ export function EmployeeIde({
 
           <div className="flex min-h-0 flex-1 flex-col">
             {active ? (
-              <FileViewer employeeId={employeeId} path={active} />
+              <FileViewer
+                employeeId={employeeId}
+                key={`${active}-${refreshKey}`}
+                path={active}
+                sessionId={sessionId}
+              />
             ) : (
               <p className="p-4 text-[12px] text-muted-foreground">
                 {t("selectFile")}

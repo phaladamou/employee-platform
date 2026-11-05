@@ -1,7 +1,7 @@
 // components/engineering/github-mission-panel.tsx
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GithubIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -46,18 +46,44 @@ export function GithubMissionPanel({
   const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState<MissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
+
+  // Changement de session sans remontage : brouillon, resultat
+  // et erreur appartiennent a la session quittee.
+  useEffect(() => {
+    setPrompt("");
+    setResult(null);
+    setError(null);
+  }, [sessionId]);
 
   const run = async () => {
     const message = prompt.trim();
     if (!message || mission.running) return;
+    const sendSessionId = sessionId;
     setResult(null);
     setError(null);
     try {
       const outcome = await mission.run({
         employeeId: employee.id,
-        sessionId,
+        sessionId: sendSessionId,
         message,
+        // Meme contrat que la discussion : une session creee
+        // depuis GitHub commence par l'accueil de l'employe.
+        greeting:
+          sendSessionId === null
+            ? t("chatGreeting", { name: employee.name, role: employee.role })
+            : undefined,
       });
+      if (
+        sendSessionId !== null &&
+        sessionIdRef.current !== sendSessionId
+      ) {
+        // Navigation entre-temps : la reponse est en base, la
+        // liste se rafraichit, la vue visitee reste intacte.
+        onFailedSend();
+        return;
+      }
       onSessionResolved(outcome.sessionId);
       setResult({
         text:
