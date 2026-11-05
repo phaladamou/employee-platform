@@ -174,7 +174,7 @@ ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
 | Signal | Value | Source |
 |---|---|---|
 | Core tests (vitest) | **513 green / 514** in 54 files, ~20 s (1 env-gated: `emp-sandbox` needs `cargo build`, the CI builds it) | `pnpm test:employee` |
-| Web lib tests (`node --test`) | **241 green / 241** in 28 files, 64 suites, ~6 s (scope note below) | `lib/**`, `core/models` |
+| Web lib tests (`node --test`) | **250 green / 250** in 28 files, 69 suites, ~10 s (scope note below) | `lib/**`, `core/models` |
 | Native tests (Rust) | **27** (Ed25519, sandbox, Landlock) | `cargo test` in `rust/` |
 | Adversarial regression cases | **23 committed** (forged proofs, cross-tenant reads/writes, lying employees, shell escapes, …) | [docs/TESTING.md](docs/TESTING.md) §4 |
 | Test/code ratio (core) | ~11.8 k lines of tests for ~11.4 k lines of engine code | `core/employee/` |
@@ -187,8 +187,8 @@ ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
 
 ### Scoreboard
 
-- **781 / 782 tests green (99,9 %)**: 513/514 vitest (99,8 %, 1 env-gated),
-  241/241 `node --test` (100 %), 27/27 Rust (100 %).
+- **790 / 791 tests green (99,9 %)**: 513/514 vitest (99,8 %, 1 env-gated),
+  250/250 `node --test` (100 %), 27/27 Rust (100 %).
 - **50,9 % of core TypeScript is tests**: 11 829 lines of tests for
   11 424 lines of engine — the guarantee is executable, not aspirational.
 - **7 / 7 live LLM runs green (T1–T7)** on Meta Muse, on top of 12
@@ -206,7 +206,7 @@ ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
   triggers, 4 terminal job states — every number above traces to a
   file, a test, or a log quoted in [docs/TESTING.md](docs/TESTING.md).
 
-Scope note: the 241-count covers every `node --test`-runnable file and
+Scope note: the 250-count covers every `node --test`-runnable file and
 excludes two — `lib/db/talent-sync.test.ts` (runs inside the vitest
 suite instead) and `lib/ai/models.test.ts`, a pre-existing orphan that
 resolves its `@/` import under neither runner. The 27 Rust tests are
@@ -346,7 +346,7 @@ Expected result: `succeeded` + a report grounded in tool observations
 
 ## Project status
 
-- Core: 513 green vitest tests (+ 241 `node --test`, + 27 Rust),
+- Core: 513 green vitest tests (+ 250 `node --test`, + 27 Rust),
   zero-error `tsc`, live E2E validated with Muse (`muse-spark-1.3`,
   Meta Model API).
 - Web: Next.js + Tailwind + PostgreSQL (passwordless OTP auth —

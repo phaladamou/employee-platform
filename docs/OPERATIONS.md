@@ -256,6 +256,12 @@ session (`<workspaces>/<employeeId>/<sessionId>/`):
 - A session's welcome (greeting) message is persisted as the
   session's first message, so conversations restore in order:
   greeting → user → employee replies.
+- The run process is part of the answer: the announced plan is
+  stored on the mission (`Mission.plan`), steps and file diffs
+  ride in `Mission.toolCalls`. Revisiting a session restores the
+  execution panel (plan, timeline, Changes tab) from storage; the
+  IDE auto-opens Activity when a run starts and Files (refreshed)
+  when it ends.
 - Safety: a missing/empty disk workspace never wipes the mirror
   (`no-workspace` no-op, no delete on empty scan); `.git`, `archive/`,
   the activity log, binaries and files over 200 KB are never mirrored.
