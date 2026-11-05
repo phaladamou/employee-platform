@@ -29,7 +29,7 @@ The core talks to exactly one interface (`FetchLLMProvider`):
 
 ```bash
 # Any OpenAI-compatible endpoint follows the same three variables.
-EMPLOYEE_PROVIDER=muse            # or deepseek today; baseten next ( §4)
+EMPLOYEE_PROVIDER=muse            # or deepseek today; partner rails next (§4)
 MUSE_API_KEY=...
 MUSE_BASE_URL=https://api.meta.ai/v1
 MUSE_MODEL=muse-spark-1.3
@@ -54,19 +54,26 @@ calibration suite — never a rewrite.
   2026, so they live on self-hosted rails — same Baseten path as
   Glimmer.
 
-## 4. Baseten: the open-models rail (planned, mechanics known)
+## 4. Inference partners: serving Meta's open weights
 
-Baseten is the intended serving layer for every open Meta model in
-this project (Glimmer, Llama 4). Two shapes, both OpenAI-compatible,
-both pluggable into §2 with zero core changes:
+Three hackathon partners serve Meta's open-weights models (Glimmer
+30B, Llama 4 Scout & Maverick) behind OpenAI-compatible endpoints.
+Every one plugs into §2 with zero core changes — base URL + API
+key, same three-variable pattern:
 
-1. **Model APIs** (fastest): call hosted open models through
-   Baseten's OpenAI-compatible Chat Completions endpoint — base URL
-   + `BASETEN_API_KEY`, same three-variable pattern.
-2. **Dedicated deployments** (sovereign): ship Glimmer/Llama 4 to
-   Baseten on dedicated infra via Truss (`baseten model push`);
-   engine-based deployments expose `/v1/chat/completions`, so the
-   provider config just points at the deployment URL.
+1. **Baseten** ($100 credits + 2M TPM for select participants):
+   the primary open-models rail. Two shapes — **Model APIs**
+   (fastest: hosted open models through Baseten's Chat
+   Completions endpoint) and **dedicated deployments**
+   (sovereign: Truss, `baseten model push`, `/v1/chat/completions`
+   on our own infra).
+2. **Modal** ($100 credits): Meta open-weights models through
+   Endpoints, plus serverless GPUs, sandboxes, and LLM-training
+   tooling. Target role here: training/fine-tuning rail and
+   elastic sandbox compute next to the mission runtime.
+3. **Fireworks** ($100 credits + workshop): fast hosted inference
+   for Meta open-weights models. Target role: low-latency rail
+   for judges, intent routing, and summaries.
 
 Planned rollout, in order:
 
@@ -77,10 +84,11 @@ Planned rollout, in order:
    classifiers, summaries), frontier keeps plan-and-act until the
    evals say otherwise.
 4. Same path for Llama 4 Maverick (long-context missions) and
-   Scout (10 M-context specialist).
+   Scout (10 M-context specialist); Modal and Fireworks take the
+   training and low-latency lanes as the evals justify them.
 
-Status: not wired yet — the provider interface already accepts it,
-the eval harness (§5) decides when it lands.
+Status: not wired yet — the provider interface already accepts all
+three, the eval harness (§5) decides when each lands.
 
 ## 5. How new models keep landing (the ongoing process)
 

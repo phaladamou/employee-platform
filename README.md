@@ -18,6 +18,10 @@ and professional reputation. Each agent is no longer a disposable
 session, but a worker that accumulates experience and builds a verifiable,
 transferable track record across organizations.
 
+**Watch the demo** — Atlas at work (missions, streaming, verification):
+
+[![Employee demo — Atlas, Software Engineer](https://img.youtube.com/vi/N87luDVfEJk/maxresdefault.jpg)](https://www.youtube.com/watch?v=N87luDVfEJk)
+
 ## Why employees, why now
 
 **What an Employee is.** Not a chatbot, not a disposable agent session
@@ -169,12 +173,27 @@ How models plug in today and how new Meta releases keep landing
 (next: Glimmer eval vs Spark, task-based routing, per-mission cost
 ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
 
+**Inference partners for the hackathon.** Three rails serve Meta's
+open-weights models here — all OpenAI-compatible, all plugging into
+the same provider interface (Meta Model API for the frontier, partner
+rails for open weights):
+
+- **Baseten** — $100 in credits + 2M TPM rate limits for select
+  participants: the primary open-models rail (hosted Model APIs or
+  dedicated Truss deployments for Glimmer 30B and Llama 4).
+- **Modal** — $100 in credits: Meta open-weights models through
+  Endpoints, plus serverless GPUs, sandboxes, and LLM-training
+  tooling — the training + sandbox rail.
+- **Fireworks** — $100 in credits + a workshop (Sinan Ozdemir): fast
+  hosted inference for Meta open-weights models — the low-latency
+  rail for judges, intent routing, and summaries.
+
 ## In numbers
 
 | Signal | Value | Source |
 |---|---|---|
-| Core tests (vitest) | **513 green / 514** in 54 files, ~20 s (1 env-gated: `emp-sandbox` needs `cargo build`, the CI builds it) | `pnpm test:employee` |
-| Web lib tests (`node --test`) | **250 green / 250** in 28 files, 69 suites, ~10 s (scope note below) | `lib/**`, `core/models` |
+| Core tests (vitest) | **565 green / 566** in 58 files, ~20 s (1 env-gated: `emp-sandbox` needs `cargo build`, the CI builds it) | `pnpm test:employee` |
+| Web lib tests (`node --test`) | **256 green / 256** in 29 files, 70 suites, ~10 s (scope note below) | `lib/**`, `core/models` |
 | Native tests (Rust) | **27** (Ed25519, sandbox, Landlock) | `cargo test` in `rust/` |
 | Adversarial regression cases | **23 committed** (forged proofs, cross-tenant reads/writes, lying employees, shell escapes, …) | [docs/TESTING.md](docs/TESTING.md) §4 |
 | Test/code ratio (core) | ~11.8 k lines of tests for ~11.4 k lines of engine code | `core/employee/` |
@@ -187,8 +206,8 @@ ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
 
 ### Scoreboard
 
-- **790 / 791 tests green (99,9 %)**: 513/514 vitest (99,8 %, 1 env-gated),
-  250/250 `node --test` (100 %), 27/27 Rust (100 %).
+- **848 / 849 tests green (99,9 %)**: 565/566 vitest (99,8 %, 1 env-gated),
+  256/256 `node --test` (100 %), 27/27 Rust (100 %).
 - **50,9 % of core TypeScript is tests**: 11 829 lines of tests for
   11 424 lines of engine — the guarantee is executable, not aspirational.
 - **7 / 7 live LLM runs green (T1–T7)** on Meta Muse, on top of 12
@@ -206,7 +225,7 @@ ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
   triggers, 4 terminal job states — every number above traces to a
   file, a test, or a log quoted in [docs/TESTING.md](docs/TESTING.md).
 
-Scope note: the 250-count covers every `node --test`-runnable file and
+Scope note: the 256-count covers every `node --test`-runnable file and
 excludes two — `lib/db/talent-sync.test.ts` (runs inside the vitest
 suite instead) and `lib/ai/models.test.ts`, a pre-existing orphan that
 resolves its `@/` import under neither runner. The 27 Rust tests are
@@ -346,7 +365,7 @@ Expected result: `succeeded` + a report grounded in tool observations
 
 ## Project status
 
-- Core: 513 green vitest tests (+ 250 `node --test`, + 27 Rust),
+- Core: 565 green vitest tests (+ 256 `node --test`, + 27 Rust),
   zero-error `tsc`, live E2E validated with Muse (`muse-spark-1.3`,
   Meta Model API).
 - Web: Next.js + Tailwind + PostgreSQL (passwordless OTP auth —
