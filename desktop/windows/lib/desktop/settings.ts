@@ -83,9 +83,12 @@ export function saveDesktopSettings(
  */
 export function applyDesktopSettingsToEnv(settings: DesktopSettings): void {
   if (settings.llmApiKey) {
+    // Chat actuel (Muse) + consommateurs historiques (deepseek).
+    process.env.MUSE_API_KEY = settings.llmApiKey;
     process.env.DEEPSEEK_API_KEY = settings.llmApiKey;
   }
   if (settings.llmBaseUrl) {
+    process.env.MUSE_BASE_URL = settings.llmBaseUrl;
     process.env.OPENAI_BASE_URL = settings.llmBaseUrl;
   }
   if (settings.tavilyApiKey) {

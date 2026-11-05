@@ -6,7 +6,7 @@ import { InMemoryEventBus } from "../communication/in-memory-event-bus";
 import { CapabilityRegistry } from "../capabilities/capability-registry";
 import { createResearchCapability } from "../capabilities/research";
 import { LLMProviderRegistry } from "../models/llm-provider-registry";
-import { DeepSeekProvider } from "../models/providers/deepseek-provider";
+import { MuseProvider } from "../models/providers/muse-provider";
 import { AgentRuntime } from "./agent-runtime";
 
 export class CoreRuntime {
@@ -25,7 +25,7 @@ export class CoreRuntime {
     this.capabilities.register(researchCapability);
 
     this.llmProviders = new LLMProviderRegistry();
-    this.llmProviders.register(new DeepSeekProvider());
+    this.llmProviders.register(new MuseProvider());
 
     this.agents = new AgentRuntime();
   }

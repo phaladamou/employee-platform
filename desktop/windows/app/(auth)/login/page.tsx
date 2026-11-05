@@ -1,98 +1,17 @@
 // app/(auth)/login/page.tsx
 "use client";
 
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { useTranslations } from "next-intl";
-import { useActionState, useEffect, useRef, useState } from "react";
 
-import { AuthForm } from "@/components/workspace/auth-form";
-import { SubmitButton } from "@/components/workspace/submit-button";
-import { type LoginActionState, login } from "../actions";
+import { OtpLoginForm } from "@/components/workspace/otp-login-form";
 
 export default function Page() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/workspace";
   const t = useTranslations("auth");
-  const tErr = useTranslations("auth.errors");
   const isDesktopApp = process.env.NEXT_PUBLIC_DESKTOP === "1";
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isSuccessful, setIsSuccessful] = useState(false);
-  const [isRedirecting, setIsRedirecting] = useState(false);
-  const [inlineError, setInlineError] = useState<string | null>(null);
-  const processedRef = useRef<string | null>(null);
-
-  const [state, formAction] = useActionState<LoginActionState, FormData>(
-    login,
-    { status: "idle" }
-  );
-
-  useEffect(() => {
-    if (state.status === "idle" || state.status === "in_progress") {
-      return;
-    }
-
-    // Évite de traiter le même état deux fois
-    const stateKey = `${state.status}-${state.errorCode ?? ""}`;
-    if (processedRef.current === stateKey) {
-      return;
-    }
-    processedRef.current = stateKey;
-
-    if (state.status === "error" && state.errorCode) {
-      setInlineError(tErr(state.errorCode));
-      setIsSuccessful(false);
-      return;
-    }
-
-    if (state.status === "success") {
-      setIsSuccessful(true);
-      setInlineError(null);
-
-      signIn("credentials", {
-        email,
-        password,
-        redirect: false,
-      })
-        .then((result) => {
-          if (result?.error) {
-            setInlineError(tErr("wrong_password"));
-            setIsSuccessful(false);
-          } else {
-            setEmail("");
-            setPassword("");
-            setIsRedirecting(true);
-            router.push(callbackUrl);
-            router.refresh();
-          }
-        })
-        .catch(() => {
-          setInlineError(tErr("network_error"));
-          setIsSuccessful(false);
-        });
-    }
-  }, [state, email, password, router, callbackUrl, tErr]);
-
-  const handleSubmit = (formData: FormData) => {
-    setEmail(formData.get("email") as string);
-    setPassword(formData.get("password") as string);
-    setInlineError(null);
-    processedRef.current = null;
-    formAction(formData);
-  };
-
-  if (isRedirecting) {
-    return (
-      <div className="flex min-h-[400px] w-full flex-col items-center justify-center gap-4">
-        <div className="size-6 animate-spin rounded-full border-2 border-muted-foreground/20 border-t-foreground" />
-        <p className="text-[13px] text-muted-foreground">{t("pleaseWait")}</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex w-full flex-col">
@@ -107,17 +26,17 @@ export default function Page() {
 
       {!isDesktopApp && (
         <>
-          {/* OAUTH */}
+      {/* OAUTH */}
       <div className="mt-8 flex flex-col gap-2">
         <button
           type="button"
           onClick={() => signIn("github", { callbackUrl })}
           className="
             flex h-11 w-full items-center justify-center gap-2.5
-            rounded-lg bg-muted/40
+            rounded-lg border border-border bg-muted/60
             text-[13px] font-medium text-foreground
             transition-colors duration-150
-            hover:bg-muted/70
+            hover:bg-muted
           "
         >
           <svg className="size-[16px]" fill="currentColor" viewBox="0 0 24 24">
@@ -131,10 +50,10 @@ export default function Page() {
           onClick={() => signIn("google", { callbackUrl })}
           className="
             flex h-11 w-full items-center justify-center gap-2.5
-            rounded-lg bg-muted/40
+            rounded-lg border border-border bg-muted/60
             text-[13px] font-medium text-foreground
             transition-colors duration-150
-            hover:bg-muted/70
+            hover:bg-muted
           "
         >
           <svg className="size-[16px]" viewBox="0 0 24 24">
@@ -158,41 +77,12 @@ export default function Page() {
         </>
       )}
 
-      {/* INLINE ERROR */}
-      {inlineError && (
-        <div className="mb-3 rounded-lg border border-destructive/20 bg-destructive/5 px-3 py-2 text-[12px] text-destructive">
-          {inlineError}
-        </div>
-      )}
+      {/* OTP : email + code, sans mot de passe */}
+      <OtpLoginForm callbackUrl={callbackUrl} />
 
-      {/* FORM */}
-      <AuthForm action={handleSubmit} defaultEmail={email}>
-        <div className="mt-0.5">
-          <Link
-            href="/forgot-password"
-            className="
-              block text-right text-[11px] text-muted-foreground/70
-              transition-colors hover:text-foreground
-            "
-          >
-            {t("forgotPassword")}
-          </Link>
-        </div>
-
-        <SubmitButton isSuccessful={isSuccessful}>
-          {t("signIn")}
-        </SubmitButton>
-
-        <p className="mt-7 text-center text-[12.5px] text-muted-foreground">
-          {t("noAccount")}{" "}
-          <Link
-            href="/register"
-            className="font-medium text-foreground transition-colors hover:text-foreground/70"
-          >
-            {t("signUp")}
-          </Link>
-        </p>
-      </AuthForm>
+      <p className="mx-auto mt-7 max-w-[340px] text-center text-[12.5px] text-muted-foreground">
+        {t("signupHint")}
+      </p>
     </div>
   );
 }

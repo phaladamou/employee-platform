@@ -1,0 +1,1 @@
+ALTER TABLE "Mission" ADD COLUMN "plan" json DEFAULT '[]'::json NOT NULL;

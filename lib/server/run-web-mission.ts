@@ -8,6 +8,7 @@ import "server-only";
 
 import { resolve } from "node:path";
 
+import type { JobRunSignal } from "@/core/employee/jobs/job-signal";
 import {
   assignMission,
   createEmployeeMission,
@@ -22,6 +23,7 @@ import { loadProfileRegistry } from "@/core/employee/profiles/profile-registry";
 import { EmployeeRuntime } from "@/core/employee/runtime/employee-runtime";
 import { FetchLLMProvider } from "@/core/employee/runtime/fetch-llm-provider";
 import type { EmployeeLLMProvider } from "@/core/employee/runtime/llm-provider";
+import type { ReactLoopEventHandler } from "@/core/employee/runtime/react-loop";
 import { openFileStores } from "@/core/employee/stores/employee-stores";
 import { EmployeeWorkspaces } from "@/core/employee/workspaces/employee-workspaces";
 
@@ -71,6 +73,8 @@ export interface WebMissionResult {
   summary: string;
   needsAcceptance: boolean;
   toolCalls: ToolCallRecord[];
+  /** Plan annonce par l'agent ([] si aucun) : fait partie du resultat. */
+  plan: string[];
 }
 
 export async function runWebMission(input: {
@@ -80,7 +84,13 @@ export async function runWebMission(input: {
   employeeRole: string;
   talentSpec: string | null;
   specVersion: string | null;
+  /** Session (Chat) : son sandbox isole recoit le travail. */
+  sessionId: string;
   prompt: string;
+  /** Observateur live (stream NDJSON) : thinking, etapes, resultats. */
+  onEvent?: ReactLoopEventHandler;
+  /** Annulation (deconnexion client) : la mission termine "cancelled". */
+  signal?: JobRunSignal;
 }): Promise<WebMissionResult> {
   // Meme garde que partout : creation de fichier / bugfix exigent
   // des criteres declares. Le chat web n'en saisit pas : revue
@@ -98,6 +108,7 @@ export async function runWebMission(input: {
       summary: "",
       needsAcceptance: true,
       toolCalls: [],
+      plan: [],
     };
   }
 
@@ -108,7 +119,10 @@ export async function runWebMission(input: {
   const workspaces = new EmployeeWorkspaces({
     directory: resolve(process.env.EMPLOYEE_WORKSPACES_DIR ?? ".data/workspaces"),
   });
-  const workspaceRoot = await workspaces.acquire(input.employeeId);
+  const workspaceRoot = await workspaces.acquireSession(
+    input.employeeId,
+    input.sessionId
+  );
   const memory = new EmployeeMemory();
   const memoryStore = openFileStores(
     resolve(process.env.EMPLOYEE_DATA ?? ".data/employee"),
@@ -140,6 +154,15 @@ export async function runWebMission(input: {
     createEmployeeMission({ prompt: input.prompt }),
     profile.id
   );
+  // Le plan annonce fait partie du resultat : capture en continu
+  // (stream ou bloquant), transfere au live s'il est branche.
+  let announcedPlan: string[] = [];
+  const collectAndForward: ReactLoopEventHandler = async (event) => {
+    if (event.type === "plan") {
+      announcedPlan = [...event.steps];
+    }
+    await input.onEvent?.(event);
+  };
   const runtime = new EmployeeRuntime(provider, {
     toolContext: {
       sandboxRoot: resolve(process.env.EMPLOYEE_SANDBOX ?? ".data/workspace"),
@@ -155,6 +178,8 @@ export async function runWebMission(input: {
     memory,
     memoryStore,
     profiles: registry,
+    onEvent: collectAndForward,
+    signal: input.signal,
   });
 
   const result = await runtime.run(profile, mission);
@@ -169,23 +194,6 @@ export async function runWebMission(input: {
     summary: base ? `${base}\n\n${trace}` : trace,
     needsAcceptance: false,
     toolCalls: toStoredToolCalls(result.toolCalls ?? []),
+    plan: announcedPlan,
   };
-}
-
-export async function chatWithEmployee(input: {
-  employeeName: string;
-  employeeRole: string;
-  message: string;
-}): Promise<string> {
-  const provider = resolveProvider();
-  const response = await provider.generate({
-    messages: [
-      {
-        role: "system",
-        content: `You are ${input.employeeName}, ${input.employeeRole} at Employee. Answer concisely in the user's language. You are an AI employee, never claim to be human.`,
-      },
-      { role: "user", content: input.message },
-    ],
-  });
-  return response.content.trim();
 }

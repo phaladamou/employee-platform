@@ -1,0 +1,1 @@
+ALTER TABLE "Chat" DROP CONSTRAINT "Chat_user_employee_uniq";

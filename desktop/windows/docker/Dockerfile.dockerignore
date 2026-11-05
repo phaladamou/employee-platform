@@ -1,0 +1,23 @@
+# Companion ignore list for docker/Dockerfile. BuildKit reads
+# <Dockerfile>.dockerignore beside the Dockerfile (a plain
+# docker/.dockerignore would NOT be read), instead of the context
+# root's .dockerignore. The build COPYs only rust/{Cargo.toml,
+# Cargo.lock,src} and core/employee — everything below is context
+# weight it never touches.
+node_modules/
+.next/
+.git/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/
+artifacts/
+desktop/
+tests/
+.data/
+.tmp/
+*.log
+.env
+.env*.local
+.DS_Store

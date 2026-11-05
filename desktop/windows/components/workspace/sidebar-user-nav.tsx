@@ -14,11 +14,9 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import type { User as NextAuthUser } from "next-auth";
-import { signOut, useSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import { useLocale, useTranslations } from "next-intl";
-import { usePathname } from "next/navigation";
 import useSWR from "swr";
 
 import {
@@ -37,8 +35,11 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
+import { clearStickyUser } from "@/lib/auth/sticky-session";
+import { buildLocaleCookie } from "@/lib/i18n/locale";
 import { NotificationsBell } from "./notifications-bell";
 import { toast } from "./toast";
+import { useStickySession } from "./use-sticky-session";
 
 function getDisplayName(user?: NextAuthUser): string {
   if (!user) return "User";
@@ -117,25 +118,10 @@ const menuItemClass =
 
 export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
   const router = useRouter();
-  const pathname = usePathname();
   const locale = useLocale();
-  const { data: rawSession, status: rawStatus } = useSession();
-  const [cachedStatus, setCachedStatus] = useState(rawStatus);
-  const [cachedUser, setCachedUser] = useState(rawSession?.user);
-
-  useEffect(() => {
-    // Anti-flicker : ignore l'etat transitoire "loading", mais suit les
-    // transitions reelles dans les deux sens (sinon l'UI reste affichee
-    // "connectee" apres un logout).
-    if (rawStatus === "loading") {
-      return;
-    }
-    setCachedStatus(rawStatus);
-    setCachedUser(rawSession?.user);
-  }, [rawStatus, rawSession?.user]);
-
-  const status = cachedStatus;
-  const sessionData = { user: cachedUser };
+  // Sticky : une coupure serveur ne doit pas afficher l'etat "login".
+  // Seul un logout confirme (sonde serveur) fait basculer.
+  const { user: stickyUser, status } = useStickySession();
   const t = useTranslations("auth");
   const tMenu = useTranslations("userMenu");
 
@@ -154,16 +140,14 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
     }
   );
 
-  const currentUser = freshUser ?? sessionData?.user ?? user;
+  const currentUser = freshUser ?? stickyUser ?? user;
   const displayName = getDisplayName(currentUser);
 
   const changeLocale = (nextLocale: string) => {
-    const segments = pathname.split("/").filter(Boolean);
-    if (segments.length > 0 && ["en", "fr", "zh"].includes(segments[0])) {
-      segments.shift();
-    }
-    const nextPath = `/${nextLocale}${segments.length > 0 ? `/${segments.join("/")}` : ""}`;
-    router.push(nextPath);
+    // La langue est geree par cookie (NEXT_LOCALE), pas par URL :
+    // naviguer vers /fr/... rendrait une 404 (aucune route prefixee).
+    document.cookie = buildLocaleCookie(nextLocale);
+    window.location.reload();
   };
 
   if (status !== "authenticated") {
@@ -171,12 +155,15 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
-            className="h-10 cursor-pointer justify-between rounded-lg bg-transparent text-sidebar-foreground/50 transition-colors duration-150 hover:text-sidebar-foreground"
+            className="h-10 cursor-pointer rounded-lg bg-transparent text-sidebar-foreground/50 transition-colors duration-150 hover:text-sidebar-foreground group-data-[collapsible=icon]:mx-auto"
             onClick={() => router.push("/login")}
+            tooltip={t("login")}
           >
-            <div className="flex flex-row items-center gap-2">
-              <User className="size-4" />
-              <span className="text-[13px]">{t("login")}</span>
+            <div className="flex flex-1 flex-row items-center gap-2 group-data-[collapsible=icon]:justify-center">
+              <User className="size-4 shrink-0" />
+              <span className="text-[13px] group-data-[collapsible=icon]:hidden">
+                {t("login")}
+              </span>
             </div>
           </SidebarMenuButton>
         </SidebarMenuItem>
@@ -303,7 +290,34 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
                 <span className="flex-1">{tMenu("learnMore")}</span>
               </DropdownMenuSubTrigger>
 
-              <DropdownMenuSubContent align="end" className="w-52 rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl" sideOffset={4}>
+              <DropdownMenuSubContent align="end" className="max-h-80 w-52 overflow-y-auto rounded-xl border border-border/40 bg-card/95 p-1.5 shadow-[var(--shadow-float)] backdrop-blur-xl" sideOffset={4}>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/about")}
+                >
+                  <span className="flex-1">{tMenu("about")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/contact")}
+                >
+                  <span className="flex-1">{tMenu("contact")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/changelog")}
+                >
+                  <span className="flex-1">{tMenu("changelog")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/status")}
+                >
+                  <span className="flex-1">{tMenu("status")}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-2 my-1.5 bg-sidebar-border/40" />
+
                 <DropdownMenuItem
                   className={menuItemClass}
                   onClick={() => router.push("/terms")}
@@ -328,6 +342,72 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
                 >
                   <span className="flex-1">{tMenu("subProcessors")}</span>
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/retention")}
+                >
+                  <span className="flex-1">{tMenu("retention")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/acceptable-use")}
+                >
+                  <span className="flex-1">{tMenu("acceptableUse")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/legal-notice")}
+                >
+                  <span className="flex-1">{tMenu("legalNotice")}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-2 my-1.5 bg-sidebar-border/40" />
+
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/security")}
+                >
+                  <span className="flex-1">{tMenu("security")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/vulnerability-disclosure")}
+                >
+                  <span className="flex-1">{tMenu("disclosure")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/ai-governance")}
+                >
+                  <span className="flex-1">{tMenu("aiGovernance")}</span>
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="mx-2 my-1.5 bg-sidebar-border/40" />
+
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/careers")}
+                >
+                  <span className="flex-1">{tMenu("careers")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/press")}
+                >
+                  <span className="flex-1">{tMenu("press")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/partnerships")}
+                >
+                  <span className="flex-1">{tMenu("partnerships")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className={menuItemClass}
+                  onClick={() => router.push("/brand")}
+                >
+                  <span className="flex-1">{tMenu("brand")}</span>
+                </DropdownMenuItem>
               </DropdownMenuSubContent>
             </DropdownMenuSub>
 
@@ -337,6 +417,9 @@ export function SidebarUserNav({ user }: { user?: NextAuthUser }) {
             <DropdownMenuItem
               className="flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2 text-[13px] text-red-500 transition-colors hover:bg-red-500/10 focus:bg-red-500/10"
               onSelect={() => {
+                // Logout explicite : purge la reference sticky AVANT
+                // signOut, pour ne jamais reafficher l'etat connecte.
+                clearStickyUser();
                 // Pattern officiel NextAuth : signOut detruit la session
                 // puis recharge la page vers callbackUrl. Fallback vers
                 // /login si la requete echoue (aucun toast, aucun blocage).

@@ -20,7 +20,16 @@ export interface ActivityEntry {
   tool: string;
   message: string;
   ok: boolean;
+  /** Entree live (run en cours) : pulse, pas d'horodatage. */
+  live?: boolean;
+  /** Reflexion en cours : libelle traduit cote client. */
+  thinking?: boolean;
+  /** Etape en cours d'execution : titre anime (jamais sur fichier). */
+  running?: boolean;
 }
+
+/** Plafond miroir du journal fichier (60 dernieres). */
+export const LIVE_ACTIVITY_LIMIT = 60;
 
 /**
  * Parse le journal d'activite JSONL ecrit par les outils (une ligne
@@ -56,8 +65,109 @@ export function parseActivityLog(text: string, limit = 20): ActivityEntry[] {
   return out.slice(-Math.max(1, limit));
 }
 
+// Derive les entrees live depuis la progression partagee du run
+// (meme source que la timeline : titres agent, etats, reflexion
+// en cours, erreur terminale). Vide sans donnees de run : l'onglet
+// Activity retombe alors sur le journal fichier. Parametre
+// structurel : ce module reste sans dependance (node --test).
+export function liveActivityEntries(progress: {
+  readonly steps: ReadonlyArray<{
+    readonly step: number;
+    readonly title: string | null;
+    readonly tool: string | null;
+    readonly status: "running" | "ok" | "failed";
+  }>;
+  readonly thinkingStep: number | null;
+  readonly failed: string | null;
+}): ActivityEntry[] {
+  const out: ActivityEntry[] = progress.steps.map((row) => ({
+    ts: "",
+    tool: row.tool ?? "",
+    message: row.title ?? row.tool ?? `Step ${row.step}`,
+    ok: row.status !== "failed",
+    live: true,
+    running: row.status === "running",
+  }));
+  if (progress.thinkingStep !== null) {
+    out.push({ ts: "", tool: "", message: "", ok: true, live: true, thinking: true });
+  }
+  if (progress.failed) {
+    out.push({ ts: "", tool: "", message: progress.failed, ok: false, live: true });
+  }
+  return out.slice(-LIVE_ACTIVITY_LIMIT);
+}
+
+// Extrait la commande d'une ligne "Running: <cmd>" (run_shell).
+// Null pour tout autre format (jamais d'exception).
+export function extractShellCommand(message: string): string | null {
+  const prefix = "Running: ";
+  if (!message.startsWith(prefix)) {
+    return null;
+  }
+  const command = message.slice(prefix.length).trim();
+  return command ? command : null;
+}
+
+// Horodatage compact "HH:MM:SS" (heure locale), "" si illisible.
+export function formatActivityTime(ts: string): string {
+  if (!ts) {
+    return "";
+  }
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toTimeString().slice(0, 8);
+}
+
 // Taille max servie par l'API fichier (socle : lecture seule).
 export const MAX_FILE_BYTES = 200_000;
+
+// Navigation auto des onglets IDE sur transition de run : le
+// demarrage ouvre Activity (suivi live), la fin ouvre Files
+// (travail termine). Transition -> onglet, sinon null (la
+// navigation manuelle en cours de run n'est jamais confisquee).
+export function nextIdeTabOnRunningChange(
+  wasRunning: boolean,
+  running: boolean
+): "activity" | "files" | null {
+  if (running && !wasRunning) {
+    return "activity";
+  }
+  if (!running && wasRunning) {
+    return "files";
+  }
+  return null;
+}
+
+// Cle du cache d'arbre disque (workspace-store) : une entree par
+// session (compte + employe + session) pour ne jamais melanger.
+export function workspaceTreeCacheKey(
+  accountId: string | undefined,
+  employeeId: string,
+  sessionId: string
+): string {
+  return accountId
+    ? `${accountId}:${employeeId}:${sessionId}`
+    : `${employeeId}:${sessionId}`;
+}
+
+// Fusionne l'arbre disque (frais, prioritaire) et le miroir DB
+// (durable, bouche les trous apres redeploiement) : union par
+// chemin, disque gagnant, tri par chemin.
+export function mergeWorkspaceEntries(
+  disk: ReadonlyArray<WorkspaceFileEntry>,
+  db: ReadonlyArray<WorkspaceFileEntry>
+): WorkspaceFileEntry[] {
+  const merged = new Map<string, WorkspaceFileEntry>();
+  for (const entry of db) {
+    merged.set(entry.path, entry);
+  }
+  for (const entry of disk) {
+    merged.set(entry.path, entry);
+  }
+  return [...merged.values()].sort((a, b) => a.path.localeCompare(b.path));
+}
 
 // Refuse les echappatoires (.. , absolu, segments vides).
 export function isSafeWorkspacePath(value: string): boolean {
@@ -164,6 +274,7 @@ export function createTtlCache<T>(
 ): {
   get: (key: string) => T | undefined;
   set: (key: string, value: T) => void;
+  remove: (key: string) => void;
   clear: () => void;
 } {
   const entries = new Map<string, { value: T; expiresAt: number }>();
@@ -181,6 +292,9 @@ export function createTtlCache<T>(
     },
     set(key, value) {
       entries.set(key, { value, expiresAt: now() + Math.max(0, ttlMs) });
+    },
+    remove(key) {
+      entries.delete(key);
     },
     clear() {
       entries.clear();

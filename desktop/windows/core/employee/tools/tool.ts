@@ -1,0 +1,167 @@
+import { realpath } from "node:fs/promises";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
+
+import type { EmployeeComputer } from "../computer/employee-computer";
+import { createReadFileTool } from "./read-file";
+import { createWriteFileTool } from "./write-file";
+import { createRunShellTool } from "./run-shell";
+import { createGithubTools } from "./github";
+
+export interface ToolContext {
+  /** Racine partagee (repli quand workspaceRoot est absent). */
+  readonly sandboxRoot: string;
+  /**
+   * Dossier dedie de l'employe (<workspaces>/<employeeId>/). Quand il
+   * est pose, les trois outils s'y confinent ; sinon ils utilisent
+   * sandboxRoot (mode partage historique, tests, demo locale).
+   */
+  readonly workspaceRoot?: string;
+  /**
+   * Environnement des commandes shell. Jamais herite du processus hote :
+   * absent = environnement vide (les binaires doivent alors etre appeles
+   * par chemin absolu). L'hote ajoute explicitement ce qu'il autorise.
+   */
+  readonly env?: { readonly [variable: string]: string | undefined };
+  /**
+   * Chemin absolu du binaire `emp-sandbox` (Rust). Quand il est pose,
+   * `run_shell` execute via le sandbox (timeouts stricts, plafonds de
+   * sortie, rlimits Unix) ; quand le binaire est introuvable, repli
+   * silencieux sur Node `exec` (memes messages, meme contrat).
+   */
+  readonly sandboxBin?: string;
+  /**
+   * Mini-Ordinateur de l'employe, construit au demarrage du run depuis
+   * le bloc "computer" de sa spec. Absent = mode historique : run_shell
+   * sans restriction de binaires, memoire ni delai dedies.
+   */
+  readonly computer?: EmployeeComputer;
+}
+
+export type ToolArgs = {
+  readonly [key: string]: unknown;
+};
+
+export interface ToolResult {
+  readonly ok: boolean;
+  /** Resultat utile, ou message commencant par "Error: " si ok est faux. */
+  readonly output: string;
+}
+
+/**
+ * Contrat d'un outil appelable par la boucle de raisonnement : un nom
+ * stable, une description pour le LLM et une execution borne au sandbox.
+ */
+export interface EmployeeTool {
+  readonly name: string;
+  readonly description: string;
+  /** Forme JSON des arguments, lisible par le LLM. */
+  readonly argsDescription: string;
+  execute(args: ToolArgs, ctx: ToolContext): Promise<ToolResult>;
+}
+
+export function toolOk(output: string): ToolResult {
+  return { ok: true, output };
+}
+
+export function toolFail(reason: string): ToolResult {
+  return { ok: false, output: `Error: ${reason}` };
+}
+
+function escapesWorkspace(base: string, target: string): boolean {
+  const rel = relative(base, target);
+
+  return rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+}
+
+function isEnoent(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "ENOENT"
+  );
+}
+
+/**
+ * Resout un chemin fourni par le LLM dans le sandbox et retourne le
+ * chemin REEL (symlinks resolves). Leve si le chemin s'echappe de la
+ * racine, lexicalement (..) ou via symlink. Echec ferme sur toute autre
+ * anomalie (boucle de liens, permission...).
+ *
+ * Limite connue : race TOCTOU acceptee (lien replante entre controle et
+ * usage) — acceptable pour un outil local supervise, pas pour du
+ * multi-tenant hostile.
+ */
+export async function resolveWithinRoot(
+  root: string,
+  userPath: string
+): Promise<string> {
+  const base = resolve(root);
+  const lexical = resolve(base, userPath);
+
+  if (escapesWorkspace(base, lexical)) {
+    throw new Error(`path escapes the workspace: ${userPath}`);
+  }
+
+  let realBase: string;
+
+  try {
+    realBase = await realpath(base);
+  } catch {
+    // Racine absente : aucun symlink n'existe encore, le controle
+    // lexical suffit (les outils echoueront ensuite en ENOENT).
+    return lexical;
+  }
+
+  let current = lexical;
+  const missing: string[] = [];
+
+  for (;;) {
+    try {
+      const realCurrent = await realpath(current);
+      const real =
+        missing.length > 0 ? join(realCurrent, ...missing) : realCurrent;
+
+      if (escapesWorkspace(realBase, real)) {
+        throw new Error(`path escapes the workspace: ${userPath}`);
+      }
+
+      return real;
+    } catch (error) {
+      if (!isEnoent(error)) {
+        throw new Error(`path escapes the workspace: ${userPath}`);
+      }
+
+      const parent = dirname(current);
+
+      if (parent === current) {
+        return lexical;
+      }
+
+      missing.unshift(current.slice(parent.length + 1));
+      current = parent;
+    }
+  }
+}
+
+/**
+ * Racine de confinement effective : le workspace dedie quand il est
+ * pose, sinon la racine partagee. SEUL point de decision : tous les
+ * outils passent par ici, aucun ne lit sandboxRoot directement.
+ */
+export function toolRoot(ctx: ToolContext): string {
+  return ctx.workspaceRoot ?? ctx.sandboxRoot;
+}
+
+/**
+ * Tous les outils disponibles d'un Employee. Les profils restreignent
+ * via allowedTools + permissions (resolveToolsForProfile).
+ */
+export function createCoreTools(): EmployeeTool[] {
+  return [
+    createReadFileTool(),
+    createWriteFileTool(),
+    createRunShellTool(),
+    ...createGithubTools(),
+  ];
+}

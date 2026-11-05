@@ -1,5 +1,6 @@
 // lib/engineering/files.test.ts
-// Contrat des helpers IDE (arbre + langage + securite chemins).
+// Contrat des helpers IDE (arbre + langage + securite chemins +
+// journal d'activite fichier et live).
 // Execution : node --test lib/engineering/files.test.ts
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
@@ -7,9 +8,15 @@ import assert from "node:assert/strict";
 import {
   buildFileTree,
   createTtlCache,
+  extractShellCommand,
+  formatActivityTime,
   isSafeWorkspacePath,
   languageForPath,
+  liveActivityEntries,
+  mergeWorkspaceEntries,
+  nextIdeTabOnRunningChange,
   parseActivityLog,
+  workspaceTreeCacheKey,
 } from "./files.ts";
 
 describe("isSafeWorkspacePath", () => {
@@ -111,5 +118,170 @@ describe("createTtlCache", () => {
     cache.set("a", "v");
     cache.clear();
     assert.equal(cache.get("a"), undefined);
+  });
+});
+
+describe("extractShellCommand", () => {
+  it("extrait la commande des lignes Running", () => {
+    assert.equal(extractShellCommand("Running: ls -la"), "ls -la");
+    assert.equal(extractShellCommand("Running:   python3 x.py  "), "python3 x.py");
+  });
+
+  it("rend null pour les autres formats", () => {
+    assert.equal(extractShellCommand("Reading a.txt..."), null);
+    assert.equal(extractShellCommand("Running:"), null);
+    assert.equal(extractShellCommand("Running:   "), null);
+    assert.equal(extractShellCommand(""), null);
+  });
+});
+
+describe("formatActivityTime", () => {
+  it("formate HH:MM:SS en heure locale", () => {
+    const out = formatActivityTime("2026-11-04T14:23:05.123Z");
+    assert.match(out, /^\d{2}:\d{2}:\d{2}$/);
+  });
+
+  it("rend chaine vide si illisible", () => {
+    assert.equal(formatActivityTime(""), "");
+    assert.equal(formatActivityTime("nope"), "");
+  });
+});
+
+describe("liveActivityEntries", () => {
+  it("rend vide sans donnees de run", () => {
+    assert.deepEqual(
+      liveActivityEntries({ steps: [], thinkingStep: null, failed: null }),
+      []
+    );
+  });
+
+  it("mappe les etapes (titre agent, outil, etat)", () => {
+    assert.deepEqual(
+      liveActivityEntries({
+        steps: [
+          { step: 1, title: "Fork du dépôt", tool: "github_fork", status: "ok" },
+          { step: 2, title: null, tool: "run_shell", status: "running" },
+          { step: 3, title: null, tool: null, status: "failed" },
+        ],
+        thinkingStep: null,
+        failed: null,
+      }),
+      [
+        {
+          ts: "",
+          tool: "github_fork",
+          message: "Fork du dépôt",
+          ok: true,
+          live: true,
+          running: false,
+        },
+        {
+          ts: "",
+          tool: "run_shell",
+          message: "run_shell",
+          ok: true,
+          live: true,
+          running: true,
+        },
+        {
+          ts: "",
+          tool: "",
+          message: "Step 3",
+          ok: false,
+          live: true,
+          running: false,
+        },
+      ]
+    );
+  });
+
+  it("ajoute la reflexion en cours et l'erreur terminale", () => {
+    assert.deepEqual(
+      liveActivityEntries({ steps: [], thinkingStep: 2, failed: "boom" }),
+      [
+        { ts: "", tool: "", message: "", ok: true, live: true, thinking: true },
+        { ts: "", tool: "", message: "boom", ok: false, live: true },
+      ]
+    );
+  });
+
+  it("garde les 60 dernieres entrees", () => {
+    const steps = Array.from({ length: 70 }, (_, i) => ({
+      step: i + 1,
+      title: `Etape ${i + 1}`,
+      tool: "run_shell" as const,
+      status: "ok" as const,
+    }));
+    const out = liveActivityEntries({
+      steps,
+      thinkingStep: null,
+      failed: null,
+    });
+    assert.equal(out.length, 60);
+    assert.equal(out[0].message, "Etape 11");
+  });
+});
+
+describe("mergeWorkspaceEntries", () => {
+  it("unit disque et DB, disque prioritaire, tri par chemin", () => {
+    const out = mergeWorkspaceEntries(
+      [
+        { path: "b.py", size: 20 },
+        { path: "a.py", size: 10 },
+      ],
+      [
+        { path: "a.py", size: 999 },
+        { path: "legacy.py", size: 5 },
+      ]
+    );
+    assert.deepEqual(
+      out.map((entry) => entry.path),
+      ["a.py", "b.py", "legacy.py"]
+    );
+    assert.equal(out[0]?.size, 10);
+  });
+
+  it("disque vide -> plein miroir DB (apres redeploiement)", () => {
+    const out = mergeWorkspaceEntries([], [{ path: "a.py", size: 3 }]);
+    assert.deepEqual(out, [{ path: "a.py", size: 3 }]);
+  });
+});
+
+describe("nextIdeTabOnRunningChange", () => {
+  it("ouvre Activity au demarrage, Files a la fin", () => {
+    assert.equal(nextIdeTabOnRunningChange(false, true), "activity");
+    assert.equal(nextIdeTabOnRunningChange(true, false), "files");
+  });
+
+  it("laisse la navigation manuelle tranquille sinon", () => {
+    assert.equal(nextIdeTabOnRunningChange(false, false), null);
+    assert.equal(nextIdeTabOnRunningChange(true, true), null);
+  });
+});
+
+describe("workspaceTreeCacheKey", () => {
+  it("scope par compte, employe et session", () => {
+    assert.equal(
+      workspaceTreeCacheKey("acc", "emp", "s1"),
+      "acc:emp:s1"
+    );
+    assert.equal(workspaceTreeCacheKey(undefined, "emp", "s1"), "emp:s1");
+    assert.notEqual(
+      workspaceTreeCacheKey("acc", "emp", "s1"),
+      workspaceTreeCacheKey("acc", "emp", "s2")
+    );
+  });
+});
+
+describe("createTtlCache remove", () => {
+  it("supprime une entree sans toucher aux autres", () => {
+    const cache = createTtlCache<string>(5000);
+    cache.set("a", "1");
+    cache.set("b", "2");
+    cache.remove("a");
+    assert.equal(cache.get("a"), undefined);
+    assert.equal(cache.get("b"), "2");
+    cache.remove("absente");
+    assert.equal(cache.get("b"), "2");
   });
 });

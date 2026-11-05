@@ -91,11 +91,11 @@ export class ResearcherAgent implements Agent {
     }
 
     const llm =
-      this.context.llmProviders.get("deepseek");
+      this.context.llmProviders.get("muse");
 
     if (!llm) {
       throw new Error(
-        "DeepSeek provider is not available"
+        "Muse provider is not available"
       );
     }
 
@@ -301,7 +301,7 @@ export class ResearcherAgent implements Agent {
           {
             role: "system",
             content: [
-              "You are the scientific research agent of Scientia Labs.",
+              "You are the scientific research agent of the Employee platform.",
               "",
               "Your task is to produce a rigorous, evidence-aware scientific synthesis.",
               "",

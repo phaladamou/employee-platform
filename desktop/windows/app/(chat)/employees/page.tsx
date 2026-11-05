@@ -1,4 +1,4 @@
-// desktop/windows/app/(chat)/employees/page.tsx
+// app/(chat)/employees/page.tsx
 "use client";
 
 import {
@@ -28,8 +28,8 @@ type EmployeesResponse = {
 
 const DEPARTMENT_ICONS: Record<string, LucideIcon> = {
   engineering: Code2Icon,
-  marketing: MegaphoneIcon,
-  research: FlaskConicalIcon,
+  "research-data": FlaskConicalIcon,
+  operations: MegaphoneIcon,
 };
 
 export default function EmployeesPage() {
@@ -51,20 +51,26 @@ export default function EmployeesPage() {
   const departmentName = (id: string) =>
     id === "engineering"
       ? t("departments.engineering.name")
-      : id === "marketing"
-        ? t("departments.marketing.name")
-        : t("departments.research.name");
+      : id === "research-data"
+        ? t("departments.research-data.name")
+        : id === "operations"
+          ? t("departments.operations.name")
+          : id;
 
   const departmentDescription = (id: string) =>
     id === "engineering"
       ? t("departments.engineering.description")
-      : id === "marketing"
-        ? t("departments.marketing.description")
-        : t("departments.research.description");
+      : id === "research-data"
+        ? t("departments.research-data.description")
+        : id === "operations"
+          ? t("departments.operations.description")
+          : "";
 
-  const openRecruitPage = (departmentId: string) => {
+  const openRecruitPage = (departmentId?: string) => {
     router.push(
-      `/employees/recruit?department=${encodeURIComponent(departmentId)}`
+      departmentId
+        ? `/employees/recruit?department=${encodeURIComponent(departmentId)}`
+        : "/employees/recruit"
     );
   };
 
@@ -90,7 +96,7 @@ export default function EmployeesPage() {
           </div>
           <Button
             disabled={isLoading || !data}
-            onClick={() => openRecruitPage(departmentIds[0] ?? "engineering")}
+            onClick={() => openRecruitPage()}
             type="button"
             variant="brand"
           >
@@ -159,7 +165,11 @@ export default function EmployeesPage() {
                   ) : (
                     <div className="mt-5 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                       {members.map((employee) => (
-                        <EmployeeCard employee={employee} key={employee.id} />
+                        <EmployeeCard
+                          employee={employee}
+                          key={employee.id}
+                          onTerminated={() => mutate()}
+                        />
                       ))}
                     </div>
                   )}

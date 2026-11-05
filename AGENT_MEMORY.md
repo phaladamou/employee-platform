@@ -767,6 +767,130 @@ Leçons dures :
   (unions). tsc 0, 63/63 node ciblés.
 - Pages légales EN hardcodé = choix assumé (by design) ;
   l'utilisateur signalera s'il veut les traduire un jour.
+- Slugs + multi-sessions (2026-11-03, non commité) :
+  /departments/<dept>/<slug>[/<sessionId>] (slugify nom,
+  UUID accepté, ?employee= redirigé). Migration 0013 : drop
+  UNIQUE Chat(user,employé) ; fil historique = session 1.
+  Sessions API + chat ?session= (POST sans session = crée,
+  titre auto du 1er message, header x-employee-session pour
+  le stream). Rail sessions + New chat (création paresseuse
+  au 1er envoi). tsc 0, 47/47 node ciblés.
+  Vocabulaire : "session" partout côté employé (pas "chat",
+  ce n'est pas un chatbot) ; /atlas ouvre une session vierge.
+  Mot "chat" banni de toute la page employé (onglet
+  Session, salutation, placeholder, hints) EN/FR/ZH — zéro
+  occurrence restante dans le namespace employees.
+- Timeline mission live (2026-11-04, non commité) : l'agent
+  écrit le titre de chaque étape (ligne `STEP:` optionnelle,
+  parsée avant la directive, bornée 120 car., prompt noyau
+  mis à jour). Boucle ReAct émet thinking/step/tool_result/
+  final/error via `onEvent` (contre-pression : attendu) ;
+  outil inconnu ou hors protocole = tool_result ok:false
+  (pseudo-outil "protocol" pour le format). Titres persistés
+  (ReactToolCall.title → Mission.toolCalls JSON, revalidation
+  douce). Route chat mission + `?stream=1` → NDJSON live +
+  ligne `done` (charge JSON habituelle) ; déconnexion =
+  InMemoryJobSignal → "cancelled". UI : hook partagé
+  use-mission-stream + MissionTimeline (Session mission,
+  GitHub, Historique via progressFromRecords), clé
+  `missionThinking` EN/FR/ZH. Protocole pur testé
+  (lib/employees/mission-events.ts + test). tsc 0,
+  68/68 vitest runtime, 513/514 suite (1 env
+  emp-sandbox, cargo absent), 25/25 node ciblés.
+- Fix "Couldn't send" mission (2026-11-04, non commité) :
+  client + serveur désync possibles (vieux serveur = JSON
+  bloquant sans `done`). Durcissements : repli legacy
+  (parseLegacyMissionResult + test) quand le flux n'a pas
+  de `done`, `done` toujours émis même si updateMission/
+  saveEmployeeMessage jette (payload sur la ligne créée,
+  erreur loguée "Persist Error"), logs console ciblés
+  (statut HTTP + extrait, octets reçus). Vérifié :
+  updateMission renvoie Mission|null (validation `done`
+  saine). Si ça persiste : redémarrer `pnpm dev` + hard
+  refresh, lire la console navigateur.
+  Suite (2e signalement) : mécanique stream prouvée OK en
+  isolation (/tmp/stream-probe.mjs : TransformStream →
+  Response → lecteur morcelé → 6/6 messages + done).
+  Hypothèse n°1 = base non migrée (0012 : Chat.employeeId,
+  Message_v2.missionId, Mission.toolCalls ; `dev` ne migre
+  pas, seul `build` le fait) → POST 500 + historique vide
+  silencieux (cohérent avec la capture : salutation seule).
+  Correctif demandé : `pnpm db:migrate` + restart + refresh.
+  Preuve DB impossible d'ici (sandbox sans egress, DNS KO).
+- Fix message envoye invisible (2026-11-04, non commité) :
+  deux causes : onglets démontés au changement (discussion +
+  mission live détruites) et effet historique re-déclenché
+  par chaque re-rendu parent (callback inline) → reset à
+  la salutation sans session. Correctifs : onglets toujours
+  montés (inactifs `hidden`), effet gardé par clé
+  employé:session, callbacks parent stables (useCallback
+  avant le retour anticipé), New = remontage via newVersion
+  (marche même sans session), onFailedSend → refresh liste
+  sessions (session orpheline visible). Testids e2e :
+  employee-messages, employee-message-<role>,
+  employee-send-error, workspace-tab-<id>. Pas de spec e2e
+  (même raison que terminate : auth OTP sans bypass, pas
+  de seed). tsc 0.
+- Fix refus fantome Atlas (2026-11-04, non commité) : en
+  discussion simple (Mission décochée), le modèle sans outils
+  improvisait "je ne peux pas forker" + instructions manuelles.
+  Les deux prompts miroirs (streamEmployeeReply +
+  chatWithEmployee) redirigent vers Mission / onglet GitHub
+  au lieu de refuser. Rappel : fork réel = Mission cochée
+  (ou onglet GitHub) + compte GitHub connecté (PAT classic
+  `repo`, `ghu_*` ne forke pas). tsc 0, pas de test (texte
+  de prompt, aucun harnais d'assertion LLM).
+- Onglet Changes IDE + Thought for Xs (2026-11-04, non
+  commité) : boucle mesure thoughtMs (step/final) et suit
+  les ecritures write_file (contenu avant capture
+  best-effort, diff Myers pur file-diff.ts + test, statuts
+  added/modified, bornes 400 lignes/10 Mo). Pas d'outil
+  edit_file dans le noyau : seul write_file est suivi
+  (shell/clone non attribuables, exclus volontairement —
+  un clone inonderait l'onglet). tool_result.files live +
+  persistés (ToolCallRecord + tests), useMissionStream
+  remonté au workspace (chat + GitHub + IDE même source,
+  temps réel sans polling). IDE : onglets Fichiers/Changes
+  (badge compteur, liste +N/-M, diff au clic, tronqué
+  signalé). Timeline : "Thought for Xs" par étape + final
+  (serveur, persisté, rejoué en Historique). i18n
+  employees EN/FR/ZH (ideFilesTab, ideChangesTab,
+  changesEmpty, changesTruncated, thoughtFor). Tests : 7
+  file-diff, runtime 76/76 ciblés, node 48/48,
+  suite 521/522 (1 env emp-sandbox), tsc 0. Navigateur
+  non vérifiable d'ici (pas de chromium, sandbox sans
+  listen) : vérification manuelle demandée.
+- Work Environment P1+P2+statuts (2026-11-04, non commité,
+  moteur intact) : IDE 4 onglets (Fichiers, Modifications,
+  Activité structurée heure+pastille+état, Terminal
+  commandes run_shell — sorties stdout/stderr IMPOSSIBLES
+  sans moteur : journal ne log que "Running: <cmd>"
+  120 car., ni sortie ni code retour ; phase moteur
+  ultérieure). Centre : MissionExecutionPanel (bannière
+  Running/Succeeded+preuves/Failed+extrait/Cancelled/
+  Needs review, Retry sauf needs_review déterministe,
+  Inspect détail) + timeline numérotée avec mots d'état
+  (Done/Running/Failed) ; discussion en dessous, plus de
+  bulle d'attente mission (réponse ajoutée à la fin).
+  Étapes "Pending" impossibles sans plan moteur (omises).
+  Hook : outcome + lastPrompt. Cancelled dérivé de la
+  sentinelle "cancelled" (resolveMissionDisplayStatus +
+  test). Blocked reporté (exige le moteur). i18n employees
+  EN/FR/ZH (+cancelled, terminal, retry/inspect, step*).
+  Tests : node 81/81, tsc 0 (vitest non relancé : zéro
+  changement core).
+- Fix fuite historique Chef/Atlas (2026-11-04, non commité) :
+  table Chat partagee, employeeId NULL = chat libre, mais
+  getChatsByUserId ne filtrait que userId → sessions Atlas
+  dans l'historique Chef. Correctif : userMainChatsCondition
+  (schema.ts) appliqué à getChatsByUserId, deleteAll-
+  ChatsByUserId (sinon "tout supprimer" wipe Atlas),
+  getFirstChatIdForUser (accueil Chef) et /api/search
+  (titres + messages). Laissés : deleteUserById (wipe
+  compte volontaire), getUserStats (sémantique produit),
+  getChatById/deleteChatById (adressage par id).
+  Test SQL via mock pg-proxy (lib/db/chat-scope.test.ts,
+  exclu tsc). Test 1/1, tsc 0.
 
 ## 10. Conventions et environnement (rappel)
 
@@ -818,3 +942,54 @@ Leçons dures :
   Jetable sans regret : `.data/` (scratch ~20 Ko), `/tmp/*`
   (replays, toolchains, logs), `MEMORY.md` privé + logs de
   sessions (`~/.local/share/muse/`, machine-locaux).
+- Mode unique Atlas + PLAN (2026-11-04, non commité,
+  MOTEUR TOUCHÉ — exception accordée : le plan écrit avant
+  d'agir est un comportement noyau) : protocole PLAN:
+  (JSON ou lignes numérotées, 12 étapes max, 140 car.,
+  parsePlanTurn + tests, consigne prompt avec repli small
+  talk) ; boucle : tour 1 = plan (event `plan` + observation
+  "Plan recorded", puis exécution), tours suivants
+  inchangés ; export index. Web : event plan dans
+  mission-events (parse/reduce, plan live non persisté),
+  PlanBlock dans MissionExecutionPanel (En attente →
+  Terminé si succès). Fusion : checkbox Mission supprimée,
+  chaque message = boucle agentique ; SUPPRIMÉS
+  lib/server/employee-chat-stream.ts, chatWithEmployee,
+  persistStreamBody ; i18n -5 clés (missionLabel,
+  chatPlaceholder, sendLabel, chatThinking,
+  chatMissionRunning) +planTitle, chatGreeting/historyEmpty
+  réécrits (3 locales). Plan non persisté (live seul).
+  Tests : vitest 531/532 (1 env emp-sandbox), natifs 81/81,
+  tsc 0.
+- Ordre chrono session (2026-11-04, non commité) : le panneau
+  d'exécution vivait AU-DESSUS de la discussion (plan affiché
+  avant le message). Déplacé DANS le flux après les messages
+  (bordure haute, plus de scroll imbriqué), suivi auto du bas
+  pendant un run sauf remontée volontaire (stick 120px).
+  Ordre : message → plan → timeline → réponse. tsc 0.
+- Stabilisation discussion + Activity live (2026-11-04, non
+  comité) : RACE historique/envoi — un fetch historique qui
+  aboutit pendant un envoi écrasait les optimistes (réponse
+  visible, message envoyé perdu). Fix : époques d'envoi
+  (fetch périmé ignoré) + garde StrictMode (cleanup libère
+  la clé, le double montage dev n'avale plus le chargement)
+  + fin d'envoi après navigation (ni vue ni URL touchées,
+  liste rafraîchie). Mapping extrait mapSessionHistory
+  (session-history.ts + test natif 4 cas). Activity :
+  liveActivityEntries (files.ts + 4 tests) depuis
+  missionProgress (titres, états, thinking, erreur),
+  Activity affiche le live avec pulse + mention
+  activityLive (EN/FR/ZH) et pastille sur l'onglet, repli
+  journal fichier sinon ; Terminal reste sur le fichier
+  (texte des commandes). Tests : natifs 89/89, vitest
+  531/532 (1 env emp-sandbox), tsc 0.
+- Push micro-commits (2026-11-04) : 14 commits sur
+  feature/engineering-atlas-nova (187fb29..9759196) —
+  db multi-sessions, chef search, engine events, workspace
+  shell, stream/timeline, wire chat/route/github, IDE+panel,
+  scope historique, plan engine, mode unique, chrono,
+  stabilisation, activity live, i18n. Découpage par états
+  intermédiaires reconstruits (inverses exacts T5/T6/T7,
+  S4 validé tsc) ; seul l'état final est testé. AGENT_MEMORY
+  exclu de la pile (mémoire locale), commité séparément sur
+  demande. dev.log jamais commité (log serveur).

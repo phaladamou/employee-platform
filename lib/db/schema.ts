@@ -1,5 +1,5 @@
 // lib/db/schema.ts
-import type { InferSelectModel } from "drizzle-orm";
+import { and, eq, isNull, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
@@ -51,20 +51,28 @@ export const chat = pgTable(
     visibility: varchar("visibility", { enum: ["public", "private"] })
       .notNull()
       .default("private"),
-    // Conversation employe : NULL = chat libre, renseigne = la
-    // discussion persistante (user, employe). Contrainte unique
-    // ci-dessous : un seul fil par couple (les NULL restent
-    // multiples, semantique Postgres).
+    // Conversation employe : NULL = chat libre, renseigne = une
+    // session de discussion (user, employe). Plusieurs sessions
+    // par couple (migration 0013 : l'ancienne contrainte unique
+    // a ete supprimee) ; le fil historique devient la session 1.
     employeeId: uuid("employeeId").references(() => employee.id, {
       onDelete: "cascade",
     }),
-  },
-  (table) => [
-    unique("Chat_user_employee_uniq").on(table.userId, table.employeeId),
-  ]
+  }
 );
 
 export type Chat = InferSelectModel<typeof chat>;
+
+/**
+ * Portee "chats libres" (espace Chef) : les sessions employe
+ * partagent la table Chat avec employeeId renseigne. Toute requete
+ * d'historique principal DOIT passer par ici : sans le filtre
+ * employeeId IS NULL, les sessions Atlas fuient dans l'historique
+ * du Chef, et "tout supprimer" les detruit avec.
+ */
+export function userMainChatsCondition(userId: string) {
+  return and(eq(chat.userId, userId), isNull(chat.employeeId));
+}
 
 export const message = pgTable("Message_v2", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -410,6 +418,9 @@ export const mission = pgTable(
     // Trace d'execution : [{tool, ok}] dans l'ordre, prouve ce
     // qui a vraiment tourne (anti-hallucination).
     toolCalls: json("toolCalls").notNull().default([]),
+    // Plan annonce par l'agent avant d'agir : [string]. Fait
+    // partie de la reponse (restaure avec le processus).
+    plan: json("plan").notNull().default([]),
     kernelJobId: text("kernelJobId"),
     expectFile: text("expectFile"),
     expectTest: boolean("expectTest").notNull().default(false),
@@ -420,3 +431,59 @@ export const mission = pgTable(
 );
 
 export type Mission = InferSelectModel<typeof mission>;
+
+// ============ MODULE WORKSPACE (miroir DB des fichiers employe) ============
+
+// Miroir en base du workspace disque d'un employe, scope par session
+// (`EMPLOYEE_WORKSPACES_DIR/<employeeId>/<sessionId>/`). Le disque
+// reste la source de verite pendant un run (l'agent y ecrit) ; cette
+// table est la copie durable en ligne : apres chaque mission, le
+// workspace de la session est synchronise ici (voir
+// lib/engineering/workspace-sync.ts). En cas de redeploiement ou de
+// disque vide, l'IDE lit ce miroir au lieu d'un dossier local.
+// Un (session, chemin) = une ligne (dernier etat connu de la
+// session, pas d'historique) : revisiter une session retrouve SES
+// fichiers, meme si une session plus recente a reecrit les memes
+// chemins dans son propre sandbox.
+export const workspaceFile = pgTable(
+  "WorkspaceFile",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    employeeId: uuid("employeeId")
+      .notNull()
+      .references(() => employee.id, { onDelete: "cascade" }),
+    // Session (Chat) proprietaire : le sandbox source du fichier.
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id, { onDelete: "cascade" }),
+    // Chemin relatif dans le workspace (ex: "src/app.py").
+    path: text("path").notNull(),
+    content: text("content").notNull(),
+    size: integer("size").notNull(),
+    // SHA-256 hex du contenu : la synchro n'ecrit que ce qui a change.
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    // Derniere mission ayant ecrit ce fichier (NULL si inconnu).
+    missionId: uuid("missionId").references(() => mission.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("WorkspaceFile_account_employee_chat_idx").on(
+      table.accountId,
+      table.employeeId,
+      table.chatId
+    ),
+    unique("WorkspaceFile_account_employee_chat_path_uniq").on(
+      table.accountId,
+      table.employeeId,
+      table.chatId,
+      table.path
+    ),
+  ]
+);
+
+export type WorkspaceFile = InferSelectModel<typeof workspaceFile>;

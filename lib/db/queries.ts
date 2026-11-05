@@ -14,6 +14,7 @@ import {
   isNull,
   lt,
   ne,
+  notInArray,
   sql,
   type SQL,
 } from "drizzle-orm";
@@ -44,8 +45,11 @@ import {
   talentProfile,
   type User,
   user,
+  userMainChatsCondition,
   userSettings,
   vote,
+  type WorkspaceFile,
+  workspaceFile,
 } from "./schema";
 import { getDb } from "./client";
 import { generateHashedPassword } from "./utils";
@@ -128,7 +132,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId));
+      .where(userMainChatsCondition(userId));
 
     if (userChats.length === 0) {
       return { deletedCount: 0 };
@@ -142,7 +146,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     const deletedChats = await db
       .delete(chat)
-      .where(eq(chat.userId, userId))
+      .where(userMainChatsCondition(userId))
       .returning();
 
     return { deletedCount: deletedChats.length };
@@ -176,8 +180,8 @@ export async function getChatsByUserId({
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+            ? and(whereCondition, userMainChatsCondition(id))
+            : userMainChatsCondition(id)
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -1659,6 +1663,7 @@ export async function updateMission({
     report?: string | null;
     kernelJobId?: string | null;
     toolCalls?: unknown;
+    plan?: unknown;
   };
 }): Promise<Mission | null> {
   try {
@@ -1675,44 +1680,134 @@ export async function updateMission({
   }
 }
 
-// ============ CONVERSATIONS EMPLOYE (persistance discussion) ============
+// ============ SESSIONS EMPLOYE (multi-conversations) ============
 
-// Fil persistant (user, employe). NULL si jamais discute (le GET
-// n'en cree pas : l'historique vide ne salit pas la base).
-export async function getEmployeeChat(
+// Texte des parts Message_v2 (doublon local volontaire : queries
+// n'importe pas la couche lib/server).
+function partsText(parts: unknown): string {
+  if (!Array.isArray(parts)) {
+    return "";
+  }
+  return parts
+    .map((part) => {
+      if (
+        typeof part !== "object" ||
+        part === null ||
+        (part as { type?: unknown }).type !== "text"
+      ) {
+        return "";
+      }
+      const text = (part as { text?: unknown }).text;
+      return typeof text === "string" ? text : "";
+    })
+    .join("");
+}
+
+export interface EmployeeSession {
+  id: string;
+  title: string;
+  // Premier message utilisateur ("" si session vide).
+  preview: string;
+  createdAt: Date;
+  // Dernier message ou creation (tri antichronologique).
+  lastActiveAt: Date;
+}
+
+// Sessions de discussion (user, employe), plus recente active
+// d'abord. Le fil historique (pre-0013) est une session comme
+// les autres : il devient la session par defaut.
+export async function getEmployeeSessions(
   userId: string,
   employeeId: string
+): Promise<EmployeeSession[]> {
+  try {
+    const db = await getDb();
+    const chats = await db
+      .select()
+      .from(chat)
+      .where(and(eq(chat.userId, userId), eq(chat.employeeId, employeeId)))
+      .orderBy(asc(chat.createdAt));
+    if (chats.length === 0) {
+      return [];
+    }
+    const rows = await db
+      .select({
+        chatId: message.chatId,
+        role: message.role,
+        parts: message.parts,
+        createdAt: message.createdAt,
+      })
+      .from(message)
+      .where(
+        inArray(
+          message.chatId,
+          chats.map((row) => row.id)
+        )
+      )
+      .orderBy(asc(message.createdAt));
+    const firstByChat = new Map<string, string>();
+    const lastByChat = new Map<string, Date>();
+    for (const row of rows) {
+      if (row.role === "user" && !firstByChat.has(row.chatId)) {
+        firstByChat.set(row.chatId, partsText(row.parts));
+      }
+      lastByChat.set(row.chatId, row.createdAt);
+    }
+    return chats
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        preview: (firstByChat.get(row.id) ?? "").slice(0, 120),
+        createdAt: row.createdAt,
+        lastActiveAt: lastByChat.get(row.id) ?? row.createdAt,
+      }))
+      .sort((a, b) => b.lastActiveAt.getTime() - a.lastActiveAt.getTime());
+  } catch (_error) {
+    console.error("getEmployeeSessions DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee sessions"
+    );
+  }
+}
+
+// Une session precise, verifiee (user + employe). NULL si jamais
+// discute ou session etrangere (le GET n'en cree pas).
+export async function getEmployeeSession(
+  userId: string,
+  employeeId: string,
+  sessionId: string
 ): Promise<Chat | null> {
   try {
     const db = await getDb();
     const [row] = await db
       .select()
       .from(chat)
-      .where(and(eq(chat.userId, userId), eq(chat.employeeId, employeeId)))
+      .where(
+        and(
+          eq(chat.id, sessionId),
+          eq(chat.userId, userId),
+          eq(chat.employeeId, employeeId)
+        )
+      )
       .limit(1);
     return row ?? null;
   } catch (_error) {
-    console.error("getEmployeeChat DB Error:", _error);
+    console.error("getEmployeeSession DB Error:", _error);
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to get employee chat"
+      "Failed to get employee session"
     );
   }
 }
 
-export async function getOrCreateEmployeeChat({
+export async function createEmployeeSession({
   userId,
   employeeId,
-  title,
 }: {
   userId: string;
   employeeId: string;
-  title: string;
 }): Promise<Chat> {
-  const existing = await getEmployeeChat(userId, employeeId);
-  if (existing) {
-    return existing;
-  }
   try {
     const db = await getDb();
     const [row] = await db
@@ -1720,7 +1815,7 @@ export async function getOrCreateEmployeeChat({
       .values({
         createdAt: new Date(),
         userId,
-        title,
+        title: "",
         visibility: "private",
         employeeId,
       } as any)
@@ -1730,10 +1825,33 @@ export async function getOrCreateEmployeeChat({
     }
     return row;
   } catch (_error) {
-    console.error("getOrCreateEmployeeChat DB Error:", _error);
+    console.error("createEmployeeSession DB Error:", _error);
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create employee chat"
+      "Failed to create employee session"
+    );
+  }
+}
+
+// Titre auto depuis le premier message (si session sans titre).
+export async function titleSessionFromFirstMessage({
+  chatId,
+  text,
+}: {
+  chatId: string;
+  text: string;
+}): Promise<void> {
+  try {
+    const db = await getDb();
+    await db
+      .update(chat)
+      .set({ title: text.slice(0, 60) })
+      .where(and(eq(chat.id, chatId), eq(chat.title, "")));
+  } catch (_error) {
+    console.error("titleSessionFromFirstMessage DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to title session"
     );
   }
 }
@@ -1802,8 +1920,183 @@ export async function getMissionsByEmployee(
   }
 }
 
+// ============ MIROIR WORKSPACE (fichiers employe en base) ============
+
+// Liste le miroir DB d'un workspace de session (tri : appelant).
+export async function listWorkspaceFilesDb({
+  accountId,
+  employeeId,
+  chatId,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+}): Promise<WorkspaceFile[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId)
+        )
+      );
+  } catch (_error) {
+    console.error("listWorkspaceFilesDb DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to list workspace files"
+    );
+  }
+}
+
+// Lit un fichier du miroir de session (NULL si absent).
+export async function readWorkspaceFileDb({
+  accountId,
+  employeeId,
+  chatId,
+  path,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  path: string;
+}): Promise<WorkspaceFile | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId),
+          eq(workspaceFile.path, path)
+        )
+      )
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("readWorkspaceFileDb DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to read workspace file"
+    );
+  }
+}
+
+// Insere ou met a jour des fichiers du miroir de session
+// (conflit = meme chemin dans la meme session).
+export async function upsertWorkspaceFiles({
+  accountId,
+  employeeId,
+  chatId,
+  missionId,
+  files,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  missionId: string | null;
+  files: ReadonlyArray<{
+    path: string;
+    content: string;
+    size: number;
+    sha256: string;
+  }>;
+}): Promise<void> {
+  if (files.length === 0) {
+    return;
+  }
+  try {
+    const db = await getDb();
+    for (const file of files) {
+      await db
+        .insert(workspaceFile)
+        .values({
+          accountId,
+          employeeId,
+          chatId,
+          path: file.path,
+          content: file.content,
+          size: file.size,
+          sha256: file.sha256,
+          missionId,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [
+            workspaceFile.accountId,
+            workspaceFile.employeeId,
+            workspaceFile.chatId,
+            workspaceFile.path,
+          ],
+          set: {
+            content: file.content,
+            size: file.size,
+            sha256: file.sha256,
+            missionId,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  } catch (_error) {
+    console.error("upsertWorkspaceFiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to save workspace files"
+    );
+  }
+}
+
+// Supprime du miroir de session les chemins absents du disque
+// (renommages, suppressions agent). Liste vide = le disque ne
+// montre rien : ne supprime RIEN (un workspace momentanement
+// vide ne doit jamais effacer la copie durable).
+export async function deleteStaleWorkspaceFiles({
+  accountId,
+  employeeId,
+  chatId,
+  keepPaths,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  keepPaths: ReadonlyArray<string>;
+}): Promise<number> {
+  if (keepPaths.length === 0) {
+    return 0;
+  }
+  try {
+    const db = await getDb();
+    const removed = await db
+      .delete(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId),
+          notInArray(workspaceFile.path, [...keepPaths])
+        )
+      )
+      .returning({ id: workspaceFile.id });
+    return removed.length;
+  } catch (_error) {
+    console.error("deleteStaleWorkspaceFiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to prune workspace files"
+    );
+  }
+}
+
 // Premier chat de l'utilisateur = le chat d'accueil du Chef (cree au
-// provisioning, avant tout autre chat possible).
+// provisioning, avant tout autre chat possible). Sessions employe
+// exclues : une session Atlas ne doit jamais passer pour l'accueil.
 export async function getFirstChatIdForUser(
   userId: string
 ): Promise<string | null> {
@@ -1812,7 +2105,7 @@ export async function getFirstChatIdForUser(
     const [row] = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId))
+      .where(userMainChatsCondition(userId))
       .orderBy(asc(chat.createdAt))
       .limit(1);
     return row?.id ?? null;

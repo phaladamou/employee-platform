@@ -2,11 +2,15 @@
 import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
-import { getEmployeeById, requireAccountId } from "@/lib/db/queries";
+import {
+  getEmployeeById,
+  getEmployeeSession,
+  requireAccountId,
+} from "@/lib/db/queries";
 import { listWorkspaceFiles } from "@/lib/engineering/workspace-store";
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -25,7 +29,26 @@ export async function GET(
     if (!target) {
       return NextResponse.json({ error: "Unknown employee" }, { status: 404 });
     }
-    const files = await listWorkspaceFiles(id);
+    // Fichiers scopes par session (?session=) : sans session, vue
+    // neuve (vide) ; session etrangere, 404 indiscernable.
+    const sessionId = new URL(request.url).searchParams.get("session");
+    if (sessionId) {
+      const conversation = await getEmployeeSession(
+        session.user.id,
+        id,
+        sessionId
+      );
+      if (!conversation) {
+        return NextResponse.json(
+          { error: "Unknown session" },
+          { status: 404 }
+        );
+      }
+    }
+    const files = await listWorkspaceFiles(id, {
+      accountId,
+      sessionId: sessionId ?? undefined,
+    });
     return NextResponse.json({ files });
   } catch (error) {
     console.error("GET /api/employees/[id]/files Error:", error);

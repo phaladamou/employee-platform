@@ -83,7 +83,7 @@ export function buildNameReply(name: string): string {
 }
 
 export function buildRecruitGuideReply(): string {
-  return "Parfait ! Rendez-vous sur la [page de recrutement](/employees/recruit) pour découvrir les spécialistes disponibles et cliquer sur « Recruter ». Dites-moi quand c'est fait, je vous aiderai pour la suite.";
+  return "Parfait ! Chaque carte ci-dessus a un bouton « Voir la fiche » pour le détail du profil, et vous pouvez recruter depuis la [page de recrutement](/employees/recruit) en cliquant sur « Recruter ». Dites-moi quand c'est fait, je vous aiderai pour la suite.";
 }
 
 function normalizeAnswer(text: string): string {

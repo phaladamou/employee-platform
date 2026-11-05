@@ -10,11 +10,17 @@ import LinkedIn from "next-auth/providers/linkedin";
 import Twitter from "next-auth/providers/twitter";
 import { DUMMY_PASSWORD } from "@/lib/constants";
 import { getDb, isDesktop } from "@/lib/db/client";
-import { getUser } from "@/lib/db/queries";
+import {
+  OTP_CODE_LENGTH,
+  getOrCreateVerifiedUser,
+  normalizeOtpEmail,
+  verifyOtpCode,
+} from "@/lib/db/otp";
+import { ensureAccountProvisioned, getUser } from "@/lib/db/queries";
 import { user as userTable } from "@/lib/db/schema";
 import { authConfig } from "./auth.config";
 
-// Plus de mode invite : tout acces exige un compte.
+// Plus de mode invite : tout acces exige un compte (password, OTP, OAuth).
 export type UserType = "regular";
 
 declare module "next-auth" {
@@ -22,6 +28,7 @@ declare module "next-auth" {
     user: {
       id: string;
       type: UserType;
+      onboarded: boolean;
     } & DefaultSession["user"];
   }
 
@@ -30,6 +37,7 @@ declare module "next-auth" {
     email?: string | null;
     type: UserType;
     isLink?: boolean;
+    onboarded?: boolean;
   }
 }
 
@@ -37,6 +45,7 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
     type: UserType;
+    onboarded?: boolean;
     image?: string | null;
     name?: string | null;
     email?: string | null;
@@ -149,7 +158,53 @@ export const {
         }
 
         console.log("[AUTHORIZE] success — returning user");
-        return { id: u.id, email: u.email, name: u.name, type: "regular" };
+        return {
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          type: "regular",
+          onboarded: u.onboarded,
+        };
+      },
+    }),
+    Credentials({
+      id: "otp",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        code: { label: "Code", type: "text" },
+      },
+      async authorize(credentials) {
+        const email = normalizeOtpEmail(String(credentials.email ?? ""));
+        const code = String(credentials.code ?? "").trim();
+        console.log("[AUTHORIZE-OTP] email:", email);
+        if (!email || !new RegExp(`^\\d{${OTP_CODE_LENGTH}}$`).test(code)) {
+          console.log("[AUTHORIZE-OTP] bad shape — returning null");
+          return null;
+        }
+        try {
+          const verdict = await verifyOtpCode(email, code);
+          console.log("[AUTHORIZE-OTP] verify verdict:", verdict);
+          if (verdict !== "ok") {
+            return null;
+          }
+          const u = await getOrCreateVerifiedUser(email);
+          console.log(
+            "[AUTHORIZE-OTP] success — user id:",
+            u.id,
+            "email:",
+            u.email
+          );
+          return {
+            id: u.id,
+            email: u.email,
+            name: u.name,
+            type: "regular",
+            onboarded: u.onboarded,
+          };
+        } catch {
+          console.log("[AUTHORIZE-OTP] exception — returning null");
+          return null;
+        }
       },
     }),
   ],
@@ -186,6 +241,7 @@ export const {
           token.image = user.image as string;
           token.name = user.name as string;
           token.email = user.email as string;
+          token.onboarded = user.onboarded;
         }
       }
 
@@ -209,6 +265,7 @@ export const {
               token.type = "regular";
               token.image = existing[0].image as string;
               token.name = existing[0].name as string;
+              token.onboarded = existing[0].onboarded;
             } else {
               const [newUser] = await db
                 .insert(userTable)
@@ -221,10 +278,22 @@ export const {
                 .returning({ id: userTable.id });
               token.id = newUser.id;
               token.type = "regular";
+              token.onboarded = false;
             }
           } catch (err) {
             console.error("jwt DB error:", err);
           }
+        }
+      }
+
+      // Premier login : cree le compte, le Chef et son chat d'accueil.
+      // Idempotent : les logins suivants relisent le compte existant.
+      // `user` n'est present qu'au sign-in (jamais au refresh session).
+      if (user && !user.isLink && token.id) {
+        try {
+          await ensureAccountProvisioned(token.id);
+        } catch (err) {
+          console.error("account provisioning error:", err);
         }
       }
 
@@ -235,6 +304,9 @@ export const {
       if (session.user) {
         session.user.id = token.id;
         session.user.type = token.type;
+        // Inconnu (vieux cookie, provider sans mapping DB) = on ne bloque
+        // pas : seuls les comptes explicitement non-onboardes sont rediriges.
+        session.user.onboarded = token.onboarded ?? true;
         session.user.image = token.image ?? session.user.image;
         session.user.name = token.name ?? session.user.name;
         session.user.email = token.email ?? session.user.email;

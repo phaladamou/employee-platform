@@ -9,10 +9,14 @@ import useSWR from "swr";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { fetcher } from "@/lib/utils";
+import { progressFromRecords } from "@/lib/employees/mission-events";
+import { MissionTimeline } from "./mission-timeline";
 
 interface ToolCall {
   tool: string;
   ok: boolean;
+  title?: string;
+  thoughtMs?: number;
 }
 
 interface MissionRow {
@@ -60,30 +64,14 @@ function MissionStatusBadge({ status }: { status: string }) {
   );
 }
 
-function ToolChips({ calls }: { calls: ToolCall[] }) {
+function MissionSteps({ calls }: { calls: ToolCall[] }) {
   const t = useTranslations("employees");
   if (calls.length === 0) {
     return (
       <p className="text-[12px] text-muted-foreground">{t("historyNoTools")}</p>
     );
   }
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {calls.map((call, index) => (
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full border px-2 py-0.5 font-mono text-[11px]",
-            call.ok
-              ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-700"
-              : "border-red-500/30 bg-red-500/10 text-red-700"
-          )}
-          key={`${call.tool}-${index}`}
-        >
-          {call.tool}
-        </span>
-      ))}
-    </div>
-  );
+  return <MissionTimeline progress={progressFromRecords(calls)} />;
 }
 
 function MissionDetailView({
@@ -155,7 +143,7 @@ function MissionDetailView({
             <p className="mb-1.5 text-[12px] font-medium text-muted-foreground">
               {t("historyToolsTitle")}
             </p>
-            <ToolChips calls={mission.toolCalls} />
+            <MissionSteps calls={mission.toolCalls} />
           </div>
         </>
       )}

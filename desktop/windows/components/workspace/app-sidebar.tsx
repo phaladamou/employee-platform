@@ -2,8 +2,8 @@
 "use client";
 
 import {
+  Building2Icon,
   FileTextIcon,
-  FlaskConicalIcon,
   HistoryIcon,
   MessageCircleIcon,
   MonitorIcon,
@@ -18,14 +18,13 @@ import {
 } from "lucide-react";
 
 import Link from "next/link";
-import { Fragment, useEffect, useState } from "react";
+import { Fragment } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import type { LucideIcon } from "lucide-react";
 import useSWRInfinite from "swr/infinite";
 
-import { ScientiaLogo } from "@/components/workspace/scientia-logo";
+import { EmployeeLogo } from "@/components/workspace/employee-logo";
 
 import {
   DropdownMenu,
@@ -40,7 +39,7 @@ import {
 } from "@/components/workspace/sidebar-history";
 
 import { SidebarUserNav } from "@/components/workspace/sidebar-user-nav";
-import { NotificationsBell } from "@/components/workspace/notifications-bell";
+import { useStickySession } from "@/components/workspace/use-sticky-session";
 
 import {
   Sidebar,
@@ -79,16 +78,7 @@ interface NavItem {
 
 function HistoryTooltipContent() {
   const t = useTranslations("chat");
-  const { data: rawSession } = useSession();
-  const [cachedUser, setCachedUser] = useState(rawSession?.user);
-
-  useEffect(() => {
-    if (rawSession?.user) {
-      setCachedUser(rawSession.user);
-    }
-  }, [rawSession?.user]);
-
-  const user = rawSession?.user ?? cachedUser;
+  const { user } = useStickySession();
   const router = useRouter();
 
   const { data, isLoading, setSize, size, isValidating } = useSWRInfinite<{
@@ -102,15 +92,24 @@ function HistoryTooltipContent() {
   const hasMore = data?.[data.length - 1]?.hasMore ?? false;
 
   return (
-    <div className="w-64 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
-      <div className="border-b border-border/60 px-3.5 py-3">
+    <div className="w-72 overflow-hidden rounded-lg border border-border/60 bg-card/95 shadow-md backdrop-blur-md">
+      <div className="flex items-center justify-between border-b border-border/60 py-2.5 pl-4 pr-3">
         <h3 className="text-xs font-semibold text-foreground">
           {t("history")}
         </h3>
+        <button
+          aria-label="Workspace"
+          className="cursor-pointer rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+          onClick={() => router.push("/workspace")}
+          title="Workspace"
+          type="button"
+        >
+          <PenSquareIcon className="size-3.5" />
+        </button>
       </div>
 
       <div
-        className="max-h-64 overflow-y-auto"
+        className="max-h-72 overflow-y-auto"
         onScroll={(e) => {
           const el = e.currentTarget;
 
@@ -132,10 +131,10 @@ function HistoryTooltipContent() {
             {t("noChats")}
           </div>
         ) : (
-          <div className="space-y-0.5 p-1.5">
+          <div className="space-y-0.5 p-2">
             {chats.map((chat) => (
               <button
-                className="flex w-full cursor-pointer items-center gap-2 rounded-md px-2.5 py-2 text-left text-[12px] text-foreground/80 transition-colors hover:bg-muted/70 hover:text-foreground"
+                className="flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left text-[12px] text-foreground/80 transition-colors hover:bg-muted/70 hover:text-foreground"
                 key={chat.id}
                 onClick={() => router.push(`/workspace/${chat.id}`)}
                 type="button"
@@ -160,16 +159,9 @@ function HistoryTooltipContent() {
 export function AppSidebar() {
   const t = useTranslations("sidebar");
 
-  const { data: rawSession } = useSession();
-  const [cachedUser, setCachedUser] = useState(rawSession?.user);
-
-  useEffect(() => {
-    if (rawSession?.user) {
-      setCachedUser(rawSession.user);
-    }
-  }, [rawSession?.user]);
-
-  const user = rawSession?.user ?? cachedUser;
+  // Sticky : si le serveur est coupe, la sidebar garde le dernier etat
+  // connecte connu (icone compte + historique) au lieu de basculer.
+  const { user } = useStickySession();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -212,6 +204,13 @@ export function AppSidebar() {
       group: "secondary",
     },
     {
+      route: "/departments",
+      isActive: pathname.startsWith("/departments"),
+      icon: Building2Icon,
+      label: t("departments"),
+      group: "secondary",
+    },
+    {
       route: "plus",
       isActive: false,
       icon: MoreHorizontalIcon,
@@ -243,15 +242,6 @@ export function AppSidebar() {
       icon: FileTextIcon,
       label: t("artefacts"),
       group: "secondary",
-    },
-    {
-      route: "/simulations",
-      isActive: false,
-      icon: FlaskConicalIcon,
-      label: t("simulations"),
-      group: "secondary",
-      external: true,
-      externalIcon: true,
     },
   ];
 
@@ -443,7 +433,7 @@ export function AppSidebar() {
                   href="/"
                   onClick={() => setOpenMobile(false)}
                 >
-                  <ScientiaLogo className="shrink-0" size={42} />
+                  <EmployeeLogo className="shrink-0" size={42} />
 
                   <span className="truncate text-[14px] font-semibold tracking-tight text-foreground group-data-[collapsible=icon]:hidden">
                     Employee

@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import type { User } from "next-auth";
-import { ScientiaLogo } from "@/components/workspace/scientia-logo";
+import { EmployeeLogo } from "@/components/workspace/employee-logo";
 import {
   Sidebar,
   SidebarContent,
@@ -49,10 +49,10 @@ export function SimulationSidebar({ user }: { user: User | undefined }) {
               <SidebarMenuButton
                 asChild
                 className="size-16 !px-0 items-center justify-center group-data-[collapsible=icon]:group-hover/logo:opacity-0"
-                tooltip="Scientia Labs"
+                tooltip="Employee"
               >
                 <Link href="/" onClick={() => setOpenMobile(false)}>
-                  <ScientiaLogo className="-mt-1" size={56} />
+                  <EmployeeLogo className="-mt-1" size={56} />
                 </Link>
               </SidebarMenuButton>
               <Tooltip>

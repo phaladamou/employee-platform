@@ -6,13 +6,13 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Card } from "@/components/workspace/settings/shared/card";
-import { DesktopApiKeyCard } from "./desktop-api-key-card";
-
-const isDesktopApp = process.env.NEXT_PUBLIC_DESKTOP === "1";
 import { Row } from "@/components/workspace/settings/shared/row";
 import { SectionLabel } from "@/components/workspace/settings/shared/section-label";
 import { Toggle } from "@/components/workspace/settings/shared/toggle";
 import { UsageBar } from "@/components/workspace/settings/shared/usage-bar";
+import { DesktopApiKeyCard } from "./desktop-api-key-card";
+
+const isDesktopApp = process.env.NEXT_PUBLIC_DESKTOP === "1";
 
 export function EngineForm({
   initialPreferences,

@@ -4,9 +4,10 @@
 // construit (copie hors projet, comme le fige smoke-packaged), y connecte
 // un compte jetable (credentials), envoie un message sur /api/chat et
 // /websites/api/chat, et exige
-// une reponse streamee. Le LLM est simule (CI_PLAYWRIGHT=1 -> ChatAgent
-// emet E2E-CHAT-OK) : le test prouve le cablage de bout en bout (auth,
-// routes, proxy interne, Core, protocole de stream), pas le fournisseur LLM.
+// une reponse streamee. Le LLM est simule (CI_PLAYWRIGHT=1 ->
+// isTestEnvironment -> lib/ai/models.mock) : le test prouve le cablage
+// de bout en bout (auth, routes, proxy interne, protocole de stream),
+// pas le fournisseur LLM.
 //
 // Fidelite prod : port NON-3000 (le bureau embarque ecoute sur un port
 // aleatoire) et aucune variable *_BASE_URL (absente de l'app packagee) :
@@ -27,7 +28,14 @@ const probeStandalone = path.join(probeDir, "standalone");
 const probeData = path.join(probeDir, "data");
 const PORT = 3222;
 const BASE = `http://127.0.0.1:${PORT}`;
-const MARKER = "E2E-CHAT-OK";
+// Reponses possibles de lib/ai/models.mock (selon le contenu du prompt).
+// Le mock streame mot par mot : les marqueurs sont des mots isoles
+// (premier + dernier mot de chaque reponse), jamais une phrase contigue.
+const MARKER_SETS = [
+  ["Hello!", "today?"],
+  ["Francisco", "72°F."],
+  ["mock", "testing."],
+];
 
 let child = null;
 let serverOut = "";
@@ -139,7 +147,9 @@ async function postChat(label, urlPath) {
   }
   const { text, timedOut } = await readStream(res, 120000);
   const hasDelta = text.includes("text-delta");
-  const hasMarker = text.includes(MARKER);
+  const hasMarker = MARKER_SETS.some((set) =>
+    set.every((m) => text.includes(m))
+  );
   if (timedOut || !hasDelta || !hasMarker) {
     fail(
       label,

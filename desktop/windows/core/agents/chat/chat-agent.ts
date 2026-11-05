@@ -14,6 +14,8 @@ import type { CoreEvent } from "../../contracts/output";
 
 import { systemPrompt } from "./prompts";
 import type { ChatAgentContext } from "./chat-types";
+import { resolveChatLLM } from "../../models/chat-provider";
+import { chatModel as mockChatModel } from "@/lib/ai/models.mock";
 
 export class ChatAgent implements Agent {
   readonly id = "chat";
@@ -50,20 +52,6 @@ export class ChatAgent implements Agent {
       );
     }
 
-    // Mode test (E2E CI) : reponse determinee sans appeler le LLM.
-    // Meme declencheur que isTestEnvironment (lib/constants), inline ici
-    // pour ne pas coupler core/ a lib/ (icones, db).
-    if (
-      process.env.PLAYWRIGHT_TEST_BASE_URL ||
-      process.env.PLAYWRIGHT ||
-      process.env.CI_PLAYWRIGHT
-    ) {
-      emit({ type: "status", message: "Mode test." });
-      emit({ type: "text_delta", text: "E2E-CHAT-OK" });
-      emit({ type: "done" });
-      return { text: "E2E-CHAT-OK" };
-    }
-
     try {
       emit({
         type: "status",
@@ -92,11 +80,32 @@ export class ChatAgent implements Agent {
       const modelMessages =
         this.buildModelMessages(agentContext);
 
-      const deepseek = createOpenAI({
-        apiKey: process.env.DEEPSEEK_API_KEY,
-        baseURL:
-          process.env.DEEPSEEK_BASE_URL ??
-          "https://api.deepseek.com/v1",
+      // Bureau/CI (electron/e2e-chat.mjs) : modele simule, aucun appel
+      // LLM reel. Declencheur inline (meme qu'isTestEnvironment) : core
+      // ne depend pas de lib/constants.
+      const isE2ETest = Boolean(
+        process.env.PLAYWRIGHT_TEST_BASE_URL ||
+          process.env.PLAYWRIGHT ||
+          process.env.CI_PLAYWRIGHT
+      );
+      const llm = isE2ETest
+        ? {
+            baseURL: "mock",
+            apiKey: "mock",
+            model: "mock-model",
+            reasoningEffort: "minimal" as const,
+          }
+        : resolveChatLLM();
+      const payloadChars =
+        agentContext.systemPrompt.length +
+        JSON.stringify(modelMessages).length;
+      console.log(
+        `[CHAT] agent model=${llm.model} base=${llm.baseURL} msgs=${modelMessages.length} chars=${payloadChars} tools=${supportsTools ? "webSearch" : "none"} effort=${llm.reasoningEffort}`
+      );
+      const agentStart = Date.now();
+      const client = createOpenAI({
+        apiKey: llm.apiKey,
+        baseURL: llm.baseURL,
       });
 
       emit({
@@ -105,7 +114,7 @@ export class ChatAgent implements Agent {
       });
 
       const result = streamText({
-        model: deepseek.chat("deepseek-chat"),
+        model: isE2ETest ? mockChatModel : client.chat(llm.model),
         system: agentContext.systemPrompt,
         messages: modelMessages,
         stopWhen: stepCountIs(5),
@@ -113,13 +122,27 @@ export class ChatAgent implements Agent {
         tools: supportsTools
           ? this.buildTools()
           : {},
+        providerOptions: {
+          openai: { reasoningEffort: llm.reasoningEffort },
+        },
       });
 
       let accumulatedText = "";
+      let firstChunkLogged = false;
 
+      const apiCallStart = Date.now();
+      console.log(
+        `[CHAT-TIME] muse api call start +${apiCallStart - agentStart}ms`
+      );
       for await (const part of result.fullStream) {
         const textDelta = this.handleStreamPart(part, emit);
         if (textDelta) {
+          if (!firstChunkLogged) {
+            firstChunkLogged = true;
+            console.log(
+              `[CHAT-TIME] muse first token +${Date.now() - apiCallStart}ms after api call`
+            );
+          }
           accumulatedText += textDelta;
         }
       }

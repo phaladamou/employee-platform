@@ -1,6 +1,7 @@
 // lib/db/queries.ts
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import {
   and,
   asc,
@@ -12,12 +13,18 @@ import {
   inArray,
   isNull,
   lt,
+  ne,
+  notInArray,
+  sql,
   type SQL,
 } from "drizzle-orm";
 import type { ArtifactKind } from "@/components/workspace/artifact";
 import type { VisibilityType } from "@/components/workspace/visibility-selector";
 import { ChatbotError } from "../errors";
+import { CHEF_GREETING } from "../chef/onboarding";
+import type { RichTalentProfile, TalentSeed } from "../employees/talents";
 import {
+  account,
   type Chat,
   chat,
   type DBMessage,
@@ -28,14 +35,21 @@ import {
   type Employee,
   employee,
   message,
+  type Mission,
+  mission,
   notification,
   type Suggestion,
   stream,
   suggestion,
+  type TalentProfile,
+  talentProfile,
   type User,
   user,
+  userMainChatsCondition,
   userSettings,
   vote,
+  type WorkspaceFile,
+  workspaceFile,
 } from "./schema";
 import { getDb } from "./client";
 import { generateHashedPassword } from "./utils";
@@ -118,7 +132,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
     const userChats = await db
       .select({ id: chat.id })
       .from(chat)
-      .where(eq(chat.userId, userId));
+      .where(userMainChatsCondition(userId));
 
     if (userChats.length === 0) {
       return { deletedCount: 0 };
@@ -132,7 +146,7 @@ export async function deleteAllChatsByUserId({ userId }: { userId: string }) {
 
     const deletedChats = await db
       .delete(chat)
-      .where(eq(chat.userId, userId))
+      .where(userMainChatsCondition(userId))
       .returning();
 
     return { deletedCount: deletedChats.length };
@@ -166,8 +180,8 @@ export async function getChatsByUserId({
         .from(chat)
         .where(
           whereCondition
-            ? and(whereCondition, eq(chat.userId, id))
-            : eq(chat.userId, id)
+            ? and(whereCondition, userMainChatsCondition(id))
+            : userMainChatsCondition(id)
         )
         .orderBy(desc(chat.createdAt))
         .limit(extendedLimit);
@@ -238,7 +252,11 @@ export async function getChatById({ id }: { id: string }) {
   }
 }
 
-export async function saveMessages({ messages }: { messages: DBMessage[] }) {
+export async function saveMessages({
+  messages,
+}: {
+  messages: Array<typeof message.$inferInsert>;
+}) {
   try {
     const db = await getDb();
     return await db.insert(message).values(messages as any);
@@ -1099,36 +1117,1003 @@ export async function getDepartments(): Promise<Department[]> {
   }
 }
 
-export async function getEmployees(): Promise<Employee[]> {
+// ============ MODULE MULTI-TENANT (isolation stricte par compte) ============
+//
+// Regle absolue : aucune requete metier ci-dessous ne lit ni n'ecrit
+// sans accountId. Les seules lectures globales sont le referentiel
+// partage (departements, catalogue des talents).
+
+export const CHEF_PROFILE = {
+  name: "Chef",
+  role: "Manager",
+  departmentId: "operations",
+  background:
+    "Your team's manager. Coordinates your AI employees, routes work to the right specialist, and helps you get started.",
+  createdBy: "Cofoundator",
+} as const;
+
+export async function getAccountIdForUser(
+  userId: string
+): Promise<string | null> {
   try {
     const db = await getDb();
-    return await db.select().from(employee).orderBy(asc(employee.createdAt));
+    const [row] = await db
+      .select({ accountId: user.accountId })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+    return row?.accountId ?? null;
   } catch (_error) {
-    console.error("getEmployees DB Error:", _error);
-    throw new ChatbotError("bad_request:database", "Failed to get employees");
+    console.error("getAccountIdForUser DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get account for user"
+    );
   }
 }
 
-export async function createEmployee({
-  name,
-  role,
-  departmentId,
-}: {
-  name: string;
-  role: string;
-  departmentId: string;
-}): Promise<Employee[]> {
+// Cree le compte + le Chef + son chat d'accueil. Idempotent et sur
+// contre les appels concurrents : un seul gagnant pose le accountId
+// (UPDATE atomique), les perdants relisent le compte existant.
+export async function ensureAccountProvisioned(
+  userId: string
+): Promise<string> {
+  try {
+    const db = await getDb();
+    const candidate = randomUUID();
+    const claimed = await db
+      .update(user)
+      .set({ accountId: candidate })
+      .where(and(eq(user.id, userId), isNull(user.accountId)))
+      .returning({ id: user.id });
+
+    if (claimed.length > 0) {
+      const [owner] = await db
+        .select({ email: user.email })
+        .from(user)
+        .where(eq(user.id, userId))
+        .limit(1);
+      await db
+        .insert(account)
+        .values({ id: candidate, name: owner?.email ?? "My team" });
+      await db.insert(employee).values({
+        accountId: candidate,
+        kind: "chef",
+        status: "idle",
+        ...CHEF_PROFILE,
+      });
+      const [welcomeChat] = await db
+        .insert(chat)
+        .values({
+          userId,
+          title: CHEF_PROFILE.name,
+          createdAt: new Date(),
+        })
+        .returning({ id: chat.id });
+      // Graine du parcours d'accueil : la presentation est aussi le
+      // marqueur qui enclenche le mode Chef dans la route chat.
+      if (welcomeChat) {
+        await db.insert(message).values({
+          chatId: welcomeChat.id,
+          role: "assistant",
+          parts: [{ type: "text", text: CHEF_GREETING }],
+          attachments: [],
+          createdAt: new Date(),
+        } as any);
+      }
+      return candidate;
+    }
+
+    const [row] = await db
+      .select({ accountId: user.accountId, email: user.email })
+      .from(user)
+      .where(eq(user.id, userId))
+      .limit(1);
+    if (!row) {
+      throw new ChatbotError(
+        "bad_request:database",
+        "User not found for provisioning"
+      );
+    }
+    // Auto-guerison : ligne Account manquante (crash entre UPDATE et
+    // INSERT) ou Chef manquant -> recrees sans doublon.
+    await db
+      .insert(account)
+      .values({ id: row.accountId, name: row.email })
+      .onConflictDoNothing();
+    await ensureChefForAccount(row.accountId);
+    return row.accountId;
+  } catch (_error) {
+    if (_error instanceof ChatbotError) throw _error;
+    console.error("ensureAccountProvisioned DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to provision account"
+    );
+  }
+}
+
+// Garantit le Chef du compte (creation sous verrou transactionnel).
+export async function ensureChefForAccount(
+  accountId: string
+): Promise<string> {
+  try {
+    const db = await getDb();
+    const [existing] = await db
+      .select({ id: employee.id })
+      .from(employee)
+      .where(
+        and(eq(employee.accountId, accountId), eq(employee.kind, "chef"))
+      )
+      .limit(1);
+    if (existing) return existing.id;
+
+    const [created] = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT 1 FROM "Account" WHERE "id" = ${accountId} FOR UPDATE`
+      );
+      const [locked] = await tx
+        .select({ id: employee.id })
+        .from(employee)
+        .where(
+          and(eq(employee.accountId, accountId), eq(employee.kind, "chef"))
+        )
+        .limit(1);
+      if (locked) return [locked];
+      return await tx
+        .insert(employee)
+        .values({
+          accountId,
+          kind: "chef",
+          status: "idle",
+          ...CHEF_PROFILE,
+        })
+        .returning({ id: employee.id });
+    });
+    if (!created) {
+      throw new ChatbotError(
+        "bad_request:database",
+        "Failed to create Chef employee"
+      );
+    }
+    return created.id;
+  } catch (_error) {
+    if (_error instanceof ChatbotError) throw _error;
+    console.error("ensureChefForAccount DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to ensure Chef");
+  }
+}
+
+// Point d'entree de scoping pour les routes : resout le compte de
+// l'utilisateur connecte, en le provisionnant si besoin.
+export async function requireAccountId(userId: string): Promise<string> {
+  const existing = await getAccountIdForUser(userId);
+  if (existing) {
+    await ensureChefForAccount(existing);
+    return existing;
+  }
+  return ensureAccountProvisioned(userId);
+}
+
+export async function getEmployeesByAccount(
+  accountId: string
+): Promise<Employee[]> {
   try {
     const db = await getDb();
     return await db
-      .insert(employee)
-      .values({ name, role, departmentId })
-      .returning();
+      .select()
+      .from(employee)
+      .where(
+        and(
+          eq(employee.accountId, accountId),
+          ne(employee.status, "terminated")
+        )
+      )
+      .orderBy(asc(employee.hiredAt), asc(employee.createdAt));
   } catch (_error) {
-    console.error("createEmployee DB Error:", _error);
+    console.error("getEmployeesByAccount DB Error:", _error);
     throw new ChatbotError(
       "bad_request:database",
-      "Failed to create employee"
+      "Failed to get account employees"
+    );
+  }
+}
+
+// Lecture ownership-checkee : un id d'un autre compte -> null
+// (meme en modifiant l'URL).
+export async function getEmployeeById(
+  accountId: string,
+  employeeId: string
+): Promise<Employee | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(employee)
+      .where(
+        and(eq(employee.id, employeeId), eq(employee.accountId, accountId))
+      )
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("getEmployeeById DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee"
+    );
+  }
+}
+
+// Licenciement : statut -> "terminated" + terminatedAt (ligne
+// conservee, audit). Id d'un autre compte -> null (404). Idempotent.
+// Le Chef est protege (400) : son existence est garantie par
+// ensureChefForAccount.
+export async function terminateEmployeeByAccount(
+  accountId: string,
+  employeeId: string
+): Promise<Employee | null> {
+  try {
+    const existing = await getEmployeeById(accountId, employeeId);
+    if (!existing) {
+      return null;
+    }
+    if (existing.kind === "chef") {
+      throw new ChatbotError(
+        "bad_request:database",
+        "Cannot terminate the Chef"
+      );
+    }
+    if (existing.status === "terminated") {
+      return existing;
+    }
+    const db = await getDb();
+    const [terminated] = await db
+      .update(employee)
+      .set({ status: "terminated", terminatedAt: new Date() })
+      .where(
+        and(eq(employee.id, employeeId), eq(employee.accountId, accountId))
+      )
+      .returning();
+    return terminated ?? null;
+  } catch (_error) {
+    if (_error instanceof ChatbotError) throw _error;
+    console.error("terminateEmployeeByAccount DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to terminate employee"
+    );
+  }
+}
+
+export async function getHiredTalentSpecs(
+  accountId: string
+): Promise<string[]> {
+  try {
+    const db = await getDb();
+    const rows = await db
+      .select({ talentSpec: employee.talentSpec })
+      .from(employee)
+      .where(
+        and(
+          eq(employee.accountId, accountId),
+          ne(employee.status, "terminated")
+        )
+      );
+    return rows
+      .map((row) => row.talentSpec)
+      .filter((spec): spec is string => spec !== null);
+  } catch (_error) {
+    console.error("getHiredTalentSpecs DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get hired talents"
+    );
+  }
+}
+
+// Instancie un talent du catalogue pour le compte. Contrainte unique
+// (accountId, talentSpec) : un talent = une instance par compte.
+// Re-recrutement apres licenciement : la ligne terminee est
+// reactivee (nouveau contrat, meme identite), pas dupliquee.
+export async function hireEmployee({
+  accountId,
+  talent,
+}: {
+  accountId: string;
+  talent: TalentSeed;
+}): Promise<Employee[]> {
+  try {
+    const db = await getDb();
+    const [terminated] = await db
+      .select({ id: employee.id })
+      .from(employee)
+      .where(
+        and(
+          eq(employee.accountId, accountId),
+          eq(employee.talentSpec, talent.spec),
+          eq(employee.status, "terminated")
+        )
+      )
+      .limit(1);
+    if (terminated) {
+      return await db
+        .update(employee)
+        .set({
+          status: "idle",
+          terminatedAt: null,
+          hiredAt: new Date(),
+          specVersion: talent.version,
+          name: talent.name,
+          role: talent.role,
+          departmentId: talent.departmentId,
+          background: talent.background,
+          createdBy: talent.createdBy,
+          technologies: talent.technologies,
+        })
+        .where(eq(employee.id, terminated.id))
+        .returning();
+    }
+    return await db
+      .insert(employee)
+      .values({
+        accountId,
+        kind: "hired",
+        talentSpec: talent.spec,
+        specVersion: talent.version,
+        name: talent.name,
+        role: talent.role,
+        status: "idle",
+        departmentId: talent.departmentId,
+        background: talent.background,
+        createdBy: talent.createdBy,
+        technologies: talent.technologies,
+      })
+      .returning();
+  } catch (_error) {
+    console.error("hireEmployee DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to hire employee");
+  }
+}
+
+// Referentiel partage : lecture globale volontaire (meme catalogue
+// pour tous les comptes).
+export async function getTalentProfiles(): Promise<TalentProfile[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(talentProfile)
+      .orderBy(asc(talentProfile.departmentId), asc(talentProfile.name));
+  } catch (_error) {
+    console.error("getTalentProfiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get talent catalog"
+    );
+  }
+}
+
+export async function getTalentBySpec(
+  spec: string
+): Promise<TalentProfile | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(talentProfile)
+      .where(eq(talentProfile.spec, spec))
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("getTalentBySpec DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to get talent");
+  }
+}
+
+// Ecriture fiche riche : patch partiel deja valide (outils inclus).
+// La base est la source de verite : le migrate ne reecrit jamais ces
+// cles, seule cette fonction (route PUT) les modifie.
+export async function updateTalentRichProfile({
+  spec,
+  patch,
+}: {
+  spec: string;
+  patch: Partial<RichTalentProfile>;
+}): Promise<TalentProfile | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .update(talentProfile)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(talentProfile.spec, spec))
+      .returning();
+    return row ?? null;
+  } catch (_error) {
+    console.error("updateTalentRichProfile DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to update talent profile"
+    );
+  }
+}
+
+// ============ MODULE MISSIONS (suivi ownership-checke) ============
+
+export async function createMission({
+  accountId,
+  employeeId,
+  title,
+  prompt,
+  expectFile,
+  expectTest,
+}: {
+  accountId: string;
+  employeeId: string;
+  title: string;
+  prompt: string;
+  expectFile?: string;
+  expectTest?: boolean;
+}): Promise<Mission[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .insert(mission)
+      .values({
+        accountId,
+        employeeId,
+        title,
+        prompt,
+        expectFile: expectFile ?? null,
+        expectTest: expectTest ?? false,
+      })
+      .returning();
+  } catch (_error) {
+    console.error("createMission DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to create mission");
+  }
+}
+
+export async function getMissionsByAccount(
+  accountId: string
+): Promise<Mission[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(mission)
+      .where(eq(mission.accountId, accountId))
+      .orderBy(desc(mission.createdAt));
+  } catch (_error) {
+    console.error("getMissionsByAccount DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get account missions"
+    );
+  }
+}
+
+export interface RecentMission {
+  id: string;
+  title: string;
+  status: string;
+  report: string | null;
+  updatedAt: Date;
+  employeeId: string;
+  employeeName: string;
+}
+
+// Missions recentes du compte + nom de l'employe (panneau droit).
+export async function getRecentMissionsByAccount(
+  accountId: string,
+  limit = 20
+): Promise<RecentMission[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select({
+        id: mission.id,
+        title: mission.title,
+        status: mission.status,
+        report: mission.report,
+        updatedAt: mission.updatedAt,
+        employeeId: mission.employeeId,
+        employeeName: employee.name,
+      })
+      .from(mission)
+      .innerJoin(employee, eq(mission.employeeId, employee.id))
+      .where(eq(mission.accountId, accountId))
+      .orderBy(desc(mission.updatedAt))
+      .limit(limit);
+  } catch (_error) {
+    console.error("getRecentMissionsByAccount DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get recent missions"
+    );
+  }
+}
+
+export async function getMissionById(
+  accountId: string,
+  missionId: string
+): Promise<Mission | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(mission)
+      .where(and(eq(mission.id, missionId), eq(mission.accountId, accountId)))
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("getMissionById DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to get mission");
+  }
+}
+
+export async function updateMission({
+  accountId,
+  missionId,
+  patch,
+}: {
+  accountId: string;
+  missionId: string;
+  patch: {
+    status?: string;
+    report?: string | null;
+    kernelJobId?: string | null;
+    toolCalls?: unknown;
+    plan?: unknown;
+  };
+}): Promise<Mission | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .update(mission)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(and(eq(mission.id, missionId), eq(mission.accountId, accountId)))
+      .returning();
+    return row ?? null;
+  } catch (_error) {
+    console.error("updateMission DB Error:", _error);
+    throw new ChatbotError("bad_request:database", "Failed to update mission");
+  }
+}
+
+// ============ SESSIONS EMPLOYE (multi-conversations) ============
+
+// Texte des parts Message_v2 (doublon local volontaire : queries
+// n'importe pas la couche lib/server).
+function partsText(parts: unknown): string {
+  if (!Array.isArray(parts)) {
+    return "";
+  }
+  return parts
+    .map((part) => {
+      if (
+        typeof part !== "object" ||
+        part === null ||
+        (part as { type?: unknown }).type !== "text"
+      ) {
+        return "";
+      }
+      const text = (part as { text?: unknown }).text;
+      return typeof text === "string" ? text : "";
+    })
+    .join("");
+}
+
+export interface EmployeeSession {
+  id: string;
+  title: string;
+  // Premier message utilisateur ("" si session vide).
+  preview: string;
+  createdAt: Date;
+  // Dernier message ou creation (tri antichronologique).
+  lastActiveAt: Date;
+}
+
+// Sessions de discussion (user, employe), plus recente active
+// d'abord. Le fil historique (pre-0013) est une session comme
+// les autres : il devient la session par defaut.
+export async function getEmployeeSessions(
+  userId: string,
+  employeeId: string
+): Promise<EmployeeSession[]> {
+  try {
+    const db = await getDb();
+    const chats = await db
+      .select()
+      .from(chat)
+      .where(and(eq(chat.userId, userId), eq(chat.employeeId, employeeId)))
+      .orderBy(asc(chat.createdAt));
+    if (chats.length === 0) {
+      return [];
+    }
+    const rows = await db
+      .select({
+        chatId: message.chatId,
+        role: message.role,
+        parts: message.parts,
+        createdAt: message.createdAt,
+      })
+      .from(message)
+      .where(
+        inArray(
+          message.chatId,
+          chats.map((row) => row.id)
+        )
+      )
+      .orderBy(asc(message.createdAt));
+    const firstByChat = new Map<string, string>();
+    const lastByChat = new Map<string, Date>();
+    for (const row of rows) {
+      if (row.role === "user" && !firstByChat.has(row.chatId)) {
+        firstByChat.set(row.chatId, partsText(row.parts));
+      }
+      lastByChat.set(row.chatId, row.createdAt);
+    }
+    return chats
+      .map((row) => ({
+        id: row.id,
+        title: row.title,
+        preview: (firstByChat.get(row.id) ?? "").slice(0, 120),
+        createdAt: row.createdAt,
+        lastActiveAt: lastByChat.get(row.id) ?? row.createdAt,
+      }))
+      .sort((a, b) => b.lastActiveAt.getTime() - a.lastActiveAt.getTime());
+  } catch (_error) {
+    console.error("getEmployeeSessions DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee sessions"
+    );
+  }
+}
+
+// Une session precise, verifiee (user + employe). NULL si jamais
+// discute ou session etrangere (le GET n'en cree pas).
+export async function getEmployeeSession(
+  userId: string,
+  employeeId: string,
+  sessionId: string
+): Promise<Chat | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(chat)
+      .where(
+        and(
+          eq(chat.id, sessionId),
+          eq(chat.userId, userId),
+          eq(chat.employeeId, employeeId)
+        )
+      )
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("getEmployeeSession DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee session"
+    );
+  }
+}
+
+export async function createEmployeeSession({
+  userId,
+  employeeId,
+}: {
+  userId: string;
+  employeeId: string;
+}): Promise<Chat> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .insert(chat)
+      .values({
+        createdAt: new Date(),
+        userId,
+        title: "",
+        visibility: "private",
+        employeeId,
+      } as any)
+      .returning();
+    if (!row) {
+      throw new Error("insert returned no row");
+    }
+    return row;
+  } catch (_error) {
+    console.error("createEmployeeSession DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to create employee session"
+    );
+  }
+}
+
+// Titre auto depuis le premier message (si session sans titre).
+export async function titleSessionFromFirstMessage({
+  chatId,
+  text,
+}: {
+  chatId: string;
+  text: string;
+}): Promise<void> {
+  try {
+    const db = await getDb();
+    await db
+      .update(chat)
+      .set({ title: text.slice(0, 60) })
+      .where(and(eq(chat.id, chatId), eq(chat.title, "")));
+  } catch (_error) {
+    console.error("titleSessionFromFirstMessage DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to title session"
+    );
+  }
+}
+
+// Un message de discussion employe : contenu texte dans parts
+// (convention Message_v2), lien mission pour les reponses qui
+// concluent une mission (restaure la reference au rechargement).
+export async function saveEmployeeMessage({
+  chatId,
+  role,
+  text,
+  missionId,
+}: {
+  chatId: string;
+  role: "user" | "assistant";
+  text: string;
+  missionId?: string;
+}): Promise<DBMessage> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .insert(message)
+      .values({
+        id: randomUUID(),
+        chatId,
+        role,
+        parts: [{ type: "text", text }],
+        attachments: [],
+        createdAt: new Date(),
+        missionId: missionId ?? null,
+      } as any)
+      .returning();
+    if (!row) {
+      throw new Error("insert returned no row");
+    }
+    return row;
+  } catch (_error) {
+    console.error("saveEmployeeMessage DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to save employee message"
+    );
+  }
+}
+
+// Historique des missions d'un employe du compte (onglet History).
+export async function getMissionsByEmployee(
+  accountId: string,
+  employeeId: string
+): Promise<Mission[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(mission)
+      .where(
+        and(eq(mission.accountId, accountId), eq(mission.employeeId, employeeId))
+      )
+      .orderBy(desc(mission.createdAt));
+  } catch (_error) {
+    console.error("getMissionsByEmployee DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get employee missions"
+    );
+  }
+}
+
+// ============ MIROIR WORKSPACE (fichiers employe en base) ============
+
+// Liste le miroir DB d'un workspace de session (tri : appelant).
+export async function listWorkspaceFilesDb({
+  accountId,
+  employeeId,
+  chatId,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+}): Promise<WorkspaceFile[]> {
+  try {
+    const db = await getDb();
+    return await db
+      .select()
+      .from(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId)
+        )
+      );
+  } catch (_error) {
+    console.error("listWorkspaceFilesDb DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to list workspace files"
+    );
+  }
+}
+
+// Lit un fichier du miroir de session (NULL si absent).
+export async function readWorkspaceFileDb({
+  accountId,
+  employeeId,
+  chatId,
+  path,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  path: string;
+}): Promise<WorkspaceFile | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId),
+          eq(workspaceFile.path, path)
+        )
+      )
+      .limit(1);
+    return row ?? null;
+  } catch (_error) {
+    console.error("readWorkspaceFileDb DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to read workspace file"
+    );
+  }
+}
+
+// Insere ou met a jour des fichiers du miroir de session
+// (conflit = meme chemin dans la meme session).
+export async function upsertWorkspaceFiles({
+  accountId,
+  employeeId,
+  chatId,
+  missionId,
+  files,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  missionId: string | null;
+  files: ReadonlyArray<{
+    path: string;
+    content: string;
+    size: number;
+    sha256: string;
+  }>;
+}): Promise<void> {
+  if (files.length === 0) {
+    return;
+  }
+  try {
+    const db = await getDb();
+    for (const file of files) {
+      await db
+        .insert(workspaceFile)
+        .values({
+          accountId,
+          employeeId,
+          chatId,
+          path: file.path,
+          content: file.content,
+          size: file.size,
+          sha256: file.sha256,
+          missionId,
+          updatedAt: new Date(),
+        })
+        .onConflictDoUpdate({
+          target: [
+            workspaceFile.accountId,
+            workspaceFile.employeeId,
+            workspaceFile.chatId,
+            workspaceFile.path,
+          ],
+          set: {
+            content: file.content,
+            size: file.size,
+            sha256: file.sha256,
+            missionId,
+            updatedAt: new Date(),
+          },
+        });
+    }
+  } catch (_error) {
+    console.error("upsertWorkspaceFiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to save workspace files"
+    );
+  }
+}
+
+// Supprime du miroir de session les chemins absents du disque
+// (renommages, suppressions agent). Liste vide = le disque ne
+// montre rien : ne supprime RIEN (un workspace momentanement
+// vide ne doit jamais effacer la copie durable).
+export async function deleteStaleWorkspaceFiles({
+  accountId,
+  employeeId,
+  chatId,
+  keepPaths,
+}: {
+  accountId: string;
+  employeeId: string;
+  chatId: string;
+  keepPaths: ReadonlyArray<string>;
+}): Promise<number> {
+  if (keepPaths.length === 0) {
+    return 0;
+  }
+  try {
+    const db = await getDb();
+    const removed = await db
+      .delete(workspaceFile)
+      .where(
+        and(
+          eq(workspaceFile.accountId, accountId),
+          eq(workspaceFile.employeeId, employeeId),
+          eq(workspaceFile.chatId, chatId),
+          notInArray(workspaceFile.path, [...keepPaths])
+        )
+      )
+      .returning({ id: workspaceFile.id });
+    return removed.length;
+  } catch (_error) {
+    console.error("deleteStaleWorkspaceFiles DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to prune workspace files"
+    );
+  }
+}
+
+// Premier chat de l'utilisateur = le chat d'accueil du Chef (cree au
+// provisioning, avant tout autre chat possible). Sessions employe
+// exclues : une session Atlas ne doit jamais passer pour l'accueil.
+export async function getFirstChatIdForUser(
+  userId: string
+): Promise<string | null> {
+  try {
+    const db = await getDb();
+    const [row] = await db
+      .select({ id: chat.id })
+      .from(chat)
+      .where(userMainChatsCondition(userId))
+      .orderBy(asc(chat.createdAt))
+      .limit(1);
+    return row?.id ?? null;
+  } catch (_error) {
+    console.error("getFirstChatIdForUser DB Error:", _error);
+    throw new ChatbotError(
+      "bad_request:database",
+      "Failed to get first chat"
     );
   }
 }

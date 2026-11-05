@@ -7,26 +7,34 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/employees/catalog";
+import {
+  parseStoredPlan,
+  progressFromRecords,
+} from "@/lib/employees/mission-events";
+import {
+  mapSessionHistory,
+  type SessionHistoryMessage,
+  type SessionHistoryRow,
+} from "@/lib/employees/session-history";
+import { toToolCallRecords } from "@/lib/server/employee-conversation-mapping";
+import { MissionExecutionPanel } from "./mission-execution-panel";
+import type { useMissionStream } from "./use-mission-stream";
 
-interface ChatMessage {
-  id: string;
-  role: "user" | "employee";
-  text: string;
-  missionId?: string;
-  pending?: boolean;
-  startedAt?: number;
-  mission?: boolean;
-}
+type ChatMessage = SessionHistoryMessage;
 
-interface HistoryRow {
-  id: string;
-  role: string;
-  text: string;
-  missionId: string | null;
-  createdAt: string;
-}
-
-export function EmployeeChat({ employee }: { employee: Employee }) {
+export function EmployeeChat({
+  employee,
+  sessionId,
+  mission,
+  onSessionResolved,
+  onFailedSend,
+}: {
+  employee: Employee;
+  sessionId: string | null;
+  mission: ReturnType<typeof useMissionStream>;
+  onSessionResolved: (sessionId: string) => void;
+  onFailedSend: () => void;
+}) {
   const t = useTranslations("employees");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -36,52 +44,114 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
     },
   ]);
   const [input, setInput] = useState("");
-  const [asMission, setAsMission] = useState(false);
   const [sending, setSending] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [, setTick] = useState(0);
   const idRef = useRef(0);
-  const controllerRef = useRef<AbortController | null>(null);
+  // Epoques d'envoi : un telechargement d'historique qui se
+  // termine APRES le debut d'un envoi est perime (il ecraserait
+  // les messages optimistes) et doit etre ignore.
+  const sendEpochRef = useRef(0);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
-  useEffect(() => {
-    return () => {
-      controllerRef.current?.abort();
-    };
-  }, []);
+  const greeting = (): ChatMessage => ({
+    id: "greeting",
+    role: "employee",
+    text: t("chatGreeting", { name: employee.name, role: employee.role }),
+  });
 
-  // Historique persistant : recharge le fil (user, employe) depuis
-  // la base. Conversation vide = on garde la salutation locale.
+  // Changement de session sans remontage : le brouillon et
+  // l'erreur appartiennent a la session quittee (l'historique
+  // recharge via l'effet ci-dessous).
   useEffect(() => {
+    setInput("");
+    setError(null);
+  }, [sessionId]);
+
+  // Historique persistant : recharge la session ciblee depuis
+  // la base. Sans session (page /atlas) = nouvelle session
+  // vierge, jamais la derniere rouverte. Ne recharge que quand la
+  // cible (employe/session) change : les re-rendus du parent ne
+  // doivent jamais ecraser la discussion visible. Le nettoyage
+  // libere la cle : en dev (StrictMode), le double montage ne
+  // doit pas avaler le seul telechargement.
+  const loadedKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const loadedKey = `${employee.id}:${sessionId ?? ""}`;
+    if (loadedKeyRef.current === loadedKey) {
+      return;
+    }
+    loadedKeyRef.current = loadedKey;
+    const fetchEpoch = sendEpochRef.current;
     let cancelled = false;
+    if (!sessionId) {
+      setMessages([greeting()]);
+      setHistoryLoading(false);
+      // Vue neuve : le seau d'attente ne montre plus le run
+      // termine de la precedente vue neuve.
+      mission.resetPending();
+      return;
+    }
     setHistoryLoading(true);
-    fetch(`/api/employees/${encodeURIComponent(employee.id)}/chat`)
+    const url = `/api/employees/${encodeURIComponent(employee.id)}/chat?session=${encodeURIComponent(sessionId)}`;
+    fetch(url)
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(`history failed: ${response.status}`);
         }
-        return (await response.json()) as { messages?: HistoryRow[] };
+        return (await response.json()) as {
+          messages?: SessionHistoryRow[];
+          lastMission?: {
+            id: unknown;
+            status: unknown;
+            summary: unknown;
+            needsAcceptance: unknown;
+            toolCalls: unknown;
+            plan: unknown;
+          } | null;
+        };
       })
       .then((payload) => {
-        if (cancelled) {
+        // Perime : annule (navigation, demontage) ou depasse par
+        // un envoi parti entre-temps (l'envoi est proprietaire de
+        // la discussion visible jusqu'a son terme).
+        if (cancelled || fetchEpoch !== sendEpochRef.current) {
           return;
         }
         const rows = Array.isArray(payload.messages)
           ? payload.messages
           : [];
-        if (rows.length > 0) {
-          setMessages(
-            rows.map((row) => ({
-              id: row.id,
-              role: row.role === "employee" ? "employee" : "user",
-              text:
-                row.text ||
-                (row.missionId
-                  ? t("missionNeedsAcceptance")
-                  : t("chatEmptyReply")),
-              missionId: row.missionId ?? undefined,
-            }))
-          );
+        const mapped = mapSessionHistory(rows, {
+          emptyReply: t("chatEmptyReply"),
+          needsAcceptance: t("missionNeedsAcceptance"),
+        });
+        setMessages(mapped.length > 0 ? mapped : [greeting()]);
+        // Le processus fait partie de la reponse : plan, etapes
+        // et fichiers restaures dans le panneau (no-op si un run
+        // est en cours : le live gagne sur le restaure).
+        const last = payload.lastMission;
+        if (
+          last &&
+          typeof last.id === "string" &&
+          typeof last.status === "string" &&
+          typeof last.summary === "string"
+        ) {
+          const records = toToolCallRecords(last.toolCalls);
+          mission.restore({
+            sessionId,
+            progress: {
+              ...progressFromRecords(records),
+              plan: parseStoredPlan(last.plan),
+            },
+            outcome: {
+              missionId: last.id,
+              summary: last.summary,
+              needsAcceptance: last.needsAcceptance === true,
+              sessionId,
+              status: last.status,
+            },
+          });
         }
       })
       .catch(() => {
@@ -95,162 +165,134 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
       });
     return () => {
       cancelled = true;
+      if (loadedKeyRef.current === loadedKey) {
+        loadedKeyRef.current = null;
+      }
     };
-  }, [employee.id, t]);
+  }, [employee.id, employee.name, employee.role, sessionId, t]);
 
-  const hasPending = messages.some((message) => message.pending === true);
+  const appendMessage = (message: Omit<ChatMessage, "id">) => {
+    idRef.current += 1;
+    const id = `m${idRef.current}`;
+    setMessages((prev) => [...prev, { ...message, id }]);
+  };
 
-  useEffect(() => {
-    if (!hasPending) {
+  // Envoi unique (plus de double mode) : chaque message passe par
+  // la boucle agentique (plan ecrit, puis execution). Pas de bulle
+  // d'attente : le panneau d'execution montre le live, la reponse
+  // conclut la discussion. Partage avec Retry (meme flux). Chaque
+  // envoi perime les telechargements d'historique anterieurs (ils
+  // ecraseraient les messages optimistes) et, s'il se termine
+  // apres une navigation, ne touche ni a la vue ni a l'URL.
+  const sendMissionMessage = async (text: string) => {
+    if (sending) {
       return;
     }
-    const timer = setInterval(() => setTick((tick) => tick + 1), 500);
-    return () => clearInterval(timer);
-  }, [hasPending]);
-
-  const patchMessage = (id: string, patch: Partial<ChatMessage>) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === id ? { ...message, ...patch } : message
-      )
-    );
-  };
-
-  const appendText = (id: string, chunk: string) => {
-    setMessages((prev) =>
-      prev.map((message) =>
-        message.id === id
-          ? { ...message, text: message.text + chunk }
-          : message
-      )
-    );
-  };
-
-  const dropMessage = (id: string) => {
-    setMessages((prev) => prev.filter((message) => message.id !== id));
-  };
-
-  const send = async () => {
-    const text = input.trim();
-    if (!text || sending) return;
-    const missionMode = asMission;
-    idRef.current += 1;
-    const placeholderId = `e${idRef.current}`;
-    const controller = new AbortController();
-    controllerRef.current = controller;
+    sendEpochRef.current += 1;
+    const sendSessionId = sessionId;
     setSending(true);
     setError(null);
-    setMessages((prev) => [
-      ...prev,
-      { id: `u${idRef.current}`, role: "user", text },
-      {
-        id: placeholderId,
-        role: "employee",
-        text: "",
-        pending: true,
-        startedAt: Date.now(),
-        mission: missionMode,
-      },
-    ]);
-    setInput("");
+    appendMessage({ role: "user", text });
     try {
-      if (missionMode) {
-        const response = await fetch(
-          `/api/employees/${encodeURIComponent(employee.id)}/chat`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ message: text, asMission: true }),
-            signal: controller.signal,
-          }
-        );
-        const payload = (await response.json()) as {
-          mission?: { id: string };
-          summary?: string;
-          needsAcceptance?: boolean;
-          error?: string;
-        };
-        if (!response.ok) {
-          throw new Error(payload.error ?? `chat failed: ${response.status}`);
-        }
-        const replyText =
-          payload.needsAcceptance === true
-            ? t("missionNeedsAcceptance")
-            : (payload.summary || t("chatEmptyReply"));
-        patchMessage(placeholderId, {
-          pending: false,
-          text: replyText,
-          missionId: payload.mission?.id,
-        });
-      } else {
-        const response = await fetch(
-          `/api/employees/${encodeURIComponent(employee.id)}/chat?stream=1`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ message: text, asMission: false }),
-            signal: controller.signal,
-          }
-        );
-        if (!response.ok || !response.body) {
-          throw new Error(`chat stream failed: ${response.status}`);
-        }
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let received = "";
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) {
-            break;
-          }
-          const chunk = decoder.decode(value, { stream: true });
-          if (chunk) {
-            received += chunk;
-            appendText(placeholderId, chunk);
-          }
-        }
-        if (!received) {
-          throw new Error("chat stream returned nothing");
-        }
-        patchMessage(placeholderId, { pending: false });
-      }
-    } catch {
-      if (controller.signal.aborted) {
+      const result = await mission.run({
+        employeeId: employee.id,
+        sessionId: sendSessionId,
+        message: text,
+        // Vue neuve : l'accueil affiche persiste en premier
+        // (le serveur ne le garde que si la session est vierge).
+        greeting:
+          sendSessionId === null ? greeting().text : undefined,
+      });
+      if (
+        sendSessionId !== null &&
+        sessionIdRef.current !== sendSessionId
+      ) {
+        // Navigation entre-temps : la reponse est en base, la
+        // liste se rafraichit, la vue visitee reste intacte.
+        onFailedSend();
         return;
       }
-      dropMessage(placeholderId);
-      setError(t("chatSendFailed"));
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
+      onSessionResolved(result.sessionId);
+      appendMessage({
+        role: "employee",
+        text:
+          result.needsAcceptance === true
+            ? t("missionNeedsAcceptance")
+            : (result.summary || t("chatEmptyReply")),
+        missionId: result.missionId,
+      });
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        return;
       }
+      setError(t("chatSendFailed"));
+      // Le message est peut-etre quand meme en base (session
+      // creee avant l'echec) : il doit apparaitre dans la liste.
+      onFailedSend();
+    } finally {
       setSending(false);
     }
   };
 
+  const send = async () => {
+    const text = input.trim();
+    if (!text || sending) {
+      return;
+    }
+    setInput("");
+    await sendMissionMessage(text);
+  };
+
+  const showExecution =
+    mission.running ||
+    mission.progress.steps.length > 0 ||
+    mission.progress.thinkingStep !== null ||
+    mission.progress.failed !== null ||
+    mission.progress.plan.length > 0 ||
+    mission.outcome !== null;
+
+  // Ordre chronologique : le panneau d'execution vit APRES le
+  // message qui l'a declenche, dans le meme defilement. Le flux
+  // reste colle au bas pendant un run, sauf si l'utilisateur est
+  // remonte lire l'historique (on ne lui arrache jamais la
+  // lecture).
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const stickToBottomRef = useRef(true);
+
+  useEffect(() => {
+    const node = scrollRef.current;
+    if (!node || !stickToBottomRef.current) {
+      return;
+    }
+    node.scrollTop = node.scrollHeight;
+  }, [mission.running, mission.progress, mission.outcome, messages.length]);
+
+  const handleScroll = () => {
+    const node = scrollRef.current;
+    if (!node) {
+      return;
+    }
+    stickToBottomRef.current =
+      node.scrollHeight - node.scrollTop - node.clientHeight < 120;
+  };
+
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/60 bg-card">
-      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-4 py-3">
-        <div className="min-w-0">
-          <p className="truncate text-[14px] font-medium text-foreground">
-            {employee.name}
-          </p>
-          <p className="truncate text-[12px] text-muted-foreground">
-            {employee.role}
-          </p>
-        </div>
-        <label className="flex shrink-0 cursor-pointer items-center gap-2 text-[12px] text-muted-foreground">
-          <input
-            checked={asMission}
-            className="size-4 accent-foreground"
-            onChange={(event) => setAsMission(event.target.checked)}
-            type="checkbox"
-          />
-          {t("missionLabel")}
-        </label>
+      <div className="border-b border-border/60 px-4 py-3">
+        <p className="truncate text-[14px] font-medium text-foreground">
+          {employee.name}
+        </p>
+        <p className="truncate text-[12px] text-muted-foreground">
+          {employee.role}
+        </p>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      <div
+        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        data-testid="employee-messages"
+        onScroll={handleScroll}
+        ref={scrollRef}
+      >
         {historyLoading && (
           <p className="text-[12px] text-muted-foreground">
             {t("chatHistoryLoading")}
@@ -264,27 +306,10 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
                 ? "self-end bg-foreground text-background"
                 : "self-start bg-muted text-foreground"
             )}
+            data-testid={`employee-message-${message.role}`}
             key={message.id}
           >
-            {message.pending === true && !message.text ? (
-              <ThinkingLine
-                elapsed={
-                  message.startedAt
-                    ? Math.max(
-                        0,
-                        Math.floor((Date.now() - message.startedAt) / 1000)
-                      )
-                    : 0
-                }
-                label={
-                  message.mission === true
-                    ? t("chatMissionRunning")
-                    : t("chatThinking", { name: employee.name })
-                }
-              />
-            ) : (
-              message.text
-            )}
+            {message.text}
             {message.missionId && (
               <span className="mt-1 block text-[11px] opacity-70">
                 {t("missionRef", { id: message.missionId.slice(0, 8) })}
@@ -292,8 +317,25 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
             )}
           </div>
         ))}
+        {showExecution && (
+          <div className="w-full border-t border-border/60 pt-3">
+            <MissionExecutionPanel
+              mission={mission}
+              onRetry={() => {
+                if (!sending && mission.lastPrompt) {
+                  void sendMissionMessage(mission.lastPrompt);
+                }
+              }}
+            />
+          </div>
+        )}
         {error && (
-          <p className="text-[12px] text-red-600 dark:text-red-400">{error}</p>
+          <p
+            className="text-[12px] text-red-600 dark:text-red-400"
+            data-testid="employee-send-error"
+          >
+            {error}
+          </p>
         )}
       </div>
 
@@ -309,9 +351,7 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
               void send();
             }
           }}
-          placeholder={
-            asMission ? t("missionPlaceholder") : t("chatPlaceholder")
-          }
+          placeholder={t("missionPlaceholder")}
           value={input}
         />
         <Button
@@ -321,30 +361,9 @@ export function EmployeeChat({ employee }: { employee: Employee }) {
           type="button"
           variant="brand"
         >
-          {sending ? "…" : asMission ? t("assignLabel") : t("sendLabel")}
+          {sending ? "…" : t("assignLabel")}
         </Button>
       </div>
     </div>
-  );
-}
-
-function ThinkingLine({ label, elapsed }: { label: string; elapsed: number }) {
-  return (
-    <span className="inline-flex items-center gap-2 text-muted-foreground">
-      <span aria-hidden="true" className="inline-flex gap-1">
-        <span className="size-1.5 animate-pulse rounded-full bg-current" />
-        <span
-          aria-hidden="true"
-          className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:150ms]"
-        />
-        <span
-          aria-hidden="true"
-          className="size-1.5 animate-pulse rounded-full bg-current [animation-delay:300ms]"
-        />
-      </span>
-      <span>
-        {label} · <span className="tabular-nums">{elapsed}s</span>
-      </span>
-    </span>
   );
 }

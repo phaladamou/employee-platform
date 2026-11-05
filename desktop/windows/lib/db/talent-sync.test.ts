@@ -1,0 +1,215 @@
+// lib/db/talent-sync.test.ts
+//
+// Non-regression : talent-sync.ts tourne sous tsx pur (migrate.ts),
+// donc il ne doit jamais importer (meme transitivement) `server-only`
+// — qui leve hors Next.js. Ce test tourne en conditions Node
+// standard : toute chaine `server-only` reintroduite le fait echouer
+// des l'import. Il verifie aussi la logique de synchro sur DB stub.
+// Execution : pnpm exec vitest run lib/db/talent-sync.test.ts
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { describe, expect, it } from "vitest";
+
+import { TALENT_CATALOG } from "../employees/talents";
+import { syncTalentCatalog } from "./talent-sync";
+
+interface RecordedCall {
+  op: "nothing" | "update" | "backfill";
+  values: Record<string, unknown>;
+  set?: Record<string, unknown>;
+  where?: unknown;
+}
+
+function stubDb(calls: RecordedCall[]) {
+  return {
+    insert: (_table: unknown) => ({
+      values: (values: Record<string, unknown>) => ({
+        onConflictDoNothing: async () => {
+          calls.push({ op: "nothing", values });
+        },
+        onConflictDoUpdate: async ({ set }: { set: Record<string, unknown> }) => {
+          calls.push({ op: "update", values, set });
+        },
+      }),
+    }),
+    update: (_table: unknown) => ({
+      set: (set: Record<string, unknown>) => ({
+        where: async (where: unknown) => {
+          calls.push({ op: "backfill", values: {}, set, where });
+        },
+      }),
+    }),
+  };
+}
+
+const PROFILES_DIR = join(
+  process.cwd(),
+  "core",
+  "employee",
+  "profiles"
+);
+
+describe("talent catalog sync", () => {
+  it("upserts the 6 kernel talents with their departments", async () => {
+    const calls: RecordedCall[] = [];
+    const result = await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
+
+    expect(result).toEqual({ count: 6 });
+
+    const departments = calls.filter((c) => c.op === "nothing");
+    expect(departments.map((c) => c.values.id).sort()).toEqual([
+      "engineering",
+      "operations",
+      "research-data",
+    ]);
+
+    const talents = calls.filter((c) => c.op === "update");
+    expect(talents.map((c) => c.values.spec).sort()).toEqual(
+      Object.keys(TALENT_CATALOG).sort()
+    );
+    for (const talent of talents) {
+      expect(talent.values.name).toBeTruthy();
+      expect(talent.values.role).toBeTruthy();
+      expect(talent.values.background).toBeTruthy();
+      expect(talent.values.createdBy).toBe("Cofoundator");
+      expect(talent.set?.updatedAt).toBeInstanceOf(Date);
+    }
+  });
+
+  it("syncs every rich profile with its keys", async () => {
+    const calls: RecordedCall[] = [];
+    await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
+
+    const atlas = calls.find(
+      (c) => c.op === "update" && c.values.spec === "atlas-software-engineer"
+    );
+    expect(atlas).toBeDefined();
+    const values = (atlas?.values ?? {}) as Record<string, any>;
+    expect(String(values.overview)).toContain("AI software engineer");
+    expect(values.responsibilities).toHaveLength(5);
+    expect(values.capabilities).toContain("Debugging");
+    expect(values.tools).toHaveLength(8);
+    expect(String(values.executionEnvironment)).toContain("assigned workspace");
+    expect(values.boundaries).toHaveLength(7);
+    expect(values.deliverables).toHaveLength(5);
+    expect(String(values.verification)).toContain(
+      "traceable engineering outcome"
+    );
+    // Pas de cles riches dans la clause de conflit (graine seulement).
+    expect("overview" in (atlas?.set ?? {})).toBe(false);
+
+    // Nova : fiche riche synchronisee, sans write_file.
+    const nova = calls.find(
+      (c) => c.op === "update" && c.values.spec === "nova-devops-engineer"
+    );
+    expect(nova).toBeDefined();
+    const novaValues = (nova?.values ?? {}) as Record<string, any>;
+    expect(String(novaValues.overview)).toContain("DevOps engineer");
+    expect(novaValues.responsibilities).toHaveLength(5);
+    expect(novaValues.tools).toHaveLength(2);
+
+    // Aria : fiche riche synchronisee.
+    const aria = calls.find(
+      (c) => c.op === "update" && c.values.spec === "aria-data-analyst"
+    );
+    expect(aria).toBeDefined();
+    const ariaValues = (aria?.values ?? {}) as Record<string, any>;
+    expect(String(ariaValues.overview)).toContain("data analyst");
+    expect(ariaValues.responsibilities).toHaveLength(5);
+    expect(ariaValues.tools).toHaveLength(2);
+
+    // Newton : fiche riche synchronisee.
+    const newton = calls.find(
+      (c) => c.op === "update" && c.values.spec === "newton-researcher"
+    );
+    expect(newton).toBeDefined();
+    const newtonValues = (newton?.values ?? {}) as Record<string, any>;
+    expect(String(newtonValues.overview)).toContain("AI researcher");
+    expect(newtonValues.responsibilities).toHaveLength(5);
+    expect(newtonValues.tools).toHaveLength(2);
+
+    // Milo : fiche riche synchronisee.
+    const milo = calls.find(
+      (c) => c.op === "update" && c.values.spec === "milo-content-strategist"
+    );
+    expect(milo).toBeDefined();
+    const miloValues = (milo?.values ?? {}) as Record<string, any>;
+    expect(String(miloValues.overview)).toContain("content strategist");
+    expect(miloValues.responsibilities).toHaveLength(4);
+    expect(miloValues.tools).toHaveLength(2);
+
+    // Sana : fiche riche synchronisee.
+    const sana = calls.find(
+      (c) => c.op === "update" && c.values.spec === "sana-seo-analyst"
+    );
+    expect(sana).toBeDefined();
+    const sanaValues = (sana?.values ?? {}) as Record<string, any>;
+    expect(String(sanaValues.overview)).toContain("SEO analyst");
+    expect(sanaValues.responsibilities).toHaveLength(5);
+    expect(sanaValues.tools).toHaveLength(2);
+
+    // Graine seulement : les cles riches partent a l'insertion,
+    // jamais dans la clause de conflit (la base garde ses contenus).
+    // consumptionProfile n'existe qu'en graine Atlas (mesure N=4).
+    const updates = calls.filter((c) => c.op === "update");
+    expect(updates).toHaveLength(6);
+    for (const update of updates) {
+      for (const key of [
+        "overview",
+        "responsibilities",
+        "capabilities",
+        "tools",
+        "executionEnvironment",
+        "boundaries",
+        "deliverables",
+        "verification",
+      ]) {
+        expect(key in update.values, `${update.values.spec}.${key}`).toBe(true);
+        expect(key in (update.set ?? {}), `${update.values.spec}.set.${key}`).toBe(
+          false
+        );
+      }
+      // Les champs miroir du noyau, eux, se resynchronisent.
+      expect("version" in (update.set ?? {})).toBe(true);
+      expect(update.set?.updatedAt).toBeInstanceOf(Date);
+    }
+  });
+
+  it("backfills measured consumption, always scoped", async () => {
+    const calls: RecordedCall[] = [];
+    await syncTalentCatalog(stubDb(calls) as any, PROFILES_DIR);
+
+    // Seul Atlas a une graine mesuree : un seul rattrapage, avec ses
+    // valeurs exactes, et toujours sous condition (jamais d'UPDATE nu
+    // qui ecraserait les contenus poses via PUT).
+    const backfills = calls.filter((c) => c.op === "backfill");
+    expect(backfills).toHaveLength(1);
+    expect(backfills[0].set?.consumptionProfile).toEqual({
+      estimatedTokensPerMission: 1987,
+      estimatedElapsedSecondsPerMission: 4.9,
+      minMemoryMb: 128,
+      minDiskMb: 1,
+      networkRequired: false,
+    });
+    expect(backfills[0].where).toBeDefined();
+  });
+
+  it("fails loudly when the seed claims an unimplemented tool", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "kernel-weak-"));
+    writeFileSync(
+      join(dir, "atlas-software-engineer.json"),
+      JSON.stringify({
+        name: "atlas-software-engineer",
+        version: "1.0.0",
+        role: "Software Engineer",
+        systemPrompt: "Build.",
+        allowedTools: ["read_file"],
+      })
+    );
+    const calls: RecordedCall[] = [];
+    await expect(syncTalentCatalog(stubDb(calls) as any, dir)).rejects.toThrow(
+      /not implemented by the kernel/
+    );
+  });
+});

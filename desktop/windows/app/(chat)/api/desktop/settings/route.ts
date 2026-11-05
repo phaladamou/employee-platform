@@ -7,7 +7,7 @@ import { auth } from "@/app/(auth)/auth";
 import { loadDesktopSettings, saveDesktopSettings } from "@/lib/desktop/settings";
 
 const MAX_LEN = 500;
-const DEFAULT_BASE_URL = "https://api.deepseek.com/v1";
+const DEFAULT_BASE_URL = "https://api.meta.ai/v1";
 
 function mask(value: string | undefined): string | null {
   if (!value) {
@@ -41,13 +41,19 @@ export async function GET() {
   }
 
   const settings = loadDesktopSettings();
-  const llmApiKey = settings.llmApiKey ?? process.env.DEEPSEEK_API_KEY;
+  const llmApiKey =
+    settings.llmApiKey ??
+    process.env.MUSE_API_KEY ??
+    process.env.DEEPSEEK_API_KEY;
 
   return NextResponse.json({
     configured: Boolean(llmApiKey),
     llmApiKey: mask(llmApiKey),
     llmBaseUrl:
-      settings.llmBaseUrl ?? process.env.OPENAI_BASE_URL ?? DEFAULT_BASE_URL,
+      settings.llmBaseUrl ??
+      process.env.MUSE_BASE_URL ??
+      process.env.OPENAI_BASE_URL ??
+      DEFAULT_BASE_URL,
     tavilyApiKey: mask(settings.tavilyApiKey ?? process.env.TAVILY_API_KEY),
   });
 }

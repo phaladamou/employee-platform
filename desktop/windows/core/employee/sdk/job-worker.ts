@@ -1,0 +1,248 @@
+import { createPollingJobSignal } from "../jobs/job-signal";
+import type { EmployeeJob, JobConsumption } from "../jobs/employee-job";
+import type { JobStore } from "../jobs/job-store";
+import type { EmployeeMemory } from "../memory/employee-memory";
+import type { EmployeeMemoryStore } from "../memory/memory-store";
+import type { MissionStore } from "../missions/mission-store";
+import { setEmployeeStatus } from "../profile/employee-profile";
+import type { ProfileStore } from "../profile/profile-store";
+import type { ProfileRegistry } from "../profiles/profile-registry";
+import type { EmployeeWorkspaces } from "../workspaces/employee-workspaces";
+import { EmployeeRuntime } from "../runtime/employee-runtime";
+import type { EmployeeLLMProvider } from "../runtime/llm-provider";
+import type { LLMUsageTotal } from "../runtime/react-loop";
+import type { EmployeeTool, ToolContext } from "../tools/tool";
+
+export interface JobWorkerDeps {
+  readonly jobs: JobStore;
+  readonly missions: MissionStore;
+  readonly profiles: ProfileStore;
+  readonly provider: EmployeeLLMProvider;
+  readonly tools?: readonly EmployeeTool[];
+  readonly toolContext?: ToolContext;
+  /**
+   * Workspaces dedies (absent = repli sandboxRoot partage, chemin
+   * historique). Quand present : acquire avant run, sans echec
+   * du job si l'acquisition echoue (repli sandbox + marqueur).
+   */
+  readonly workspaces?: EmployeeWorkspaces;
+  readonly maxSteps?: number;
+  readonly profilesRegistry?: ProfileRegistry;
+  readonly memory?: EmployeeMemory;
+  readonly memoryStore?: EmployeeMemoryStore;
+  /**
+   * Battement du bail pendant le run (defaut 15 s, 0 = desactive).
+   * Best-effort : un battement rate n'echoue jamais la mission.
+   */
+  readonly heartbeatIntervalMs?: number;
+}
+
+export const DEFAULT_HEARTBEAT_INTERVAL_MS = 15_000;
+
+/** RSS worker en Mo, null hors Node (non mesurable, pas 0). */
+function sampleWorkerMemoryMb(): number | null {
+  if (
+    typeof process === "undefined" ||
+    typeof process.memoryUsage !== "function"
+  ) {
+    return null;
+  }
+  return process.memoryUsage().rss / (1024 * 1024);
+}
+
+function round2(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+/**
+ * Consommation d'un run termine : tokens cumules (null si le
+ * fournisseur n'a rien compte), temps ecoule murale, pic RSS des
+ * echantillons debut/fin. Les annulations n'enregistrent rien.
+ */
+function buildRunConsumption(
+  usage: LLMUsageTotal,
+  startedAtMs: number,
+  memoryStartMb: number | null
+): JobConsumption {
+  const total =
+    usage.totalTokens > 0
+      ? usage.totalTokens
+      : usage.inputTokens + usage.outputTokens;
+  const memoryEndMb = sampleWorkerMemoryMb();
+  const samples = [memoryStartMb, memoryEndMb].filter(
+    (sample): sample is number => sample !== null
+  );
+  return {
+    tokensUsed: total > 0 ? total : null,
+    elapsedSeconds: Math.round(Date.now() - startedAtMs) / 1000,
+    maxMemoryMb: samples.length > 0 ? round2(Math.max(...samples)) : null,
+  };
+}
+
+/**
+ * Execute un job DEJA claimé par workerId : run du runtime avec
+ * signal d'annulation scrutant le store, puis cloture (succes / echec
+ * / annulation confirmee). Le job doit etre running et verrouille par
+ * workerId, sinon leve.
+ */
+export async function runClaimedJob(
+  deps: JobWorkerDeps,
+  job: EmployeeJob,
+  workerId: string
+): Promise<EmployeeJob> {
+  if (job.status !== "running" && job.status !== "cancellation_requested") {
+    throw new Error(
+      `Job ${job.id} is not running (status "${job.status}")`
+    );
+  }
+  if (job.lockOwner !== workerId) {
+    throw new Error(`Job ${job.id} is locked by another worker`);
+  }
+
+  const claimed = job;
+  const mission = await deps.missions.load(claimed.missionId);
+  if (!mission) {
+    return deps.jobs.markFailed(
+      claimed.id,
+      workerId,
+      `Mission ${claimed.missionId} not found`
+    );
+  }
+
+  const profile = await deps.profiles.load(claimed.employeeId);
+  if (!profile) {
+    return deps.jobs.markFailed(
+      claimed.id,
+      workerId,
+      `Employee ${claimed.employeeId} not found`
+    );
+  }
+
+  if (mission.status !== "pending") {
+    return deps.jobs.markFailed(
+      claimed.id,
+      workerId,
+      `Mission ${mission.id} is not pending (status "${mission.status}")`
+    );
+  }
+
+  if (profile.status === "suspended") {
+    return deps.jobs.markFailed(
+      claimed.id,
+      workerId,
+      `Employee ${profile.id} is suspended`
+    );
+  }
+
+  await deps.profiles.save(setEmployeeStatus(profile, "working"));
+
+  // Workspace dedie : cree (idempotent) AVANT le run. Best-effort :
+  // un workspace indisponible ne bloque jamais la mission (repli
+  // sandbox historique). Le repli est volontairement bruyant dans
+  // les logs du worker pour rester visible en exploitation.
+  let toolContext = deps.toolContext;
+  if (deps.workspaces) {
+    try {
+      const workspaceRoot = await deps.workspaces.acquire(claimed.employeeId);
+      toolContext = { ...deps.toolContext, workspaceRoot };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(
+        `workspace acquire failed for ${claimed.employeeId} (sandbox fallback): ${message}`
+      );
+    }
+  }
+
+  const runtime = new EmployeeRuntime(deps.provider, {
+    tools: deps.tools,
+    toolContext,
+    maxSteps: deps.maxSteps,
+    profiles: deps.profilesRegistry,
+    memory: deps.memory,
+    memoryStore: deps.memoryStore,
+    signal: createPollingJobSignal(deps.jobs, claimed.id),
+  });
+
+  const heartbeatMs = deps.heartbeatIntervalMs ?? DEFAULT_HEARTBEAT_INTERVAL_MS;
+  const heartbeatTimer =
+    heartbeatMs > 0
+      ? setInterval(() => {
+          void deps.jobs.heartbeat(claimed.id, workerId).catch(() => undefined);
+        }, heartbeatMs)
+      : null;
+  // Ne retient jamais le processus (tests, arret brutal).
+  heartbeatTimer?.unref?.();
+
+  try {
+    const runStartedAtMs = Date.now();
+    const memoryStartMb = sampleWorkerMemoryMb();
+    const result = await runtime.run(profile, mission);
+    const consumption = buildRunConsumption(
+      result.usage,
+      runStartedAtMs,
+      memoryStartMb
+    );
+    await deps.missions.save(result.mission);
+    await deps.profiles.save(result.profile);
+
+    if (result.cancelled) {
+      // Annule : pas de facturation du partiel (documente).
+      return deps.jobs.markCancelled(claimed.id, workerId);
+    }
+    if (result.needsReview && result.report) {
+      return deps.jobs.markNeedsReview(
+        claimed.id,
+        workerId,
+        result.report.content,
+        result.reviewReason ?? "flagged for review",
+        new Date(),
+        consumption
+      );
+    }
+    if (result.error || !result.report) {
+      return deps.jobs.markFailed(
+        claimed.id,
+        workerId,
+        result.error ?? "run produced no report",
+        new Date(),
+        consumption
+      );
+    }
+    return deps.jobs.markSucceeded(
+      claimed.id,
+      workerId,
+      result.report.content,
+      new Date(),
+      consumption
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Restauration best-effort : ne touche que le statut pose ici.
+    const current = await deps.profiles.load(profile.id);
+    if (current?.status === "working") {
+      await deps.profiles.save(setEmployeeStatus(current, "idle"));
+    }
+    return deps.jobs.markFailed(claimed.id, workerId, message);
+  } finally {
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+    }
+  }
+}
+
+/**
+ * Execute un job de bout en bout : claim atomique puis runClaimedJob.
+ * Retourne null si le job n'est pas claimable (pris, annule, inconnu).
+ * Partage par le worker in-process, le serveur REST et la CLI.
+ */
+export async function runJobOnce(
+  deps: JobWorkerDeps,
+  jobId: string,
+  workerId: string
+): Promise<EmployeeJob | null> {
+  const claimed = await deps.jobs.claim(jobId, workerId);
+  if (!claimed) {
+    return null;
+  }
+  return runClaimedJob(deps, claimed, workerId);
+}

@@ -23,6 +23,7 @@ import {
   appCore,
   buildCoreInput,
   createAppCoreHost,
+  toHostMessages,
 } from "@/lib/core/adapter";
 
 import { entitlementsByUserType } from "@/lib/ai/entitlements";
@@ -33,15 +34,16 @@ import {
   getCapabilities,
 } from "@/lib/ai/models";
 import { type RequestHints, systemPrompt } from "@/lib/ai/prompts";
-import { getLanguageModel } from "@/lib/ai/providers";
-import { calculate } from "@/lib/ai/tools/calculate";
+import { getChatLanguageModel } from "@/lib/ai/chat-provider";
 import { createDocument } from "@/lib/ai/tools/create-document";
 import { editDocument } from "@/lib/ai/tools/edit-document";
 import { getWeather } from "@/lib/ai/tools/get-weather";
 import { newsSearch } from "@/lib/ai/tools/news-search";
 import { requestSuggestions } from "@/lib/ai/tools/request-suggestions";
+import { searchEmployees } from "@/lib/ai/tools/search-employees";
 import { updateDocument } from "@/lib/ai/tools/update-document";
 import { webSearch } from "@/lib/ai/tools/web-search";
+import { resolveChefStep } from "@/lib/chef/resolve";
 import { isProductionEnvironment } from "@/lib/constants";
 
 import {
@@ -112,6 +114,11 @@ async function getFileContent(
 export async function POST(request: Request) {
   let requestBody: PostRequestBody;
 
+  // Diagnostic latence : horodate chaque etape (logs [CHAT-TIME]).
+  const t0 = Date.now();
+  const tlog = (label: string) =>
+    console.log(`[CHAT-TIME] ${label} +${Date.now() - t0}ms`);
+
   try {
     const json = await request.json();
     requestBody = postRequestBodySchema.parse(json);
@@ -147,10 +154,14 @@ export async function POST(request: Request) {
 
     const userType: UserType = session.user.type;
 
-    const messageCount = await getMessageCountByUserId({
-      id: session.user.id,
-      differenceInHours: 1,
-    });
+    // Latence : ces 2 lectures sont independantes (session + id).
+    const [messageCount, chat] = await Promise.all([
+      getMessageCountByUserId({
+        id: session.user.id,
+        differenceInHours: 1,
+      }),
+      getChatById({ id }),
+    ]);
 
     if (
       messageCount >
@@ -158,6 +169,8 @@ export async function POST(request: Request) {
     ) {
       return new ChatbotError("rate_limit:chat").toResponse();
     }
+
+    tlog("reads done (count+chat)");
 
     // -----------------------------------------------------------------------
     // IMPORTANT :
@@ -181,8 +194,6 @@ export async function POST(request: Request) {
         ),
       );
 
-    const chat = await getChatById({ id });
-
     let messagesFromDb: DBMessage[] = [];
     let titlePromise: Promise<string> | null = null;
 
@@ -204,6 +215,8 @@ export async function POST(request: Request) {
         message: message as UIMessage,
       });
     }
+
+    tlog("history ready");
 
     let uiMessages: ChatMessage[];
 
@@ -318,28 +331,52 @@ export async function POST(request: Request) {
     // Persistence du message utilisateur
     // -----------------------------------------------------------------------
 
-    if (message?.role === "user") {
-      await saveMessages({
-        messages: [
-          {
+    // Latence : sauvegarde et resolution Chef independantes.
+    const [, chefStep] = await Promise.all([
+      message?.role === "user"
+        ? saveMessages({
+            messages: [
+              {
+                chatId: id,
+                id: message.id,
+                role: "user",
+                parts: message.parts,
+                attachments: message.attachments ?? [],
+                createdAt: new Date(),
+              },
+            ],
+          })
+        : null,
+      // Mode Chef : chat d'accueil marque d'un compte qui n'a que
+      // son Manager. En cas d'erreur de resolution, on retombe sur
+      // le flux normal (le chat continue de fonctionner).
+      !isToolApprovalFlow && chat
+        ? resolveChefStep({
+            userId: session.user.id,
             chatId: id,
-            id: message.id,
-            role: "user",
-            parts: message.parts,
-            attachments: message.attachments ?? [],
-            createdAt: new Date(),
-          },
-        ],
-      });
-    }
+            history: messagesFromDb,
+            uiMessages,
+          }).catch((error) => {
+            console.error("Chef resolve error:", error);
+            return null;
+          })
+        : null,
+    ]);
+    tlog("saved + chef resolved");
 
     const modelConfig = chatModels.find(
       (m) => m.id === chatModel,
     );
 
-    const modelCapabilities = await getCapabilities();
+    // Latence : getCapabilities() appelle la gateway externe (un HTTP
+    // par modele). Seul le flux tool-approval s'en sert : les flux
+    // normal et Chef l'ignorent (la directive site ne doit pas
+    // s'injecter dans le Chef, qui n'a que la recherche d'employes).
+    const modelCapabilities = isToolApprovalFlow
+      ? await getCapabilities()
+      : null;
 
-    const capabilities = modelCapabilities[chatModel];
+    const capabilities = modelCapabilities?.[chatModel];
 
     const isReasoningModel =
       capabilities?.reasoning === true;
@@ -443,12 +480,64 @@ export async function POST(request: Request) {
     // UI STREAM
     // -----------------------------------------------------------------------
 
+    tlog("stream start");
+
     const stream = createUIMessageStream({
       originalMessages: isToolApprovalFlow
         ? uiMessages
         : undefined,
 
       execute: async ({ writer: dataStream }) => {
+        // ================================================================
+        // CHEF WELCOME FLOW (un seul outil, en lecture : la recherche
+        // d'employes. Le Manager guide, il n'execute pas de missions
+        // techniques)
+        // ================================================================
+
+        if (chefStep) {
+          if (chefStep.kind === "persona") {
+            const chefResult = streamText({
+              model: getChatLanguageModel(),
+              system: chefStep.systemPrompt,
+              messages: filteredMessages,
+              stopWhen: stepCountIs(3),
+              tools: {
+                searchEmployees: searchEmployees({
+                  accountId: chefStep.accountId,
+                }),
+              },
+            });
+
+            dataStream.merge(
+              chefResult.toUIMessageStream({
+                sendReasoning,
+              })
+            );
+
+            return;
+          }
+
+          const chefTextId = generateUUID();
+
+          dataStream.write({
+            type: "text-start",
+            id: chefTextId,
+          });
+
+          dataStream.write({
+            type: "text-delta",
+            id: chefTextId,
+            delta: chefStep.text,
+          });
+
+          dataStream.write({
+            type: "text-end",
+            id: chefTextId,
+          });
+
+          return;
+        }
+
         // ================================================================
         // TOOL APPROVAL FLOW
         //
@@ -458,7 +547,7 @@ export async function POST(request: Request) {
 
         if (isToolApprovalFlow) {
           const result = streamText({
-            model: getLanguageModel(chatModel),
+            model: getChatLanguageModel(),
 
             system: systemPrompt({
               requestHints,
@@ -476,7 +565,6 @@ export async function POST(request: Request) {
               isReasoningModel && !supportsTools
                 ? []
                 : [
-                    "calculate",
                     "getWeather",
                     "webSearch",
                     "newsSearch",
@@ -502,8 +590,6 @@ export async function POST(request: Request) {
             },
 
             tools: {
-              calculate: calculate({ dataStream }),
-
               getWeather,
 
               webSearch,
@@ -582,9 +668,13 @@ export async function POST(request: Request) {
           visibility: selectedVisibilityType,
         });
 
-        const coreHost = createAppCoreHost();
+        const coreHost = createAppCoreHost({
+          chatId: id,
+          messages: toHostMessages(messagesFromDb),
+        });
 
         const textId = generateUUID();
+        let firstTokenLogged = false;
 
         dataStream.write({
           type: "text-start",
@@ -600,6 +690,10 @@ export async function POST(request: Request) {
 
               switch (event.type) {
                 case "text_delta": {
+                  if (!firstTokenLogged) {
+                    firstTokenLogged = true;
+                    tlog("first token");
+                  }
                   dataStream.write({
                     type: "text-delta",
                     id: textId,

@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const codeVerifier = "scientia-labs-link-challenge";
+    const codeVerifier = "employee-platform-link-challenge";
     const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/link/twitter/callback`;
 
     const tokenRes = await fetch("https://api.twitter.com/2/oauth2/token", {

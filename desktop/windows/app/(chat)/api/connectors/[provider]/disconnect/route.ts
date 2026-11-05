@@ -1,7 +1,7 @@
 // app/(chat)/api/connectors/[provider]/disconnect/route.ts
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import { getProvider } from "@/lib/connectors";
+import { getProvider } from "@/lib/connectors/core/registry";
 import {
   createNotification,
   deleteConnector,

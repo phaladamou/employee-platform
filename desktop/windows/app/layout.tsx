@@ -10,9 +10,24 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import "./globals.css";
 
+const basePath = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
 export const metadata: Metadata = {
   title: "Employee",
   description: "Intelligence, unscripted.",
+  icons: {
+    icon: [
+      { url: `${basePath}/icon.svg`, type: "image/svg+xml" },
+      { url: `${basePath}/favicon.ico`, sizes: "any" },
+    ],
+    apple: [
+      {
+        url: `${basePath}/apple-icon.png`,
+        sizes: "180x180",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export const viewport = {

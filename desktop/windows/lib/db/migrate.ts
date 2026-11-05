@@ -3,6 +3,8 @@ import { drizzle } from "drizzle-orm/postgres-js";
 import { migrate } from "drizzle-orm/postgres-js/migrator";
 import postgres from "postgres";
 
+import { syncTalentCatalog } from "./talent-sync";
+
 config({
   path: ".env.local",
 });
@@ -23,6 +25,9 @@ const runMigrate = async () => {
   const end = Date.now();
 
   console.log("Migrations completed in", end - start, "ms");
+
+  const { count } = await syncTalentCatalog(db);
+  console.log(`Talent catalog synced (${count} profiles)`);
   process.exit(0);
 };
 

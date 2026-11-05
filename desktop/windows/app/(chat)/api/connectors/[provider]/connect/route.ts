@@ -2,12 +2,8 @@
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { auth } from "@/app/(auth)/auth";
-import {
-  buildAuthorizeUrl,
-  generateState,
-  getProvider,
-  signState,
-} from "@/lib/connectors";
+import { buildAuthorizeUrl } from "@/lib/connectors/core/oauth";
+import { getProvider } from "@/lib/connectors/core/registry";
 import { ChatbotError } from "@/lib/errors";
 
 const STATE_COOKIE_MAX_AGE = 60 * 10;
@@ -35,8 +31,20 @@ export async function GET(
     );
   }
 
-  const state = generateState();
-  const signedState = signState(state);
+  // Import paresseux OBLIGATOIRE : voir la route callback (meme
+  // garde OAUTH_* au chargement du module crypto).
+  let crypto: typeof import("@/lib/connectors/core/crypto");
+  try {
+    crypto = await import("@/lib/connectors/core/crypto");
+  } catch {
+    return NextResponse.json(
+      { error: "OAuth is unavailable on this server" },
+      { status: 503 }
+    );
+  }
+
+  const state = crypto.generateState();
+  const signedState = crypto.signState(state);
 
   const cookieStore = await cookies();
   cookieStore.set(`oauth_state_${providerId}`, signedState, {

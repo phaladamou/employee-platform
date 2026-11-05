@@ -5,17 +5,23 @@ import { describeComputerDecl } from "../computer/employee-computer";
 
 export interface ParsedAction {
   readonly type: "action";
+  /** Titre ecrit par l'agent (ligne STEP:), null si absent. */
+  readonly title: string | null;
   readonly tool: string;
   readonly args: { readonly [key: string]: unknown };
 }
 
 export interface ParsedFinal {
   readonly type: "final";
+  /** Titre ecrit par l'agent (ligne STEP:), null si absent. */
+  readonly title: string | null;
   readonly report: string;
 }
 
 export interface ParsedInvalid {
   readonly type: "invalid";
+  /** Titre ecrit par l'agent (ligne STEP:), null si absent. */
+  readonly title: string | null;
   readonly reason: string;
   readonly raw: string;
 }
@@ -24,7 +30,14 @@ export type ParsedStep = ParsedAction | ParsedFinal | ParsedInvalid;
 
 export const ACTION_MARKER = "ACTION:";
 export const FINAL_MARKER = "FINAL:";
+export const STEP_MARKER = "STEP:";
 export const OBSERVATION_MAX_CHARS = 50_000;
+/** Titre d'etape : une ligne courte, bornee pour l'affichage. */
+export const STEP_TITLE_MAX_CHARS = 120;
+/** Plan annonce par l'agent avant d'agir (premier tour, borne). */
+export const PLAN_MARKER = "PLAN:";
+export const PLAN_MAX_STEPS = 12;
+export const PLAN_STEP_MAX_CHARS = 140;
 
 /**
  * Consigne systeme de la boucle ReAct : identite de l'employe, protocole
@@ -79,10 +92,19 @@ export function buildSystemPrompt(
 
   return [
     ...identity,
-    "You accomplish missions by reasoning in a loop. At each step, reply " +
-      "with EXACTLY one of these two forms:",
+    "You accomplish missions by reasoning in a loop: think, plan, act, verify.",
+    "FIRST, announce your plan (unless the message is trivial small talk):",
+    `${PLAN_MARKER} ["first step", "second step", ...] (JSON array, max ${PLAN_MAX_STEPS} short steps)`,
+    "or one numbered line per step after PLAN:. You will then execute it step by step.",
+    "For trivial greetings or small talk, skip the plan and reply FINAL: directly.",
+    "",
+    "Then reply with EXACTLY one of these two forms per turn:",
     `${ACTION_MARKER} {"tool": "<tool name>", "args": { ... }}`,
     `${FINAL_MARKER} <concise work report>`,
+    "",
+    "You may start your reply with one title line describing what you " +
+      "are doing now (thinking, searching, forking, verifying...):",
+    `${STEP_MARKER} <short title, one line, your language>`,
     "",
     "Available tools:",
     ...catalog,
@@ -91,8 +113,10 @@ export function buildSystemPrompt(
       : []),
     "",
     "Rules:",
-    "- Emit exactly one ACTION or one FINAL per reply, no surrounding text.",
+    "- Emit exactly one ACTION or one FINAL per reply, no surrounding text (a STEP: title line is allowed).",
+    "- Write PLAN: at most once, on your first reply only; then execute with ACTION:/FINAL:.",
     "- Write raw JSON after ACTION: (markdown fences are tolerated).",
+    "- Keep the STEP: title short (a few words), no quotes, one line.",
     "- Never invent tool results: only use OBSERVATION messages you received.",
     "- Prefer reading before writing, and verify with the tools when possible.",
     "- When the mission is done, reply FINAL: with a report grounded in " +
@@ -108,8 +132,130 @@ function stripFences(text: string): string {
   return fenced ? fenced[1].trim() : trimmed;
 }
 
-function invalid(reason: string, raw: string): ParsedInvalid {
-  return { type: "invalid", reason, raw };
+function invalid(
+  reason: string,
+  raw: string,
+  title: string | null
+): ParsedInvalid {
+  return { type: "invalid", title, reason, raw };
+}
+
+function unquote(value: string): string {
+  if (value.length >= 2) {
+    const first = value[0];
+    const last = value[value.length - 1];
+    if (
+      (first === '"' && last === '"') ||
+      (first === "'" && last === "'") ||
+      (first === "«" && last === "»")
+    ) {
+      return value.slice(1, -1).trim();
+    }
+  }
+  return value;
+}
+
+/**
+ * Extrait le titre d'etape ecrit par l'agent : la premiere ligne
+ * commencant par STEP: dans le texte AVANT la directive (jamais dans
+ * le JSON ni le rapport). Strict au debut de ligne pour ne pas
+ * confondre avec du bavardage ("next step: ..."). Null si absent.
+ */
+export function extractStepTitle(beforeDirective: string): string | null {
+  for (const line of beforeDirective.split("\n")) {
+    const trimmed = line.trimStart();
+    if (!trimmed.startsWith(STEP_MARKER)) {
+      continue;
+    }
+    const title = unquote(
+      trimmed.slice(STEP_MARKER.length).trim()
+    ).replace(/\s+/g, " ");
+    if (!title) {
+      return null;
+    }
+    return title.length > STEP_TITLE_MAX_CHARS
+      ? title.slice(0, STEP_TITLE_MAX_CHARS)
+      : title;
+  }
+  return null;
+}
+
+/** Nettoie une etape de plan : gras, puce/numerotation, espaces, borne. */
+function cleanPlanStep(raw: string): string | null {
+  let text = raw.replace(/\s+/g, " ").trim();
+  text = text.replace(/^\*\*(.+)\*\*$/, "$1").trim();
+  text = text.replace(/^(?:\d+[.)]|\d+\)|[-*•])\s+/, "").trim();
+  if (!text) {
+    return null;
+  }
+  return text.length > PLAN_STEP_MAX_CHARS
+    ? text.slice(0, PLAN_STEP_MAX_CHARS)
+    : text;
+}
+
+function planStepsFromLines(remainder: string): string[] {
+  const steps: string[] = [];
+  for (const line of remainder.split("\n")) {
+    if (steps.length >= PLAN_MAX_STEPS) {
+      break;
+    }
+    const step = cleanPlanStep(line);
+    if (step !== null) {
+      steps.push(step);
+    }
+  }
+  return steps;
+}
+
+/**
+ * Lit le plan annonce par l'agent : la premiere ligne commencant par
+ * PLAN: dans le texte AVANT toute directive (jamais apres), suivie
+ * d'un tableau JSON ou d'une etape numerotee/pucee par ligne.
+ * Null si absent ou vide : le tour suit alors le chemin normal.
+ */
+export function parsePlanTurn(content: string): string[] | null {
+  const text = content.replace(/\r\n/g, "\n");
+  const marker = locateMarker(text);
+  const head = marker === null ? text : text.slice(0, marker.at);
+  const lines = head.split("\n");
+  const index = lines.findIndex((line) =>
+    line.trimStart().startsWith(PLAN_MARKER)
+  );
+  if (index === -1) {
+    return null;
+  }
+  const first = lines[index].trimStart().slice(PLAN_MARKER.length);
+  const remainder = [first, ...lines.slice(index + 1)].join("\n").trim();
+  if (!remainder) {
+    return null;
+  }
+
+  const jsonMatch = /\[[\s\S]*\]/.exec(remainder);
+  if (jsonMatch !== null) {
+    try {
+      const data: unknown = JSON.parse(jsonMatch[0]);
+      if (Array.isArray(data)) {
+        const steps: string[] = [];
+        for (const entry of data) {
+          if (steps.length >= PLAN_MAX_STEPS) {
+            break;
+          }
+          const step = cleanPlanStep(String(entry ?? ""));
+          if (step !== null) {
+            steps.push(step);
+          }
+        }
+        if (steps.length > 0) {
+          return steps;
+        }
+      }
+    } catch {
+      // JSON casse : repli sur la lecture ligne par ligne.
+    }
+  }
+
+  const steps = planStepsFromLines(remainder);
+  return steps.length > 0 ? steps : null;
 }
 
 /**
@@ -186,17 +332,23 @@ export function parseStepOutput(content: string): ParsedStep {
   const marker = locateMarker(text);
 
   if (!marker) {
-    return invalid('reply must contain "ACTION:" or "FINAL:"', content);
+    return invalid(
+      'reply must contain "ACTION:" or "FINAL:"',
+      content,
+      extractStepTitle(text)
+    );
   }
+
+  const title = extractStepTitle(text.slice(0, marker.at));
 
   if (!marker.action) {
     const report = text.slice(marker.at + FINAL_MARKER.length).trim();
 
     if (!report) {
-      return invalid("FINAL requires a non-empty report", content);
+      return invalid("FINAL requires a non-empty report", content, title);
     }
 
-    return { type: "final", report };
+    return { type: "final", title, report };
   }
 
   const payload = stripFences(text.slice(marker.at + ACTION_MARKER.length));
@@ -208,24 +360,25 @@ export function parseStepOutput(content: string): ParsedStep {
     try {
       data = extractJsonObject(payload);
     } catch {
-      return invalid("ACTION payload is not valid JSON", content);
+      return invalid("ACTION payload is not valid JSON", content, title);
     }
   }
   if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return invalid("ACTION payload must be a JSON object", content);
+    return invalid("ACTION payload must be a JSON object", content, title);
   }
 
   const { tool, args } = data as Record<string, unknown>;
 
   if (typeof tool !== "string" || tool.length === 0) {
-    return invalid('ACTION requires a "tool" string', content);
+    return invalid('ACTION requires a "tool" string', content, title);
   }
   if (typeof args !== "object" || args === null || Array.isArray(args)) {
-    return invalid('ACTION requires an "args" object', content);
+    return invalid('ACTION requires an "args" object', content, title);
   }
 
   return {
     type: "action",
+    title,
     tool,
     args: args as { readonly [key: string]: unknown },
   };

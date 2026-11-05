@@ -6,6 +6,7 @@ import type { createDocument } from "./ai/tools/create-document";
 import type { getWeather } from "./ai/tools/get-weather";
 import type { newsSearch } from "./ai/tools/news-search";
 import type { requestSuggestions } from "./ai/tools/request-suggestions";
+import type { searchEmployees } from "./ai/tools/search-employees";
 import type { updateDocument } from "./ai/tools/update-document";
 import type { webSearch } from "./ai/tools/web-search";
 import type { Suggestion } from "./db/schema";
@@ -24,6 +25,7 @@ type requestSuggestionsTool = InferUITool<
 >;
 type webSearchTool = InferUITool<typeof webSearch>;
 type newsSearchTool = InferUITool<typeof newsSearch>;
+type searchEmployeesTool = InferUITool<ReturnType<typeof searchEmployees>>;
 
 export type ChatTools = {
   getWeather: weatherTool;
@@ -32,6 +34,7 @@ export type ChatTools = {
   requestSuggestions: requestSuggestionsTool;
   webSearch: webSearchTool;
   newsSearch: newsSearchTool;
+  searchEmployees: searchEmployeesTool;
 };
 
 export type CustomUIDataTypes = {

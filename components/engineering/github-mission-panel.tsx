@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { Employee } from "@/lib/employees/catalog";
 import { fetcher } from "@/lib/utils";
+import { MissionTimeline } from "./mission-timeline";
+import type { useMissionStream } from "./use-mission-stream";
 
 interface ConnectionStatus {
   connected: boolean;
@@ -22,7 +24,19 @@ interface MissionResult {
   missionId?: string;
 }
 
-export function GithubMissionPanel({ employee }: { employee: Employee }) {
+export function GithubMissionPanel({
+  employee,
+  sessionId,
+  mission,
+  onSessionResolved,
+  onFailedSend,
+}: {
+  employee: Employee;
+  sessionId: string | null;
+  mission: ReturnType<typeof useMissionStream>;
+  onSessionResolved: (sessionId: string) => void;
+  onFailedSend: () => void;
+}) {
   const t = useTranslations("employees");
   const { data: connection } = useSWR<ConnectionStatus>(
     "/api/github/connection",
@@ -30,78 +44,67 @@ export function GithubMissionPanel({ employee }: { employee: Employee }) {
     { revalidateOnFocus: false, refreshInterval: 10000 }
   );
   const [prompt, setPrompt] = useState("");
-  const [running, setRunning] = useState(false);
-  const [startedAt, setStartedAt] = useState(0);
-  const [elapsed, setElapsed] = useState(0);
   const [result, setResult] = useState<MissionResult | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const controllerRef = useRef<AbortController | null>(null);
+  const sessionIdRef = useRef(sessionId);
+  sessionIdRef.current = sessionId;
 
+  // Changement de session sans remontage : brouillon, resultat
+  // et erreur appartiennent a la session quittee.
   useEffect(() => {
-    return () => {
-      controllerRef.current?.abort();
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!running) {
-      return;
-    }
-    setElapsed(0);
-    const timer = setInterval(
-      () => setElapsed(Math.floor((Date.now() - startedAt) / 1000)),
-      500
-    );
-    return () => clearInterval(timer);
-  }, [running, startedAt]);
+    setPrompt("");
+    setResult(null);
+    setError(null);
+  }, [sessionId]);
 
   const run = async () => {
     const message = prompt.trim();
-    if (!message || running) return;
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    setRunning(true);
-    setStartedAt(Date.now());
+    if (!message || mission.running) return;
+    const sendSessionId = sessionId;
     setResult(null);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/employees/${encodeURIComponent(employee.id)}/chat`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ message, asMission: true }),
-          signal: controller.signal,
-        }
-      );
-      const payload = (await response.json()) as {
-        mission?: { id: string };
-        summary?: string;
-        needsAcceptance?: boolean;
-        error?: string;
-      };
-      if (!response.ok) {
-        throw new Error(payload.error ?? `mission failed: ${response.status}`);
+      const outcome = await mission.run({
+        employeeId: employee.id,
+        sessionId: sendSessionId,
+        message,
+        // Meme contrat que la discussion : une session creee
+        // depuis GitHub commence par l'accueil de l'employe.
+        greeting:
+          sendSessionId === null
+            ? t("chatGreeting", { name: employee.name, role: employee.role })
+            : undefined,
+      });
+      if (
+        sendSessionId !== null &&
+        sessionIdRef.current !== sendSessionId
+      ) {
+        // Navigation entre-temps : la reponse est en base, la
+        // liste se rafraichit, la vue visitee reste intacte.
+        onFailedSend();
+        return;
       }
+      onSessionResolved(outcome.sessionId);
       setResult({
         text:
-          payload.needsAcceptance === true
+          outcome.needsAcceptance === true
             ? t("missionNeedsAcceptance")
-            : (payload.summary || t("chatEmptyReply")),
-        missionId: payload.mission?.id,
+            : (outcome.summary || t("chatEmptyReply")),
+        missionId: outcome.missionId,
       });
-    } catch {
-      if (controller.signal.aborted) {
+    } catch (thrown) {
+      if (thrown instanceof Error && thrown.name === "AbortError") {
         return;
       }
       setError(t("chatSendFailed"));
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
-      }
-      setRunning(false);
+      onFailedSend();
     }
   };
+
+  const showTimeline =
+    mission.running ||
+    mission.progress.steps.length > 0 ||
+    mission.progress.failed !== null;
 
   return (
     <div className="flex h-full min-h-0 flex-col rounded-xl border border-border/60 bg-card">
@@ -126,7 +129,7 @@ export function GithubMissionPanel({ employee }: { employee: Employee }) {
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4">
+      <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
         {connection?.connected !== true && (
           <p className="rounded-lg bg-muted px-3 py-2 text-[12px] leading-relaxed text-muted-foreground">
             {t("githubNotConnected")}{" "}
@@ -137,6 +140,12 @@ export function GithubMissionPanel({ employee }: { employee: Employee }) {
               {t("githubConnectLink")}
             </Link>
           </p>
+        )}
+        {showTimeline && (
+          <MissionTimeline
+            elapsed={mission.running ? mission.elapsed : undefined}
+            progress={mission.progress}
+          />
         )}
         {result && (
           <div className="max-w-[85%] self-start rounded-lg bg-muted px-3 py-2 text-[13px] leading-relaxed text-foreground">
@@ -157,22 +166,22 @@ export function GithubMissionPanel({ employee }: { employee: Employee }) {
         <textarea
           aria-label={t("githubMissionPlaceholder")}
           className="min-h-20 w-full resize-y rounded-lg border border-border bg-background px-3 py-2 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-foreground/40"
-          disabled={running}
+          disabled={mission.running}
           onChange={(event) => setPrompt(event.target.value)}
           placeholder={t("githubMissionPlaceholder")}
           value={prompt}
         />
         <Button
-          disabled={running || !prompt.trim()}
+          disabled={mission.running || !prompt.trim()}
           onClick={() => void run()}
           size="sm"
           type="button"
           variant="brand"
         >
-          {running ? (
+          {mission.running ? (
             <span>
               {t("githubRunning")} ·{" "}
-              <span className="tabular-nums">{elapsed}s</span>
+              <span className="tabular-nums">{mission.elapsed}s</span>
             </span>
           ) : (
             t("githubRun")

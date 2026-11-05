@@ -3,7 +3,7 @@ import { and, desc, eq, ilike, sql } from "drizzle-orm";
 import type { NextRequest } from "next/server";
 import { auth } from "@/app/(auth)/auth";
 import { getDb } from "@/lib/db/client";
-import { chat, message } from "@/lib/db/schema";
+import { chat, message, userMainChatsCondition } from "@/lib/db/schema";
 
 export async function GET(request: NextRequest) {
   const session = await auth();
@@ -22,7 +22,8 @@ export async function GET(request: NextRequest) {
 
   const db = await getDb();
 
-  // Recherche dans les titres des chats
+  // Recherche dans les titres des chats (espace Chef : les sessions
+  // employe partagent la table et sont exclues).
   const titleMatches = await db
     .select({
       chatId: chat.id,
@@ -31,12 +32,15 @@ export async function GET(request: NextRequest) {
     })
     .from(chat)
     .where(
-      and(eq(chat.userId, session.user.id), ilike(chat.title, searchTerm))
+      and(
+        userMainChatsCondition(session.user.id),
+        ilike(chat.title, searchTerm)
+      )
     )
     .orderBy(desc(chat.createdAt))
     .limit(30);
 
-  // Recherche dans les messages
+  // Recherche dans les messages (meme portee : espace Chef seul).
   const messageMatches = await db
     .select({
       chatId: chat.id,
@@ -50,7 +54,7 @@ export async function GET(request: NextRequest) {
     .innerJoin(chat, eq(message.chatId, chat.id))
     .where(
       and(
-        eq(chat.userId, session.user.id),
+        userMainChatsCondition(session.user.id),
         sql`${message.parts}::text ILIKE ${searchTerm}`
       )
     )

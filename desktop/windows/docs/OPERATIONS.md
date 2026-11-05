@@ -1,0 +1,269 @@
+# Operations Guide — EmployeeCore
+
+Day-to-day exploitation: starting the server, scaling workers, backups,
+stuck-job recovery, and key revocation.
+
+Prerequisite: a runnable CLI copy (see `core/employee/README.md`):
+
+```bash
+rm -rf .tmp/emp && mkdir -p .tmp/emp && cp -r core/employee/* .tmp/emp/
+cd .tmp/emp && find . -name "*.ts" \
+  -exec perl -pi -e 's/from "(\.\.?\/[^"]+?)(?<!\.ts)"/from "$1.ts"/g' {} +
+alias emp="node --experimental-transform-types --no-warnings cli.ts"
+```
+
+Environment used below:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `EMPLOYEE_DATA` | `.data/employee` | All state: credentials, jobs, missions, memory |
+| `EMPLOYEE_SANDBOX` | `.data/workspace` | Files tools may read/write (per-profile subdirs) |
+| `EMPLOYEE_PROFILES` | `core/employee/profiles` | Profile registry + lockfile |
+| `EMPLOYEE_API_URL` | `http://127.0.0.1:8000` | Where the CLI talks to the server |
+| `EMPLOYEE_TOKEN` | — | `emo_…` token for hire/submit/status/… |
+| `EMPLOYEE_PROVIDER` | `deepseek` | `deepseek` or `muse` (+ `DEEPSEEK_API_KEY` / `MUSE_API_KEY`) |
+
+## 1. Start the server — `emp serve`
+
+```bash
+export EMPLOYEE_DATA=/var/lib/employee
+export EMPLOYEE_PROVIDER=muse MUSE_API_KEY=...
+emp serve --port 8000
+# listening: http://127.0.0.1:8000
+```
+
+- Port: `--port` flag wins, then the `PORT` env var (Cloud Run
+  convention), then 8000. An invalid `PORT` fails `serve` with a clear
+  error but leaves `keys`/`status` working.
+- In containers/cloud, bind `--host 0.0.0.0` (the `127.0.0.1` default
+  is unreachable from outside — the Dockerfile already does this).
+- Boot verifies the profile lockfile: a tampered profile refuses to load
+  and the server exits instead of running unknown behavior.
+- `serve` starts **one embedded worker** by default. No provider key →
+  startup fails fast with `no LLM provider configured`.
+- Graceful shutdown: `SIGINT`/`SIGTERM` stops the worker loop, then closes
+  the HTTP server. In-flight jobs keep their claim; on restart their lease
+  expires and they are recovered (§4).
+
+## 2. Scale workers — `emp worker`
+
+N workers can share one `$EMPLOYEE_DATA` (claims are atomic). Run extras on
+the same machine or any host with the data dir mounted:
+
+```bash
+# worker 2 and 3, each with a stable id (visible as lockOwner)
+emp worker --id worker_2 &
+emp worker --id worker_3 --interval-ms 2000 &
+# worker started on /var/lib/employee (Ctrl-C to stop)
+```
+
+- `--interval-ms`: poll interval between queue scans (default 250ms;
+  lower it for latency, raise it for disk calm).
+- A worker needs the same `EMPLOYEE_PROVIDER` key and `EMPLOYEE_SANDBOX` as
+  the server. It needs no network port.
+- Stop with `SIGINT`/`SIGTERM`. Never `kill -9` a worker mid-tool-call if
+  avoidable — the lease mechanism will recover the job, but a duplicate
+  execution becomes likely (at-least-once).
+
+## 3. Back up — copy `.data/`
+
+State is plain files; backup is a filesystem copy. Layout:
+
+```text
+$EMPLOYEE_DATA/            # e.g. /var/lib/employee
+├── credentials/           # key hashes (chmod 600) — NEVER world-readable
+├── employments/
+├── jobs/
+├── missions/
+├── profiles/             # hired employee instances
+└── memory/
+$EMPLOYEE_SANDBOX/         # e.g. .data/workspace — shared fallback root
+$EMPLOYEE_WORKSPACES_DIR/  # e.g. .data/workspaces — one dir per employee
+├── <employeeId>/          # live workspace (tools read/write here)
+│   └── <sessionId>/       # web missions: one sandbox per session
+└── archive/               # terminated workspaces (audit, never deleted)
+```
+
+```bash
+# Online backup (writes are atomic renames; a copy is always consistent enough
+# to boot — at worst one in-flight job is recovered on restore)
+tar -czf employee-backup-$(date +%F).tar.gz -C /var/lib employee workspace workspaces
+
+# Restore
+tar -xzf employee-backup-2026-10-30.tar.gz -C /var/lib
+emp recover   # re-queue anything whose worker died with the old host
+```
+
+Workspaces are created on `hire` (and on every job start, idempotent);
+`terminate` moves the live directory into `archive/` — back it up like
+the rest, and prune it only under your own retention policy.
+
+Back up `credentials/` with restricted permissions (`chmod 600` on restore)
+and keep operator Ed25519 keys wherever your secrets live — they are not
+in `$EMPLOYEE_DATA`.
+
+## 4. Recover a stuck job — `emp recover`
+
+A job is *stuck* when its worker died without finishing (crash, `kill -9`,
+host loss). The lease makes this self-healing: any live worker's loop
+iteration re-queues expired claims automatically. `emp recover` is the
+manual trigger (and the post-restore step):
+
+```bash
+emp recover                          # default: stale after 120s
+emp recover --stale-after-ms 30000   # faster, e.g. right after a known crash
+# recovered: job_7 -> queued
+# (no stale jobs)
+```
+
+Safety rules:
+
+- Never lower the threshold below your longest normal tool call — a slow
+  (not dead) worker would lose its claim and the job would run twice.
+- `recover` only touches claims whose heartbeat expired; live workers are
+  never interrupted.
+- A job that keeps failing after recovery is not stuck — read
+  `$EMPLOYEE_DATA/jobs/<id>.json` (`error` field) instead of recovering
+  again. See [ERROR_HANDLING.md](ERROR_HANDLING.md).
+
+## 5. Revoke a key — `emp keys revoke`
+
+```bash
+# List keys for an employer (ids + labels, never secrets)
+emp keys list --employer acme
+# cred_1  prod      scopes: hire,submit,read
+# cred_2  ci        scopes: submit,read
+
+# Revoke by credential id — immediate, all processes (file-backed)
+emp keys revoke cred_2
+# revoked: cred_2
+```
+
+- Revocation deletes the credential file: subsequent requests with that
+  token get `401 unauthorized`. No restart, no cache flush.
+- Compromised admin/creator key: revoke it, issue a new one, and rotate any
+  employer keys it issued if the exposure window is unknown.
+- Prefer short `--ttl-ms` for CI/automation keys so revocation is the
+  exception, not the routine.
+
+## 6. Quick health check
+
+```bash
+# 1. API alive?
+curl -s -o /dev/null -w "%{http_code}\n" $EMPLOYEE_API_URL/v1/employees
+# 401 = alive (auth required); connection refused = server down
+
+# 2. Queue draining? (needs EMPLOYEE_TOKEN)
+emp status job_latest   # recent jobs reaching terminal states?
+
+# 3. Anything stuck?
+emp recover             # expect "(no stale jobs)" on a healthy system
+```
+
+## 7. Run in Docker (isolated)
+
+Same API + worker as a least-privilege container (see ADR-011).
+One image, two roles — extra workers just override `CMD`:
+
+```bash
+docker build -f docker/Dockerfile -t employee-core .
+
+# API + embedded worker, read-only root FS, capped resources
+docker run -d --name emp \
+  --read-only --tmpfs /tmp:uid=1000,gid=1000 \
+  -v emp-data:/data -v emp-sandbox:/sandbox -v emp-workspaces:/workspaces \
+  -m 512m --cpus=1.0 -p 8000:8000 \
+  -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
+  employee-core serve --port 8000
+
+# Second worker on the same data dir (atomic claims)
+docker run -d --name emp-w2 \
+  --read-only --tmpfs /tmp \
+  -v emp-data:/data -v emp-sandbox:/sandbox -v emp-workspaces:/workspaces \
+  -m 512m --cpus=1.0 \
+  -e EMPLOYEE_PROVIDER=muse -e MUSE_API_KEY=... \
+  employee-core worker --id worker_docker_2
+```
+
+Notes:
+
+- The container runs as `node` (uid 1000, non-root); only `/tmp`,
+  `/data`, `/sandbox` and `/workspaces` are writable.
+- The image ships a Python toolchain (`python3`, `pip`, `pytest`,
+  `git`) for the software-engineer profile, which declares it in
+  `environment` and refuses missions when any binary is missing.
+- The image bakes in `emp-sandbox` (Rust multi-stage build), so
+  `run_shell` is Landlock-confined out of the box — no extra setup.
+- Back up the named volumes (`emp-data`, `emp-sandbox`,
+  `emp-workspaces`) exactly like §3 (`tar` the volume contents).
+- `emp recover` / `keys revoke` work unchanged — run them in a
+  throwaway container on the same volumes, e.g.
+  `docker run --rm -v emp-data:/data … employee-core recover`.
+
+## 8. Strict shell backend — `EMPLOYEE_SANDBOX_BIN`
+
+By default `run_shell` uses Node `exec`: timeouts + output caps, but
+only `cwd` confinement — a shell can `cd ..` out of the workspace.
+Point it at a built `emp-sandbox` for the strict backend
+(process-group kills, Unix RLIMIT_CPU/FSIZE, **Landlock filesystem
+confinement** of every shell to its workspace, fail-closed errors):
+
+```bash
+cd rust && cargo build --locked --release --bin emp-sandbox
+export EMPLOYEE_SANDBOX_BIN=/workspaces/employee-platform/rust/target/release/emp-sandbox
+emp serve --port 8000   # run_shell now executes through emp-sandbox
+```
+
+Rules:
+
+- Unset or missing binary → silent fallback to Node `exec` (same
+  messages, same contract — but WITHOUT filesystem confinement:
+  check the path is right if you expected the strict backend).
+  Production deployments that run untrusted shell commands must set
+  this variable; the Docker image (§7) already does.
+- Either backend is one-shot: every `run_shell` call starts a fresh
+  shell, so `cd`, exported variables and background jobs never
+  survive to the next call. Agents must chain dependent commands
+  with `&&` in a single call. A persistent session would require a
+  protocol change on both backends — documented limit, not a bug.
+- Any other sandbox anomaly (bad report, hung bridge, exit 2) fails
+  the tool call — never a silent downgrade. This includes kernels
+  without Landlock (pre-5.13, LSM off) or newer than ABI v4: the
+  spawn is refused rather than run unconfined. Non-Linux hosts stay
+  `cwd`-only by design (ADR-015).
+- Ed25519 proofs need no configuration: the WASM module ships inside
+  `core/employee/wasm/dist/` and loads automatically, with a Node
+  fallback if the file is missing or corrupt.
+
+## 9. Web workspace mirror — `WorkspaceFile` table
+
+Web missions (every employee, e.g. Atlas) write to the session's
+local disk sandbox during the run, but the work also lands in the
+online Postgres database, scoped to the user account AND the
+session (`<workspaces>/<employeeId>/<sessionId>/`):
+
+- After each mission completes, `POST /api/employees/[id]/chat`
+  syncs the session directory into the `WorkspaceFile` table
+  (`accountId`, `employeeId`, `chatId`, `path`, `content`,
+  `sha256`, `missionId`). Only SHA-changed files are written;
+  paths gone from disk are pruned. A sync failure is logged and
+  never fails the mission.
+- The IDE reads disk first (fresh during a run) and falls back to
+  the DB mirror of the session per file — after a redeploy wipes
+  local disk, the session's work stays readable online with zero
+  operator action. Revisiting a session shows ITS files, even if
+  a newer session rewrote the same paths in its own sandbox.
+- A session's welcome (greeting) message is persisted as the
+  session's first message, so conversations restore in order:
+  greeting → user → employee replies.
+- Safety: a missing/empty disk workspace never wipes the mirror
+  (`no-workspace` no-op, no delete on empty scan); `.git`, `archive/`,
+  the activity log, binaries and files over 200 KB are never mirrored.
+
+```sql
+-- Inspect what a session has stored for an account
+SELECT path, size, "updatedAt", "missionId" FROM "WorkspaceFile"
+WHERE "accountId" = '<account>' AND "employeeId" = '<employee>'
+  AND "chatId" = '<session>'
+ORDER BY path;
+```

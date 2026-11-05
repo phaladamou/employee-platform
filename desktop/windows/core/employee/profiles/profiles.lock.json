@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "profiles": {
+    "aria-data-analyst@1.0.0": "5a5d67663637272a5e5ad0e7bdbbc0f579523b0b52f3e11f2dcb085fa86c558c",
+    "atlas-software-engineer@1.0.0": "901379eaa45aaeb88805156c14e8cb02f8e4a8daf9d820b7a94e2832fbdefc46",
+    "chef-manager@1.0.0": "7c973d2b61db31d2b069401bc70bdb4938a6ce90acbac7a7098bf3f61aeb082b",
+    "data-analyst@1.0.0": "7e61df8e3cc49829d594e889ecf37a9615b8dfd43d991c5995d2f42b5486b23c",
+    "milo-content-strategist@1.0.0": "b6d377c873302ed4450bdfef94d10d9f5fe213eb305e710125b210407b666679",
+    "newton-researcher@1.0.0": "1632c52be4bad642dae5fd1ecf8f4af34e7f5d47229fb955c5a66b6e499b1da3",
+    "nova-devops-engineer@1.0.0": "e7eb48f018c8a0964e0cf65c3b8d6b0e2b6be3eff4e9097c7bbc40657ab48013",
+    "researcher@1.0.0": "507918317cbf6f84865090203e00b9846e31db7b9a96e15da03532cae4e31afe",
+    "sana-seo-analyst@1.0.0": "43bfa85839cf036ca334008652f1f461ebded1fe375f4a926852d2ee3717e54f",
+    "software-engineer@1.0.0": "d926d0bd2af3172667971c06005bde739cec3c84e2dc54d4437d344685f0504a"
+  }
+}

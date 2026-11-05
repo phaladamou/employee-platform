@@ -1,20 +1,49 @@
 // lib/employees/department-url.ts
-// Selection employe portee par l'URL : /departments/<id> pour la
-// liste, ?employee=<employeeId> pour l'espace d'un employe.
+// Adresses lisibles de l'espace employe :
+// /departments/<dept>/<slug> et /departments/<dept>/<slug>/<session>.
 // Fonctions pures (testables via node --test) ; le composant
-// DepartmentView les branche sur le router Next.
-
+// workspace les branche sur le router Next. L'ancien
+// ?employee=<id> reste reconnu (compat, redirection).
 export const EMPLOYEE_PARAM = "employee";
 
-export function buildDepartmentUrl(
+export function slugifyEmployeeName(name: string): string {
+  const slug = name
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "employee";
+}
+
+export function resolveEmployeeSlug<T extends { id: string; name: string }>(
+  members: readonly T[],
+  slug: string
+): T | null {
+  const cleaned = slug.trim().toLowerCase();
+  if (!cleaned) {
+    return null;
+  }
+  return (
+    members.find(
+      (member) =>
+        // Identifiant brut accepté (anciens liens, robustesse).
+        member.id === slug || slugifyEmployeeName(member.name) === cleaned
+    ) ?? null
+  );
+}
+
+export function buildEmployeeUrl(
   departmentId: string,
-  employeeId: string | null
+  slug: string,
+  sessionId: string | null
 ): string {
-  const base = `/departments/${encodeURIComponent(departmentId)}`;
-  if (!employeeId) {
+  const base = `/departments/${encodeURIComponent(departmentId)}/${encodeURIComponent(slug)}`;
+  if (!sessionId) {
     return base;
   }
-  return `${base}?${EMPLOYEE_PARAM}=${encodeURIComponent(employeeId)}`;
+  return `${base}/${encodeURIComponent(sessionId)}`;
 }
 
 export function parseEmployeeParam(
