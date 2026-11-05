@@ -41,12 +41,12 @@ export function AuthForm({
           type="email"
           value={email}
           className="
-            h-11 rounded-lg border-none bg-muted/40
+            h-11 rounded-lg border border-input bg-muted/60
             pl-11 pr-4 text-[13px] text-foreground
             shadow-none outline-none
             placeholder:text-muted-foreground/60
             transition-colors
-            focus-visible:bg-muted/60
+            focus-visible:border-ring focus-visible:bg-muted
             focus-visible:ring-0
           "
         />
@@ -69,12 +69,12 @@ export function AuthForm({
           type={showPassword ? "text" : "password"}
           value={password}
           className="
-            h-11 rounded-lg border-none bg-muted/40
+            h-11 rounded-lg border border-input bg-muted/60
             pl-11 pr-11 text-[13px] text-foreground
             shadow-none outline-none
             placeholder:text-muted-foreground/60
             transition-colors
-            focus-visible:bg-muted/60
+            focus-visible:border-ring focus-visible:bg-muted
             focus-visible:ring-0
           "
         />

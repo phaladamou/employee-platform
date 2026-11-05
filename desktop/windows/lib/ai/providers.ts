@@ -1,6 +1,8 @@
 // lib/ai/providers.ts
 import { createOpenAI } from "@ai-sdk/openai";
 import { customProvider } from "ai";
+
+import { resolveChatLLM } from "@/core/models/chat-provider";
 import { isTestEnvironment } from "../constants";
 
 export const myProvider = isTestEnvironment
@@ -15,36 +17,27 @@ export const myProvider = isTestEnvironment
     })()
   : null;
 
-function createDeepSeekClient() {
+function createMuseClient() {
   // Client cree a chaque appel : la configuration est lue au moment de
   // l'usage, ce qui permet de changer de cle API sans redemarrer.
+  const llm = resolveChatLLM();
   return createOpenAI({
-    apiKey: process.env.DEEPSEEK_API_KEY,
-    baseURL: process.env.OPENAI_BASE_URL || "https://api.deepseek.com/v1",
+    apiKey: llm.apiKey,
+    baseURL: llm.baseURL,
   });
 }
 
-export function getLanguageModel(modelId: string) {
+export function getLanguageModel(_modelId: string) {
   if (isTestEnvironment && myProvider) {
-    return myProvider.languageModel(modelId);
+    return myProvider.languageModel("chat-model");
   }
 
-  const deepseek = createDeepSeekClient();
-
-  const deepseekModelId = modelId.includes("/")
-    ? modelId.split("/")[1]
-    : modelId;
-
-  const finalModelId = modelId.includes("deepseek")
-    ? deepseekModelId
-    : "deepseek-chat";
-
-  return deepseek.chat(finalModelId);
+  return createMuseClient().chat(resolveChatLLM().model);
 }
 
 export function getTitleModel() {
   if (isTestEnvironment && myProvider) {
     return myProvider.languageModel("title-model");
   }
-  return createDeepSeekClient().chat("deepseek-chat");
+  return createMuseClient().chat(resolveChatLLM().model);
 }

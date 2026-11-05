@@ -6,7 +6,7 @@ import type { Dispatch, SetStateAction } from "react";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { Greeting } from "./greeting";
 import { MultimodalInput } from "./multimodal-input";
-import { SuggestedActions } from "./suggested-actions";
+import { ChefActionCards } from "./chef-action-cards";
 import type { VisibilityType } from "./visibility-selector";
 
 export function EmptyState({
@@ -78,12 +78,7 @@ export function EmptyState({
         />
       </div>
 
-      <SuggestedActions
-        chatId={chatId}
-        sendMessage={sendMessage}
-        selectedVisibilityType={selectedVisibilityType}
-        setActiveCategory={setActiveCategory}
-      />
+      <ChefActionCards sendMessage={sendMessage} />
     </div>
   );
 }

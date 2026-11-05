@@ -17,7 +17,7 @@ import { MessageActions } from "./message-actions";
 import { MessageReasoning } from "./message-reasoning";
 import { PreviewAttachment } from "./preview-attachment";
 import {
-  CalculateTool,
+  EmployeeSearchTool,
   NewsSearchTool,
   WeatherTool,
   WebSearchTool,
@@ -268,8 +268,8 @@ const PurePreviewMessage = ({
       return <NewsSearchTool key={key} part={part} />;
     }
 
-    if ((type as string) === "tool-calculate") {
-      return <CalculateTool key={key} part={part as any} />;
+    if (type === "tool-searchEmployees") {
+      return <EmployeeSearchTool key={key} part={part} />;
     }
 
     return null;

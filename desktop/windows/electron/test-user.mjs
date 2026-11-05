@@ -3,6 +3,8 @@
 // Compte jetable (credentials) pour les tests bureau : plus de provider
 // guest, les tests creent un utilisateur directement en base puis le
 // nettoient (avec ses chats/messages) en fin de test.
+// Schema actuel : User.accountId NOT NULL (comptes tenants) -> le user
+// jetable est cree avec son Account (provisionnement minimal) et onboarded.
 // Usage CI : import ... from "./test-user.mjs"
 // Usage playwright : await import("../../electron/test-user.mjs")
 import { randomBytes } from "node:crypto";
@@ -14,18 +16,23 @@ export async function createTestUser() {
   if (!process.env.POSTGRES_URL) {
     throw new Error("POSTGRES_URL missing (test user creation)");
   }
-  const email =
-    `e2e-${Date.now()}-${randomBytes(4).toString("hex")}@example.invalid`;
+  const stamp = `${Date.now()}-${randomBytes(4).toString("hex")}`;
+  const email = `e2e-${stamp}@example.invalid`;
   const password = randomBytes(24).toString("base64url");
   const sql = postgres(process.env.POSTGRES_URL, { max: 1 });
   try {
     const hash = hashSync(password, genSaltSync(10));
-    const [row] = await sql`
-      INSERT INTO "User" ("email", "password")
-      VALUES (${email}, ${hash})
+    const [account] = await sql`
+      INSERT INTO "Account" ("name")
+      VALUES (${`e2e-${stamp}`})
       RETURNING "id"
     `;
-    return { email, password, userId: row.id };
+    const [row] = await sql`
+      INSERT INTO "User" ("email", "password", "accountId", "onboarded")
+      VALUES (${email}, ${hash}, ${account.id}, true)
+      RETURNING "id"
+    `;
+    return { email, password, userId: row.id, accountId: account.id };
   } finally {
     await sql.end();
   }
@@ -56,7 +63,18 @@ export async function deleteTestUser(userId) {
         () => undefined
       );
     }
+    // Compte tenant (FK "restrict" depuis User) : lu avant suppression
+    // du user, supprime apres (les employes partent en cascade).
+    const users = await sql`
+      SELECT "accountId" FROM "User" WHERE "id" = ${userId}
+    `.catch(() => []);
     await sql`DELETE FROM "User" WHERE "id" = ${userId}`.catch(() => undefined);
+    const accountId = users?.[0]?.accountId;
+    if (accountId) {
+      await sql`DELETE FROM "Account" WHERE "id" = ${accountId}`.catch(
+        () => undefined
+      );
+    }
   } finally {
     await sql.end();
   }

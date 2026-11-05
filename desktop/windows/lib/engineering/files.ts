@@ -1,0 +1,303 @@
+// lib/engineering/files.ts
+// Helpers purs pour l'IDE Engineering (arbre + langage).
+// Sans dependance Next/React, testables via node --test.
+
+export interface WorkspaceFileEntry {
+  path: string;
+  size: number;
+  updatedAt?: string;
+}
+
+export interface FileTreeNode {
+  name: string;
+  path: string;
+  type: "file" | "dir";
+  children?: FileTreeNode[];
+}
+
+export interface ActivityEntry {
+  ts: string;
+  tool: string;
+  message: string;
+  ok: boolean;
+  /** Entree live (run en cours) : pulse, pas d'horodatage. */
+  live?: boolean;
+  /** Reflexion en cours : libelle traduit cote client. */
+  thinking?: boolean;
+  /** Etape en cours d'execution : titre anime (jamais sur fichier). */
+  running?: boolean;
+}
+
+/** Plafond miroir du journal fichier (60 dernieres). */
+export const LIVE_ACTIVITY_LIMIT = 60;
+
+/**
+ * Parse le journal d'activite JSONL ecrit par les outils (une ligne
+ * par action). Lignes illisibles ignorees, dernieres `limit` gardees.
+ */
+export function parseActivityLog(text: string, limit = 20): ActivityEntry[] {
+  const out: ActivityEntry[] = [];
+  for (const line of text.split("\n")) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      continue;
+    }
+    try {
+      const data = JSON.parse(trimmed) as {
+        ts?: unknown;
+        tool?: unknown;
+        message?: unknown;
+        ok?: unknown;
+      };
+      if (typeof data.message !== "string" || !data.message) {
+        continue;
+      }
+      out.push({
+        ts: typeof data.ts === "string" ? data.ts : "",
+        tool: typeof data.tool === "string" ? data.tool : "",
+        message: data.message,
+        ok: data.ok !== false,
+      });
+    } catch {
+      continue;
+    }
+  }
+  return out.slice(-Math.max(1, limit));
+}
+
+// Derive les entrees live depuis la progression partagee du run
+// (meme source que la timeline : titres agent, etats, reflexion
+// en cours, erreur terminale). Vide sans donnees de run : l'onglet
+// Activity retombe alors sur le journal fichier. Parametre
+// structurel : ce module reste sans dependance (node --test).
+export function liveActivityEntries(progress: {
+  readonly steps: ReadonlyArray<{
+    readonly step: number;
+    readonly title: string | null;
+    readonly tool: string | null;
+    readonly status: "running" | "ok" | "failed";
+  }>;
+  readonly thinkingStep: number | null;
+  readonly failed: string | null;
+}): ActivityEntry[] {
+  const out: ActivityEntry[] = progress.steps.map((row) => ({
+    ts: "",
+    tool: row.tool ?? "",
+    message: row.title ?? row.tool ?? `Step ${row.step}`,
+    ok: row.status !== "failed",
+    live: true,
+    running: row.status === "running",
+  }));
+  if (progress.thinkingStep !== null) {
+    out.push({ ts: "", tool: "", message: "", ok: true, live: true, thinking: true });
+  }
+  if (progress.failed) {
+    out.push({ ts: "", tool: "", message: progress.failed, ok: false, live: true });
+  }
+  return out.slice(-LIVE_ACTIVITY_LIMIT);
+}
+
+// Extrait la commande d'une ligne "Running: <cmd>" (run_shell).
+// Null pour tout autre format (jamais d'exception).
+export function extractShellCommand(message: string): string | null {
+  const prefix = "Running: ";
+  if (!message.startsWith(prefix)) {
+    return null;
+  }
+  const command = message.slice(prefix.length).trim();
+  return command ? command : null;
+}
+
+// Horodatage compact "HH:MM:SS" (heure locale), "" si illisible.
+export function formatActivityTime(ts: string): string {
+  if (!ts) {
+    return "";
+  }
+  const date = new Date(ts);
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+  return date.toTimeString().slice(0, 8);
+}
+
+// Taille max servie par l'API fichier (socle : lecture seule).
+export const MAX_FILE_BYTES = 200_000;
+
+// Navigation auto des onglets IDE sur transition de run : le
+// demarrage ouvre Activity (suivi live), la fin ouvre Files
+// (travail termine). Transition -> onglet, sinon null (la
+// navigation manuelle en cours de run n'est jamais confisquee).
+export function nextIdeTabOnRunningChange(
+  wasRunning: boolean,
+  running: boolean
+): "activity" | "files" | null {
+  if (running && !wasRunning) {
+    return "activity";
+  }
+  if (!running && wasRunning) {
+    return "files";
+  }
+  return null;
+}
+
+// Cle du cache d'arbre disque (workspace-store) : une entree par
+// session (compte + employe + session) pour ne jamais melanger.
+export function workspaceTreeCacheKey(
+  accountId: string | undefined,
+  employeeId: string,
+  sessionId: string
+): string {
+  return accountId
+    ? `${accountId}:${employeeId}:${sessionId}`
+    : `${employeeId}:${sessionId}`;
+}
+
+// Fusionne l'arbre disque (frais, prioritaire) et le miroir DB
+// (durable, bouche les trous apres redeploiement) : union par
+// chemin, disque gagnant, tri par chemin.
+export function mergeWorkspaceEntries(
+  disk: ReadonlyArray<WorkspaceFileEntry>,
+  db: ReadonlyArray<WorkspaceFileEntry>
+): WorkspaceFileEntry[] {
+  const merged = new Map<string, WorkspaceFileEntry>();
+  for (const entry of db) {
+    merged.set(entry.path, entry);
+  }
+  for (const entry of disk) {
+    merged.set(entry.path, entry);
+  }
+  return [...merged.values()].sort((a, b) => a.path.localeCompare(b.path));
+}
+
+// Refuse les echappatoires (.. , absolu, segments vides).
+export function isSafeWorkspacePath(value: string): boolean {
+  if (!value || value.length > 512) return false;
+  if (value.startsWith("/") || value.includes("\\")) return false;
+  const parts = value.split("/");
+  for (const part of parts) {
+    if (!part || part === "." || part === "..") return false;
+  }
+  return true;
+}
+
+const LANGUAGE_BY_EXTENSION: Record<string, string> = {
+  ts: "typescript",
+  tsx: "tsx",
+  js: "javascript",
+  jsx: "jsx",
+  mjs: "javascript",
+  cjs: "javascript",
+  json: "json",
+  py: "python",
+  sh: "bash",
+  bash: "bash",
+  zsh: "bash",
+  md: "markdown",
+  mdx: "mdx",
+  yml: "yaml",
+  yaml: "yaml",
+  toml: "toml",
+  css: "css",
+  html: "html",
+  sql: "sql",
+  rs: "rust",
+  go: "go",
+  dockerfile: "dockerfile",
+  env: "dotenv",
+  txt: "text",
+};
+
+export function languageForPath(path: string): string {
+  const base = path.split("/").pop() ?? path;
+  if (base === "Dockerfile") return "dockerfile";
+  const dot = base.lastIndexOf(".");
+  if (dot === -1) return "text";
+  const ext = base.slice(dot + 1).toLowerCase();
+  return LANGUAGE_BY_EXTENSION[ext] ?? "text";
+}
+
+// Construit un arbre trie (dossiers d'abord) depuis des chemins plats.
+export function buildFileTree(
+  entries: Array<string | WorkspaceFileEntry>
+): FileTreeNode[] {
+  const root: FileTreeNode[] = [];
+  const paths = entries
+    .map((entry) => (typeof entry === "string" ? entry : entry.path))
+    .filter((p) => isSafeWorkspacePath(p))
+    .sort((a, b) => a.localeCompare(b));
+
+  for (const fullPath of paths) {
+    const parts = fullPath.split("/");
+    let level = root;
+    let current = "";
+    for (let i = 0; i < parts.length; i += 1) {
+      const part = parts[i];
+      current = current ? `${current}/${part}` : part;
+      const isFile = i === parts.length - 1;
+      let node = level.find((n) => n.name === part);
+      if (!node) {
+        node = isFile
+          ? { name: part, path: current, type: "file" }
+          : { name: part, path: current, type: "dir", children: [] };
+        level.push(node);
+      }
+      if (!isFile) {
+        node.children = node.children ?? [];
+        level = node.children;
+      }
+    }
+  }
+
+  const sortNodes = (nodes: FileTreeNode[]) => {
+    nodes.sort((a, b) => {
+      if (a.type !== b.type) return a.type === "dir" ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+    for (const node of nodes) {
+      if (node.children) sortNodes(node.children);
+    }
+  };
+  sortNodes(root);
+  return root;
+}
+
+/**
+ * Mini-cache a duree de vie (memoire du processus) : le scan disque
+ * de l'arbre coute ~100-200 ms pour 2000 entrees, repete toutes les
+ * 4 s par onglet IDE ouvert. Un TTL court absorbe les polls
+ * redondants (N onglets -> 1 scan) sans fraicheur perdue.
+ * Horloge injectable pour des tests deterministes.
+ */
+export function createTtlCache<T>(
+  ttlMs: number,
+  now: () => number = () => Date.now()
+): {
+  get: (key: string) => T | undefined;
+  set: (key: string, value: T) => void;
+  remove: (key: string) => void;
+  clear: () => void;
+} {
+  const entries = new Map<string, { value: T; expiresAt: number }>();
+  return {
+    get(key) {
+      const found = entries.get(key);
+      if (!found) {
+        return undefined;
+      }
+      if (found.expiresAt <= now()) {
+        entries.delete(key);
+        return undefined;
+      }
+      return found.value;
+    },
+    set(key, value) {
+      entries.set(key, { value, expiresAt: now() + Math.max(0, ttlMs) });
+    },
+    remove(key) {
+      entries.delete(key);
+    },
+    clear() {
+      entries.clear();
+    },
+  };
+}

@@ -1,0 +1,270 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  assignMission,
+  completeEmployeeMission,
+  createEmployeeMission,
+  failEmployeeMission,
+  flagMissionForReview,
+  startEmployeeMission,
+} from "../missions/employee-mission";
+import { hashReportContent } from "../missions/mission-proof";
+import { EmployeeMemory } from "./employee-memory";
+
+function finishedMission(
+  employeeId: string,
+  prompt: string,
+  completedAt: string
+) {
+  return completeEmployeeMission(
+    startEmployeeMission(
+      assignMission(createEmployeeMission({ prompt }), employeeId)
+    ),
+    { summary: "Done", content: "Full report..." },
+    new Date(completedAt)
+  );
+}
+
+describe("EmployeeMemory.record", () => {
+  it("records completed and failed missions", () => {
+    const memory = new EmployeeMemory();
+    const completed = finishedMission(
+      "emp_1",
+      "Audit churn",
+      "2026-01-02T00:00:00.000Z"
+    );
+    const failed = failEmployeeMission(
+      startEmployeeMission(
+        assignMission(createEmployeeMission({ prompt: "Scrape" }), "emp_1")
+      ),
+      "timeout"
+    );
+
+    const first = memory.record(completed);
+    const second = memory.record(failed);
+
+    expect(first).toMatchObject({
+      missionId: completed.id,
+      employeeId: "emp_1",
+      prompt: "Audit churn",
+      status: "completed",
+      summary: "Done",
+    });
+    expect(second.status).toBe("failed");
+    expect(second.summary).toBeNull();
+  });
+
+  it("rejects unfinished missions", () => {
+    const memory = new EmployeeMemory();
+    const pending = createEmployeeMission({ prompt: "Audit churn" });
+
+    expect(() => memory.record(pending)).toThrow();
+    expect(() =>
+      memory.record(startEmployeeMission(assignMission(pending, "emp_1")))
+    ).toThrow();
+  });
+});
+
+describe("EmployeeMemory.restore", () => {
+  it("replaces history with reloaded records", () => {
+    const memory = new EmployeeMemory();
+    memory.record(
+      finishedMission("emp_1", "Old", "2026-01-01T00:00:00.000Z")
+    );
+
+    memory.restore([
+      {
+        missionId: "mis_new",
+        employeeId: "emp_1",
+        employerId: "acme",
+        prompt: "New",
+        status: "completed",
+        summary: "Done",
+        reportHash: null,
+        completedAt: "2026-02-01T00:00:00.000Z",
+      },
+    ]);
+
+    expect(memory.history().map((r) => r.prompt)).toEqual(["New"]);
+  });
+
+  it("rejects invalid records and copies inputs", () => {
+    const memory = new EmployeeMemory();
+
+    expect(() =>
+      memory.restore([{ missionId: "x" } as unknown as never])
+    ).toThrow("invalid mission record");
+
+    const input = [
+      {
+        missionId: "mis_1",
+        employeeId: "emp_1",
+        employerId: "acme",
+        prompt: "Audit",
+        status: "completed" as const,
+        summary: "Done",
+        reportHash: null,
+        completedAt: "2026-01-01T00:00:00.000Z",
+      },
+    ];
+    memory.restore(input);
+    input[0].prompt = "Mutated";
+
+    expect(memory.history().map((r) => r.prompt)).toEqual(["Audit"]);
+  });
+});
+
+describe("EmployeeMemory.history", () => {
+  it("returns records in chronological order, optionally per employee", () => {
+    const memory = new EmployeeMemory();
+    const first = finishedMission(
+      "emp_1",
+      "First",
+      "2026-01-01T00:00:00.000Z"
+    );
+    const second = finishedMission(
+      "emp_2",
+      "Second",
+      "2026-01-02T00:00:00.000Z"
+    );
+
+    // Enregistrement dans le desordre : l'historique reste chronologique.
+    memory.record(second);
+    memory.record(first);
+
+    expect(memory.history().map((r) => r.prompt)).toEqual([
+      "First",
+      "Second",
+    ]);
+    expect(memory.history("emp_2").map((r) => r.prompt)).toEqual(["Second"]);
+    expect(memory.history("emp_unknown")).toEqual([]);
+  });
+
+  it("tags records with the mission employer, local by default", () => {
+    const memory = new EmployeeMemory();
+    const scoped = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Scoped", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "Done", content: "Report" }
+    );
+    const local = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(createEmployeeMission({ prompt: "Local" }), "emp_1")
+      ),
+      { summary: "Done", content: "Report" }
+    );
+
+    expect(memory.record(scoped).employerId).toBe("acme");
+    expect(memory.record(local).employerId).toBe("local");
+  });
+
+  it("filters history per employer, legacy archives pass through", () => {
+    const memory = new EmployeeMemory();
+    memory.restore([
+      {
+        missionId: "mis_acme",
+        employeeId: "emp_1",
+        employerId: "acme",
+        prompt: "Acme work",
+        status: "completed",
+        summary: null,
+        reportHash: null,
+        completedAt: "2026-01-01T00:00:00.000Z",
+      },
+      {
+        missionId: "mis_globex",
+        employeeId: "emp_1",
+        employerId: "globex",
+        prompt: "Globex work",
+        status: "completed",
+        summary: null,
+        reportHash: null,
+        completedAt: "2026-01-02T00:00:00.000Z",
+      },
+      {
+        missionId: "mis_legacy",
+        employeeId: "emp_1",
+        employerId: null,
+        prompt: "Legacy work",
+        status: "completed",
+        summary: null,
+        reportHash: null,
+        completedAt: "2026-01-03T00:00:00.000Z",
+      },
+    ]);
+
+    expect(
+      memory.history("emp_1", "acme").map((record) => record.prompt)
+    ).toEqual(["Acme work", "Legacy work"]);
+    expect(
+      memory.history("emp_1", "globex").map((record) => record.prompt)
+    ).toEqual(["Globex work", "Legacy work"]);
+    expect(memory.history("emp_1").map((record) => record.prompt)).toEqual([
+      "Acme work",
+      "Globex work",
+      "Legacy work",
+    ]);
+  });
+
+  it("anchors completed reports by hash, failures stay null", () => {
+    const memory = new EmployeeMemory();
+    const done = completeEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Scoped", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "Done", content: "Report body." }
+    );
+    const ko = failEmployeeMission(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Failed", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      "boom"
+    );
+
+    expect(memory.record(done).reportHash).toBe(
+      hashReportContent("Report body.")
+    );
+    expect(memory.record(ko).reportHash).toBeNull();
+  });
+
+  it("records needs_review missions without a report hash", () => {
+    const memory = new EmployeeMemory();
+    const flagged = flagMissionForReview(
+      startEmployeeMission(
+        assignMission(
+          createEmployeeMission({ prompt: "Risky", employerId: "acme" }),
+          "emp_1"
+        )
+      ),
+      { summary: "Maybe", content: "Maybe done." }
+    );
+
+    const record = memory.record(flagged);
+
+    expect(record.status).toBe("needs_review");
+    expect(record.summary).toBe("Maybe");
+    expect(record.reportHash).toBeNull();
+  });
+
+  it("returns a defensive copy", () => {
+    const memory = new EmployeeMemory();
+    memory.record(
+      finishedMission("emp_1", "Audit", "2026-01-01T00:00:00.000Z")
+    );
+
+    const history = memory.history();
+    history.pop();
+
+    expect(memory.history()).toHaveLength(1);
+  });
+});

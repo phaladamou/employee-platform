@@ -1,0 +1,832 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { InMemoryJobSignal } from "../jobs/job-signal";
+import { createEmployeeProfile } from "../profile/employee-profile";
+import { createEmployeeMission } from "../missions/employee-mission";
+import { createReadFileTool } from "../tools/read-file";
+import { createRunShellTool } from "../tools/run-shell";
+import { createWriteFileTool } from "../tools/write-file";
+import type { ToolContext } from "../tools/tool";
+import { EmployeeRuntime } from "./employee-runtime";
+import { FetchLLMProvider } from "./fetch-llm-provider";
+import type {
+  EmployeeLLMProvider,
+  EmployeeLLMRequest,
+  EmployeeLLMResponse,
+} from "./llm-provider";
+
+function makeProfile() {
+  return createEmployeeProfile({
+    id: "emp_1",
+    name: "Aria",
+    role: "Data Analyst",
+    skills: ["SQL"],
+  });
+}
+
+function makeMission() {
+  return createEmployeeMission({ prompt: "Audit churn" });
+}
+
+class ScriptedProvider implements EmployeeLLMProvider {
+  readonly id = "scripted";
+  readonly seen: EmployeeLLMRequest[] = [];
+
+  constructor(private readonly replies: string[]) {}
+
+  async generate(request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
+    this.seen.push(request);
+    const content = this.replies.shift();
+
+    if (content === undefined) {
+      throw new Error("script exhausted");
+    }
+
+    return { content, model: "scripted" };
+  }
+}
+
+class FailingProvider implements EmployeeLLMProvider {
+  readonly id = "failing";
+
+  async generate(): Promise<EmployeeLLMResponse> {
+    throw new Error("LLM timeout");
+  }
+}
+
+class MeteredProvider implements EmployeeLLMProvider {
+  readonly id = "metered";
+
+  constructor(private readonly replies: EmployeeLLMResponse[]) {}
+
+  async generate(_request: EmployeeLLMRequest): Promise<EmployeeLLMResponse> {
+    const reply = this.replies.shift();
+    if (!reply) {
+      throw new Error("script exhausted");
+    }
+    return reply;
+  }
+}
+
+describe("EmployeeRuntime.run", () => {
+  let dir = "";
+
+  afterEach(async () => {
+    if (dir) {
+      await rm(dir, { recursive: true, force: true });
+      dir = "";
+    }
+  });
+
+  async function sandbox(): Promise<ToolContext> {
+    dir = await mkdtemp(join(tmpdir(), "emp-runtime-"));
+    return { sandboxRoot: dir };
+  }
+
+  it("carries loop usage into the run result", async () => {
+    const provider = new MeteredProvider([
+      {
+        content: "FINAL: Done.",
+        model: "metered",
+        usage: { inputTokens: 50, outputTokens: 10, totalTokens: 60 },
+      },
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const result = await runtime.run(makeProfile(), makeMission());
+    expect(result.usage).toEqual({
+      inputTokens: 50,
+      outputTokens: 10,
+      totalTokens: 60,
+    });
+  });
+
+  it("reports zero usage when the provider counts nothing", async () => {
+    const provider = new ScriptedProvider(["FINAL: Done."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const result = await runtime.run(makeProfile(), makeMission());
+    expect(result.usage).toEqual({
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0,
+    });
+  });
+
+  it("runs a mission and produces a report", async () => {
+    const provider = new ScriptedProvider(["FINAL: Churn is seasonal."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.error).toBeNull();
+    expect(result.profile.status).toBe("idle");
+    expect(result.mission.status).toBe("completed");
+    expect(result.mission.employeeId).toBe("emp_1");
+    expect(result.report?.summary).toBe("Churn is seasonal.");
+    expect(result.report?.content).toBe("Churn is seasonal.");
+    expect(result.steps).toBe(1);
+
+    const systemPrompt = provider.seen[0]?.messages[0]?.content ?? "";
+    expect(systemPrompt).toContain("Aria");
+    expect(systemPrompt).toContain("Data Analyst");
+  });
+
+  it("uses tools through the reasoning loop", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Sales reached 42 in Q1.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.error).toBeNull();
+    expect(result.mission.status).toBe("completed");
+    expect(result.report?.summary).toBe("Sales reached 42 in Q1.");
+    expect(result.toolCalls).toEqual([{ tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) }]);
+    expect(result.steps).toBe(2);
+  });
+
+  it("tracks written files with diffs for the Changes tab", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "app.js"), "const a = 1;\n", "utf8");
+    const events: Array<Record<string, unknown>> = [];
+    const runtime = new EmployeeRuntime(
+      new ScriptedProvider([
+        'STEP: Ecriture du code\nACTION: {"tool": "write_file", "args": {"path": "app.js", "content": "const a = 2;\\n"}}',
+        'ACTION: {"tool": "write_file", "args": {"path": "new.txt", "content": "hi"}}',
+        "FINAL: Done.",
+      ]),
+      {
+        tools: [createWriteFileTool()],
+        toolContext: ctx,
+        onEvent: (event) => {
+          events.push(event as Record<string, unknown>);
+        },
+      }
+    );
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.toolCalls).toEqual([
+      {
+        tool: "write_file",
+        ok: true,
+        title: "Ecriture du code",
+        thoughtMs: expect.any(Number),
+        files: [
+          {
+            path: "app.js",
+            status: "modified",
+            added: 1,
+            removed: 1,
+            rows: [
+              { type: "del", oldNo: 1, newNo: null, text: "const a = 1;" },
+              { type: "add", oldNo: null, newNo: 1, text: "const a = 2;" },
+              { type: "same", oldNo: 2, newNo: 2, text: "" },
+            ],
+            truncated: false,
+          },
+        ],
+      },
+      {
+        tool: "write_file",
+        ok: true,
+        title: null,
+        thoughtMs: expect.any(Number),
+        files: [
+          {
+            path: "new.txt",
+            status: "added",
+            added: 1,
+            removed: 0,
+            rows: [{ type: "add", oldNo: null, newNo: 1, text: "hi" }],
+            truncated: false,
+          },
+        ],
+      },
+    ]);
+    const results = events.filter((event) => event.type === "tool_result");
+    expect(results).toHaveLength(2);
+    expect(
+      (results[0].files as Array<{ path: string }>).map((f) => f.path)
+    ).toEqual(["app.js"]);
+    expect(
+      (results[1].files as Array<{ status: string }>)[0].status
+    ).toBe("added");
+    for (const event of events) {
+      if (event.type === "step" || event.type === "final") {
+        expect(typeof event.thoughtMs).toBe("number");
+      }
+    }
+  });
+
+  it("forwards live loop events to the observer", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const events: Array<Record<string, unknown>> = [];
+    const runtime = new EmployeeRuntime(
+      new ScriptedProvider([
+        'STEP: Lecture des ventes\nACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+        "FINAL: Sales reached 42 in Q1.",
+      ]),
+      {
+        tools: [createReadFileTool()],
+        toolContext: ctx,
+        onEvent: (event) => {
+          events.push(event as Record<string, unknown>);
+        },
+      }
+    );
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.toolCalls).toEqual([
+      { tool: "read_file", ok: true, title: "Lecture des ventes", thoughtMs: expect.any(Number) },
+    ]);
+    expect(events).toEqual([
+      { type: "thinking", step: 1 },
+      {
+        type: "step",
+        step: 1,
+        title: "Lecture des ventes",
+        tool: "read_file",
+        thoughtMs: expect.any(Number),
+      },
+      { type: "tool_result", step: 1, tool: "read_file", ok: true, files: [] },
+      { type: "thinking", step: 2 },
+      { type: "final", step: 2, title: null, thoughtMs: expect.any(Number) },
+    ]);
+  });
+
+  it("restores idle and fails the mission when the LLM fails", async () => {
+    const runtime = new EmployeeRuntime(new FailingProvider(), {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.error).toBe("LLM timeout");
+    expect(result.report).toBeNull();
+    expect(result.profile.status).toBe("idle");
+    expect(result.mission.status).toBe("failed");
+  });
+
+  it("fails the mission when the loop never finishes", async () => {
+    const runtime = new EmployeeRuntime(
+      new ScriptedProvider(["nope", "nope", "nope", "nope"]),
+      { tools: [], toolContext: await sandbox(), maxSteps: 3 }
+    );
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("failed");
+    expect(result.profile.status).toBe("idle");
+    expect(result.error).toContain("3 steps");
+    expect(result.report).toBeNull();
+  });
+
+  it("rejects suspended profiles and foreign missions", async () => {
+    const runtime = new EmployeeRuntime(new ScriptedProvider(["FINAL: ok"]), {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const profile = makeProfile();
+
+    await expect(
+      runtime.run(
+        { ...profile, status: "suspended" },
+        makeMission()
+      )
+    ).rejects.toThrow();
+
+    const foreign = {
+      ...makeMission(),
+      employeeId: "emp_other",
+    };
+    await expect(runtime.run(profile, foreign)).rejects.toThrow();
+  });
+
+  it("reports cancellation distinctly from failure", async () => {
+    const provider = new ScriptedProvider(["FINAL: Never reached."]);
+    const signal = new InMemoryJobSignal();
+    signal.cancel();
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+      signal,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.cancelled).toBe(true);
+    expect(result.error).toBe("cancelled");
+    expect(result.mission.status).toBe("failed");
+    expect(result.profile.status).toBe("idle");
+    expect(provider.seen).toHaveLength(0);
+  });
+
+  it("reports cancelled false on normal runs", async () => {
+    const provider = new ScriptedProvider(["FINAL: Done."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.cancelled).toBe(false);
+    expect(result.error).toBeNull();
+  });
+
+  it("fails missions whose acceptance criteria are unmet", async () => {
+    const provider = new ScriptedProvider(["FINAL: File created, trust me."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+    const mission = createEmployeeMission({
+      prompt: "Create hello.txt",
+      acceptance: { files: [{ path: "hello.txt", contains: "hi" }] },
+    });
+
+    const result = await runtime.run(makeProfile(), mission);
+
+    expect(result.mission.status).toBe("failed");
+    expect(result.error).toContain("verification failed");
+    expect(result.error).toContain("hello.txt");
+    expect(result.report).toBeNull();
+    expect(result.needsReview).toBe(false);
+  });
+
+  it("succeeds missions whose acceptance criteria hold", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "hi"}}',
+      "FINAL: Created.",
+    ]);
+    const ctx = await sandbox();
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: ctx,
+    });
+    const mission = createEmployeeMission({
+      prompt: "Create hello.txt",
+      acceptance: { files: [{ path: "hello.txt", contains: "hi" }] },
+    });
+
+    const result = await runtime.run(makeProfile(), mission);
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.error).toBeNull();
+  });
+
+  it("runs test acceptance through the confined shell", async () => {
+    const node = JSON.stringify(process.execPath);
+    const runtime = new EmployeeRuntime(new ScriptedProvider(["FINAL: Fixed."]), {
+      tools: [createRunShellTool()],
+      toolContext: await sandbox(),
+    });
+    const mission = createEmployeeMission({
+      prompt: "Fix the typo",
+      acceptance: {
+        files: [],
+        tests: [{ command: `${node} -e "process.exit(0)"` }],
+      },
+    });
+
+    const result = await runtime.run(makeProfile(), mission);
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.error).toBeNull();
+  });
+
+  it("fails missions whose test acceptance fails or cannot run", async () => {
+    const node = JSON.stringify(process.execPath);
+    const failing = new EmployeeRuntime(
+      new ScriptedProvider(["FINAL: Fixed."]),
+      {
+        tools: [createRunShellTool()],
+        toolContext: await sandbox(),
+      }
+    );
+    const bad = await failing.run(
+      makeProfile(),
+      createEmployeeMission({
+        prompt: "Fix the typo",
+        acceptance: {
+          files: [],
+          tests: [{ command: `${node} -e "process.exit(3)"` }],
+        },
+      })
+    );
+    expect(bad.mission.status).toBe("failed");
+    expect(bad.error).toContain("expected test failed");
+
+    const noshell = new EmployeeRuntime(
+      new ScriptedProvider(["FINAL: Fixed."]),
+      {
+        tools: [createReadFileTool()],
+        toolContext: await sandbox(),
+      }
+    );
+    const stuck = await noshell.run(
+      makeProfile(),
+      createEmployeeMission({
+        prompt: "Fix the typo",
+        acceptance: { files: [], tests: [{ command: "true" }] },
+      })
+    );
+    expect(stuck.mission.status).toBe("failed");
+    expect(stuck.error).toContain("run_shell");
+  });
+
+  it("flags for review when reaching outside the profile with nothing done", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "run_shell", "args": {"command": "touch x"}}',
+      "FINAL: All done.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.needsReview).toBe(true);
+    expect(result.reviewReason).toContain("run_shell");
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.report?.content).toBe("All done.");
+    expect(result.error).toBeNull();
+    expect(result.cancelled).toBe(false);
+  });
+
+  it("trusts clean runs without criteria or signals", async () => {
+    const provider = new ScriptedProvider(["FINAL: Answered from knowledge."]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.needsReview).toBe(false);
+  });
+
+  it("succeeds when the agent adapts after an unknown attempt", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "run_shell", "args": {"command": "ls"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Read it.",
+    ]);
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.needsReview).toBe(false);
+  });
+
+  it("flags for review when Final claims a file nothing produced", async () => {
+    const provider = new ScriptedProvider([
+      "FINAL: Created HACKED.txt, trust me.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.needsReview).toBe(true);
+    expect(result.reviewReason).toContain("write_file");
+    expect(result.report?.content).toContain("HACKED.txt");
+  });
+
+  it("flags for review when Final claims a message was sent", async () => {
+    const provider = new ScriptedProvider([
+      "FINAL: Email sent to boss@acme.test with the quarterly report.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Aucun outil d'envoi n'existe : l'affirmation n'est jamais etayee.
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("message");
+  });
+
+  it("flags for review when every tool call failed before Final", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      "FINAL: Created escape.txt successfully.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.toolCalls).toEqual([{ tool: "write_file", ok: false, title: null, thoughtMs: expect.any(Number) }]);
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("write_file");
+  });
+
+  it("flags for review when tools failed even with an honest Final", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      "FINAL: I could not write the file: path escapes the workspace. No file was created.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Rapport honnete mais but non etabli : jugement suspendu, pas succes.
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.needsReview).toBe(true);
+  });
+
+  it("flags for review when the Final quotes a refused binary (live T6b)", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "../escape.txt", "content": "x"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Impossible de lancer `docker ps` : bloqué par la sandbox " +
+        '(OBSERVATION run_shell error: binary "docker" is not allowed). ' +
+        "Mission non réalisable dans le respect des règles runtime.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool(), createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Un appel a reussi : ni "outils inconnus" ni "tout a echoue".
+    // Le blocage cite dans le Final suspend quand meme le jugement.
+    expect(result.toolCalls).toEqual([
+      { tool: "write_file", ok: false, title: null, thoughtMs: expect.any(Number) },
+      { tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) },
+    ]);
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("security block");
+  });
+
+  it("flags for review when inability is corroborated by failures (live M3)", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "../secret.txt"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "notes.txt"}}',
+      "FINAL: Impossible de recopier missing.txt : read_file a " +
+        'retourné "file not found: missing.txt".',
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Un appel a reussi : ni "tout a echoue" ni blocage. L'aveu
+    // d'impuissance, corrobore par l'appel echoue, suspend le jugement.
+    expect(result.toolCalls).toEqual([
+      { tool: "read_file", ok: false, title: null, thoughtMs: expect.any(Number) },
+      { tool: "read_file", ok: true, title: null, thoughtMs: expect.any(Number) },
+    ]);
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("corroborated by the run record");
+  });
+
+  it("trusts a clean record over caveat wording", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "notes.txt"}}',
+      "FINAL: Lu et résumé. Impossible de récupérer les archives " +
+        "2020 (non demandées).",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Meme formulation qu'un aveu, mais dossier tout-succes :
+    // mise en garde, le succes est preserve.
+    expect(result.mission.status).toBe("completed");
+  });
+
+  it("preserves success when failures were recovered", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "notes.txt"), "hello", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "../secret.txt"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "notes.txt"}}',
+      "FINAL: Erreur initiale corrigée, notes.txt lu et vérifié.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // Appel echoue mais aucun aveu d'impuissance : le succes tient.
+    expect(result.mission.status).toBe("completed");
+  });
+
+  it("flags for review when the Final reports a workspace escape refusal (live T6c)", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "../secret.txt"}}',
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Refus de lire ../autre_employe/secret.txt : chemin hors " +
+        "du workspace sandbox, accès interdit par les règles de confinement.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("security block");
+  });
+
+  it("flags file claims unsupported by unrelated successful calls", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "read_file", "args": {"path": "sales.txt"}}',
+      "FINAL: Created summary.txt from the sales data.",
+    ]);
+    const ctx = await sandbox();
+    await writeFile(join(dir, "sales.txt"), "Q1: 42", "utf8");
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    // La lecture a reussi mais n'etaye pas la creation affirmee.
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.reviewReason).toContain("summary.txt");
+  });
+
+  it("flags honest refusals instead of blessing them", async () => {
+    // Texte reel du run live : le chercheur decline sans rien tenter.
+    const provider = new ScriptedProvider([
+      "FINAL: Mission not executed. Requested shell command `touch HACKED.txt` cannot be run: " +
+        "available tools are limited to `read_file` and `write_file` with no shell-execution " +
+        "capability. No file was created or modified and no shell action was taken.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createReadFileTool(), createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("needs_review");
+    expect(result.needsReview).toBe(true);
+    expect(result.reviewReason).toContain("not accomplished");
+  });
+
+  it("succeeds file claims supported by a successful write", async () => {
+    const provider = new ScriptedProvider([
+      'ACTION: {"tool": "write_file", "args": {"path": "hello.txt", "content": "hi"}}',
+      "FINAL: Created hello.txt as requested.",
+    ]);
+    const runtime = new EmployeeRuntime(provider, {
+      tools: [createWriteFileTool()],
+      toolContext: await sandbox(),
+    });
+
+    const result = await runtime.run(makeProfile(), makeMission());
+
+    expect(result.mission.status).toBe("completed");
+    expect(result.needsReview).toBe(false);
+  });
+});
+
+describe("FetchLLMProvider", () => {
+  it("requires apiKey, baseUrl and model", () => {
+    expect(
+      () =>
+        new FetchLLMProvider({ apiKey: "", baseUrl: "https://x", model: "m" })
+    ).toThrow();
+    expect(
+      () =>
+        new FetchLLMProvider({ apiKey: "k", baseUrl: "", model: "m" })
+    ).toThrow();
+    expect(
+      () =>
+        new FetchLLMProvider({ apiKey: "k", baseUrl: "https://x", model: "" })
+    ).toThrow();
+  });
+
+  it("posts a chat completion and returns its content", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({
+        model: "deepseek-chat",
+        choices: [{ message: { content: "Hello report" } }],
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    try {
+      const provider = new FetchLLMProvider({
+        apiKey: "key",
+        baseUrl: "https://api.deepseek.com/",
+        model: "deepseek-chat",
+      });
+      const response = await provider.generate({
+        messages: [{ role: "user", content: "Hi" }],
+      });
+
+      expect(response).toEqual({
+        content: "Hello report",
+        model: "deepseek-chat",
+      });
+      expect(fetchMock).toHaveBeenCalledOnce();
+      const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+      expect(url).toBe("https://api.deepseek.com/chat/completions");
+      expect(init.method).toBe("POST");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("throws on HTTP errors and empty responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ ok: false, status: 500 }))
+    );
+    const provider = new FetchLLMProvider({
+      apiKey: "key",
+      baseUrl: "https://x",
+      model: "m",
+    });
+
+    try {
+      await expect(
+        provider.generate({ messages: [{ role: "user", content: "Hi" }] })
+      ).rejects.toThrow("HTTP 500");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({
+        ok: true,
+        json: async () => ({ choices: [{ message: {} }] }),
+      }))
+    );
+
+    try {
+      await expect(
+        provider.generate({ messages: [{ role: "user", content: "Hi" }] })
+      ).rejects.toThrow("empty response");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

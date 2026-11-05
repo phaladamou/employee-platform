@@ -1,7 +1,7 @@
 // lib/auth/route-policy.ts
 // Regles de routage auth PURES (aucune dependance Next) partagees par le
 // middleware. Comportement verrouille par route-policy.test.ts :
-// `node --test desktop/windows/lib/auth/route-policy.test.ts`.
+// `node --test lib/auth/route-policy.test.ts`.
 
 export const PUBLIC_PATHS = [
   "/login",
@@ -13,6 +13,21 @@ export const PUBLIC_PATHS = [
   "/help",
   "/docs",
   "/faq",
+  "/pricing",
+  "/legal-notice",
+  "/acceptable-use",
+  "/security",
+  "/contact",
+  "/retention",
+  "/ai-governance",
+  "/vulnerability-disclosure",
+  "/about",
+  "/status",
+  "/changelog",
+  "/press",
+  "/partnerships",
+  "/brand",
+  "/careers",
 ];
 
 export const PUBLIC_PREFIXES = [
@@ -21,6 +36,8 @@ export const PUBLIC_PREFIXES = [
   "/images",
   "/fonts",
   "/favicon",
+  "/icon",
+  "/apple-icon",
   "/opengraph-image",
   "/twitter-image",
 ];

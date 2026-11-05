@@ -107,21 +107,43 @@ function normalizeAttachments(
   });
 }
 
-export function createAppCoreHost(): CoreHost {
+export function toHostMessages(
+  messages: ReadonlyArray<{
+    id: string;
+    role: string;
+    parts: unknown;
+    createdAt: Date | string | number;
+  }>,
+): HostMessage[] {
+  return messages.map((message): HostMessage => ({
+    id: message.id,
+    role: message.role as HostMessage["role"],
+    parts: normalizeParts(
+      Array.isArray(message.parts)
+        ? message.parts
+        : [],
+    ),
+    createdAt: new Date(message.createdAt),
+  }));
+}
+
+export function createAppCoreHost(preload?: {
+  chatId: string;
+  messages: HostMessage[];
+}): CoreHost {
   return {
     async getConversation(chatId: string): Promise<HostMessage[]> {
+      // Latence : la route a deja charge cet historique, pas de
+      // relecture. Bonus : la version pre-chargee precede la
+      // sauvegarde du message courant, que l'agent ajoute lui-meme
+      // (fini le doublon).
+      if (preload && preload.chatId === chatId) {
+        return preload.messages;
+      }
+
       const messages = await getMessagesByChatId({ id: chatId });
 
-      return messages.map((message): HostMessage => ({
-        id: message.id,
-        role: message.role as HostMessage["role"],
-        parts: normalizeParts(
-          Array.isArray(message.parts)
-            ? message.parts
-            : [],
-        ),
-        createdAt: new Date(message.createdAt),
-      }));
+      return toHostMessages(messages);
     },
 
     async getUserConversations(

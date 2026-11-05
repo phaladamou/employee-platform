@@ -1,7 +1,7 @@
 // components/workspace/workspace-shell.tsx
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import {
   AlertDialog,
@@ -21,13 +21,13 @@ import {
 } from "@/hooks/use-artifact";
 import type { Attachment, ChatMessage } from "@/lib/types";
 import { Artifact } from "./artifact";
-import { CapabilitiesCarousel } from "./capabilities-carousel";
 import { EmptyState } from "./empty-state";
 import { ChatHeader } from "./workspace-header";
 import { DataStreamHandler } from "./data-stream-handler";
 import { submitEditedMessage } from "./message-editor";
 import { Messages } from "./messages";
 import { MultimodalInput } from "./multimodal-input";
+import { RightPanel } from "./right-panel";
 import { SearchArtifactPanel } from "./search-artifact-panel";
 
 export function ChatShellChat() {
@@ -53,9 +53,13 @@ export function ChatShellChat() {
   } = useActiveChat();
 
   const [editingMessage, setEditingMessage] = useState<ChatMessage | null>(null);
+  const [rightPanelOpen, setRightPanelOpen] = useState(false);
+  const toggleRightPanel = useCallback(
+    () => setRightPanelOpen((open) => !open),
+    []
+  );
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [carouselDismissed, setCarouselDismissed] = useState(false);
   const isArtifactVisible = useArtifactSelector((state) => state.isVisible);
   const { artifact, setArtifact } = useArtifact();
   const router = useRouter();
@@ -81,7 +85,6 @@ export function ChatShellChat() {
       setEditingMessage(null);
       setAttachments([]);
       setActiveCategory(null);
-      setCarouselDismissed(false);
     }
   }, [chatId, setArtifact]);
 
@@ -158,6 +161,7 @@ export function ChatShellChat() {
           <ChatHeader
             chatId={chatId}
             isReadonly={isReadonly}
+            onToggleRightPanel={toggleRightPanel}
             selectedVisibilityType={visibilityType}
           />
           {isNewEmptyChat ? (
@@ -283,10 +287,8 @@ export function ChatShellChat() {
         ) : null}
       </div>
       <DataStreamHandler />
-      {!carouselDismissed && messages.length === 0 && !isLoading && (
-        <div className="fixed bottom-4 left-0 right-0 z-10">
-          <CapabilitiesCarousel onDismiss={() => setCarouselDismissed(true)} />
-        </div>
+      {rightPanelOpen && (
+        <RightPanel onClose={() => setRightPanelOpen(false)} />
       )}
       <AlertDialog
         onOpenChange={setShowCreditCardAlert}

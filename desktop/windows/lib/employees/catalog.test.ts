@@ -1,123 +1,321 @@
 // lib/employees/catalog.test.ts
-// Contrat du catalogue employes.
-// Execution : node --test desktop/windows/lib/employees/catalog.test.ts
+// Contrat du catalogue employes (types web + helpers purs).
+// Execution : node --test lib/employees/catalog.test.ts
 // (runner natif Node >= 22.18, zero dependance).
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  AVAILABLE_AGENTS,
   DEPARTMENTS,
-  EMPLOYEES,
+  asConsumptionProfile,
+  asOptionalStringList,
+  asRichText,
+  asStringList,
+  asToolDetails,
   countByStatus,
-  filterAgents,
+  filterTalents,
+  formatTalentProfile,
   getEmployeesByDepartment,
+  isEmployeeKind,
   isEmployeeStatus,
-  recruitEmployee,
+  isGithubCapable,
+  isKnownDepartment,
+  isMissionStatus,
+  toEmployeeSearchResult,
+  truncatePitch,
+  type Employee,
+  type TalentProfile,
 } from "./catalog.ts";
+
+const TEAM: Employee[] = [
+  {
+    id: "emp-chef",
+    name: "Chef",
+    role: "Manager",
+    status: "idle",
+    departmentId: "operations",
+    kind: "hired",
+  },
+  {
+    id: "emp-atlas",
+    name: "Atlas",
+    role: "Software Engineer",
+    status: "working",
+    departmentId: "engineering",
+    currentTask: "Shipping the API",
+    kind: "hired",
+  },
+  {
+    id: "emp-nova",
+    name: "Nova",
+    role: "DevOps Engineer",
+    status: "idle",
+    departmentId: "engineering",
+    kind: "hired",
+  },
+];
+
+const TALENTS: TalentProfile[] = [
+  {
+    spec: "atlas-software-engineer",
+    version: "1.0.0",
+    name: "Atlas",
+    role: "Software Engineer",
+    departmentId: "engineering",
+    background: "Writes production-ready code.",
+    technologies: ["Python", "pytest"],
+    tools: ["read_file", "write_file", "run_shell"],
+    createdBy: "Cofoundator",
+  },
+  {
+    spec: "aria-data-analyst",
+    version: "1.0.0",
+    name: "Aria",
+    role: "Data Analyst",
+    departmentId: "research-data",
+    background: "Extracts insights from datasets.",
+    technologies: ["SQL", "Reporting"],
+    tools: ["read_file", "write_file"],
+    createdBy: "Cofoundator",
+  },
+];
 
 describe("employee catalog", () => {
   it("exposes the three departments", () => {
     assert.deepEqual(
       DEPARTMENTS.map((d) => d.id),
-      ["engineering", "marketing", "research"]
+      ["engineering", "research-data", "operations"]
     );
   });
 
-  it("every seed employee belongs to a known department", () => {
-    const ids = new Set(DEPARTMENTS.map((d) => d.id));
-    for (const employee of EMPLOYEES) {
-      assert.ok(ids.has(employee.departmentId), employee.id);
-    }
+  it("recognizes known departments only", () => {
+    assert.equal(isKnownDepartment("engineering"), true);
+    assert.equal(isKnownDepartment("research-data"), true);
+    assert.equal(isKnownDepartment("marketing"), false);
+    assert.equal(isKnownDepartment("unknown"), false);
+  });
+
+  it("flags github-capable specs only", () => {
+    assert.equal(isGithubCapable("atlas-software-engineer"), true);
+    assert.equal(isGithubCapable("nova-devops-engineer"), false);
+    assert.equal(isGithubCapable(undefined), false);
+    assert.equal(isGithubCapable(null), false);
   });
 
   it("groups employees by department", () => {
-    const engineering = getEmployeesByDepartment(EMPLOYEES, "engineering");
-    assert.equal(engineering.length, 3);
+    const engineering = getEmployeesByDepartment(TEAM, "engineering");
+    assert.equal(engineering.length, 2);
     assert.ok(engineering.every((e) => e.departmentId === "engineering"));
-    assert.deepEqual(getEmployeesByDepartment(EMPLOYEES, "unknown"), []);
+    assert.deepEqual(getEmployeesByDepartment(TEAM, "unknown"), []);
   });
 
   it("counts employees by status", () => {
-    assert.deepEqual(countByStatus(EMPLOYEES), {
+    assert.deepEqual(countByStatus(TEAM), {
       idle: 2,
-      working: 4,
-      completed: 1,
+      working: 1,
+      completed: 0,
     });
     assert.deepEqual(countByStatus([]), { idle: 0, working: 0, completed: 0 });
   });
 
-  it("recruits an agent without mutating the input list", () => {
-    const before = [...EMPLOYEES];
-    const agent = AVAILABLE_AGENTS[0];
-    const next = recruitEmployee(EMPLOYEES, agent, "engineering", "emp-kai");
-
-    assert.deepEqual(EMPLOYEES, before);
-    assert.equal(next.length, EMPLOYEES.length + 1);
-    assert.deepEqual(next[next.length - 1], {
-      id: "emp-kai",
-      name: agent.name,
-      role: agent.role,
-      status: "idle",
-      departmentId: "engineering",
-    });
-  });
-
-  it("recruiting into an unknown department throws", () => {
-    assert.throws(() =>
-      recruitEmployee(EMPLOYEES, AVAILABLE_AGENTS[0], "unknown", "emp-x")
-    );
-  });
-
-  it("validates employee statuses", () => {
-    assert.equal(isEmployeeStatus("idle"), true);
+  it("guards statuses and kinds read from the database", () => {
     assert.equal(isEmployeeStatus("working"), true);
-    assert.equal(isEmployeeStatus("completed"), true);
-    assert.equal(isEmployeeStatus("flying"), false);
-    assert.equal(isEmployeeStatus(null), false);
-    assert.equal(isEmployeeStatus(undefined), false);
+    assert.equal(isEmployeeStatus("bogus"), false);
+    assert.equal(isEmployeeKind("chef"), true);
+    assert.equal(isEmployeeKind("hired"), true);
+    assert.equal(isEmployeeKind("admin"), false);
+    assert.equal(isMissionStatus("needs_review"), true);
+    assert.equal(isMissionStatus("cancelled"), true);
+    assert.equal(isMissionStatus("done"), false);
   });
 
-  it("every listed agent has network metadata", () => {
-    assert.ok(AVAILABLE_AGENTS.length >= 8);
-    for (const agent of AVAILABLE_AGENTS) {
-      assert.ok(agent.category);
-      assert.ok(agent.experience.length > 0);
-      assert.ok(agent.capabilities.length > 0);
-    }
+  it("coerces json columns to string lists", () => {
+    assert.deepEqual(asStringList(["a", "b"]), ["a", "b"]);
+    assert.deepEqual(asStringList(["a", 1, null]), ["a"]);
+    assert.deepEqual(asStringList(null), []);
+    assert.deepEqual(asStringList("nope"), []);
   });
 
-  it("filters agents by category", () => {
-    const dev = filterAgents(AVAILABLE_AGENTS, "", "development");
-    assert.equal(dev.length, 2);
-    assert.ok(dev.every((a) => a.category === "development"));
+  it("coerces tool details", () => {
+    assert.deepEqual(
+      asToolDetails([{ name: "read_file", description: "Read" }]),
+      [{ name: "read_file", description: "Read" }]
+    );
+    assert.deepEqual(asToolDetails([{ name: "x" }]), []);
+    assert.deepEqual(asToolDetails("nope"), []);
+  });
+
+  it("coerces rich text (prose or list)", () => {
+    assert.equal(asRichText("prose"), "prose");
+    assert.deepEqual(asRichText(["a", "b"]), ["a", "b"]);
+    assert.equal(asRichText("  "), null);
+    assert.equal(asRichText([]), null);
+    assert.equal(asRichText(null), null);
+  });
+
+  it("coerces optional string lists", () => {
+    assert.equal(asOptionalStringList(null), undefined);
+    assert.equal(asOptionalStringList(undefined), undefined);
+    assert.equal(asOptionalStringList([]), undefined);
+    assert.deepEqual(asOptionalStringList(["a", 1]), ["a"]);
+  });
+
+  it("coerces consumption profiles (valid shape or absent)", () => {
+    const good = {
+      estimatedTokensPerMission: 5000,
+      estimatedElapsedSecondsPerMission: 30,
+      minMemoryMb: 512,
+      minDiskMb: 100,
+      networkRequired: false,
+    };
+    assert.deepEqual(asConsumptionProfile(good), good);
+    assert.equal(asConsumptionProfile(null), null);
+    assert.equal(asConsumptionProfile(undefined), null);
+    assert.equal(asConsumptionProfile("cheap"), null);
+    assert.equal(asConsumptionProfile([]), null);
     assert.equal(
-      filterAgents(AVAILABLE_AGENTS, "", "all").length,
-      AVAILABLE_AGENTS.length
+      asConsumptionProfile({ ...good, estimatedTokensPerMission: -1 }),
+      null
     );
+    assert.equal(
+      asConsumptionProfile({ ...good, networkRequired: "yes" }),
+      null
+    );
+    const { minDiskMb: _dropped, ...missing } = good;
+    assert.equal(asConsumptionProfile(missing), null);
   });
 
-  it("searches agents by name, role and capability", () => {
-    assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "mira", "all").map((a) => a.id),
-      ["agent-researcher"]
+  it("formats a rich talent row", () => {
+    const formatted = formatTalentProfile(
+      {
+        spec: "atlas-software-engineer",
+        version: "1.0.0",
+        name: "Atlas",
+        role: "Software Engineer",
+        departmentId: "engineering",
+        background: "Builds.",
+        allowedTools: ["read_file"],
+        technologies: ["Python"],
+        tools: [{ name: "read_file", description: "Read." }],
+        overview: "Intro.",
+        responsibilities: ["Ship."],
+        capabilities: ["Coding"],
+        executionEnvironment: "A lab.",
+        boundaries: ["No prod."],
+        deliverables: ["Code."],
+        verification: "Done.",
+        consumptionProfile: {
+          estimatedTokensPerMission: 5000,
+          estimatedElapsedSecondsPerMission: 30,
+          minMemoryMb: 512,
+          minDiskMb: 100,
+          networkRequired: false,
+        },
+        createdBy: "Cofoundator",
+      },
+      true
     );
-    assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "dAtA eNgInEeR", "all").map((a) => a.id),
-      ["agent-dataeng"]
-    );
-    assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "docker", "all").map((a) => a.id),
-      ["agent-devops"]
-    );
-    assert.deepEqual(filterAgents(AVAILABLE_AGENTS, "plumber", "all"), []);
+    assert.equal(formatted.overview, "Intro.");
+    assert.deepEqual(formatted.consumption, {
+      estimatedTokensPerMission: 5000,
+      estimatedElapsedSecondsPerMission: 30,
+      minMemoryMb: 512,
+      minDiskMb: 100,
+      networkRequired: false,
+    });
+    assert.deepEqual(formatted.tools, ["read_file"]);
+    assert.deepEqual(formatted.toolDetails, [
+      { name: "read_file", description: "Read." },
+    ]);
+    assert.equal(formatted.hired, true);
   });
 
-  it("combines search and category", () => {
-    assert.deepEqual(
-      filterAgents(AVAILABLE_AGENTS, "data", "design"),
-      []
+  it("formats a bare talent row with fallbacks", () => {
+    const formatted = formatTalentProfile(
+      {
+        spec: "x",
+        version: "1.0.0",
+        name: "X",
+        role: "R",
+        departmentId: "engineering",
+        background: "Builds.",
+        allowedTools: ["read_file", "write_file"],
+        technologies: ["SQL"],
+        tools: null,
+        overview: null,
+        responsibilities: null,
+        capabilities: null,
+        executionEnvironment: null,
+        boundaries: null,
+        deliverables: null,
+        verification: null,
+        createdBy: "Cofoundator",
+      },
+      false
     );
-    assert.equal(filterAgents(AVAILABLE_AGENTS, "data", "data").length, 2);
+    assert.equal(formatted.overview, undefined);
+    assert.deepEqual(formatted.tools, ["read_file", "write_file"]);
+    assert.equal(formatted.toolDetails, undefined);
+    assert.equal(formatted.hired, false);
+  });
+
+  it("filters talents by department", () => {
+    assert.equal(filterTalents(TALENTS, "", "all").length, 2);
+    const engineering = filterTalents(TALENTS, "", "engineering");
+    assert.deepEqual(
+      engineering.map((t) => t.spec),
+      ["atlas-software-engineer"]
+    );
+    assert.deepEqual(filterTalents(TALENTS, "", "operations"), []);
+  });
+
+  it("filters talents by full-text query (every token must match)", () => {
+    assert.deepEqual(
+      filterTalents(TALENTS, "atlas python", "all").map((t) => t.spec),
+      ["atlas-software-engineer"]
+    );
+    assert.deepEqual(
+      filterTalents(TALENTS, "  ARIA sql  ", "all").map((t) => t.spec),
+      ["aria-data-analyst"]
+    );
+    assert.deepEqual(filterTalents(TALENTS, "atlas sql", "all"), []);
+    // La recherche respecte aussi le filtre departement.
+    assert.deepEqual(filterTalents(TALENTS, "aria", "engineering"), []);
+  });
+
+  it("truncates long pitches without cutting words", () => {
+    assert.equal(truncatePitch("Short pitch."), "Short pitch.");
+    assert.equal(
+      truncatePitch("  Collapsed\n  whitespace.  "),
+      "Collapsed whitespace."
+    );
+    const long = `word ${"lorem ipsum dolor sit amet ".repeat(20)}end`;
+    const truncated = truncatePitch(long);
+    assert.ok(truncated.length <= 181, truncated.length);
+    // Pas de mot coupe : on s'arrete a la derniere espace.
+    assert.match(truncated, /[a-z.]…$/);
+  });
+
+  it("projects a talent to a recommendation card", () => {
+    const rich: TalentProfile = {
+      ...TALENTS[0],
+      hired: true,
+      overview: "Builds web apps end to end.",
+      capabilities: ["Coding", "Testing", "Review", "Docs", "Mentoring"],
+    };
+    assert.deepEqual(toEmployeeSearchResult(rich), {
+      spec: "atlas-software-engineer",
+      name: "Atlas",
+      role: "Software Engineer",
+      departmentId: "engineering",
+      pitch: "Builds web apps end to end.",
+      skills: ["Coding", "Testing", "Review", "Docs"],
+      hired: true,
+    });
+    // Sans fiche riche : retombe sur background + technologies.
+    const bare = toEmployeeSearchResult(TALENTS[1]);
+    assert.equal(bare.pitch, "Extracts insights from datasets.");
+    assert.deepEqual(bare.skills, ["SQL", "Reporting"]);
+    assert.equal(bare.hired, false);
   });
 });

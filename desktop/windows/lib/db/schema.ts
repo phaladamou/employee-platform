@@ -1,14 +1,16 @@
 // lib/db/schema.ts
-import type { InferSelectModel } from "drizzle-orm";
+import { and, eq, isNull, type InferSelectModel } from "drizzle-orm";
 import {
   boolean,
   foreignKey,
   index,
+  integer,
   json,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
@@ -16,31 +18,61 @@ import {
 export const user = pgTable("User", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
   email: varchar("email", { length: 64 }).notNull(),
+  // Compte (tenant) proprietaire. Renseigne au premier login
+  // (ensureAccountProvisioned) ; toute requete metier est filtree dessus.
+  accountId: uuid("accountId")
+    .notNull()
+    .references(() => account.id, { onDelete: "restrict" }),
   password: varchar("password", { length: 64 }),
   name: text("name"),
   emailVerified: boolean("emailVerified").notNull().default(false),
   image: text("image"),
   bio: text("bio"),
   isAnonymous: boolean("isAnonymous").notNull().default(false),
+  onboarded: boolean("onboarded").notNull().default(false),
+  title: text("title"),
+  intent: varchar("intent", { length: 24 }),
+  company: text("company"),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
   updatedAt: timestamp("updatedAt").notNull().defaultNow(),
 });
 
 export type User = InferSelectModel<typeof user>;
 
-export const chat = pgTable("Chat", {
-  id: uuid("id").primaryKey().notNull().defaultRandom(),
-  createdAt: timestamp("createdAt").notNull(),
-  title: text("title").notNull(),
-  userId: uuid("userId")
-    .notNull()
-    .references(() => user.id),
-  visibility: varchar("visibility", { enum: ["public", "private"] })
-    .notNull()
-    .default("private"),
-});
+export const chat = pgTable(
+  "Chat",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    createdAt: timestamp("createdAt").notNull(),
+    title: text("title").notNull(),
+    userId: uuid("userId")
+      .notNull()
+      .references(() => user.id),
+    visibility: varchar("visibility", { enum: ["public", "private"] })
+      .notNull()
+      .default("private"),
+    // Conversation employe : NULL = chat libre, renseigne = une
+    // session de discussion (user, employe). Plusieurs sessions
+    // par couple (migration 0013 : l'ancienne contrainte unique
+    // a ete supprimee) ; le fil historique devient la session 1.
+    employeeId: uuid("employeeId").references(() => employee.id, {
+      onDelete: "cascade",
+    }),
+  }
+);
 
 export type Chat = InferSelectModel<typeof chat>;
+
+/**
+ * Portee "chats libres" (espace Chef) : les sessions employe
+ * partagent la table Chat avec employeeId renseigne. Toute requete
+ * d'historique principal DOIT passer par ici : sans le filtre
+ * employeeId IS NULL, les sessions Atlas fuient dans l'historique
+ * du Chef, et "tout supprimer" les detruit avec.
+ */
+export function userMainChatsCondition(userId: string) {
+  return and(eq(chat.userId, userId), isNull(chat.employeeId));
+}
 
 export const message = pgTable("Message_v2", {
   id: uuid("id").primaryKey().notNull().defaultRandom(),
@@ -51,6 +83,11 @@ export const message = pgTable("Message_v2", {
   parts: json("parts").notNull(),
   attachments: json("attachments").notNull(),
   createdAt: timestamp("createdAt").notNull(),
+  // Reponse de mission : lien vers la fiche Mission (restaure
+  // la reference mission apres rechargement). NULL sinon.
+  missionId: uuid("missionId").references(() => mission.id, {
+    onDelete: "set null",
+  }),
 });
 
 export type DBMessage = InferSelectModel<typeof message>;
@@ -228,31 +265,225 @@ export const notification = pgTable("notifications", {
 });
 
 export type Notification = InferSelectModel<typeof notification>;
+// ============ MODULE OTP (one-time password par email) ============
+
+export const otpCode = pgTable(
+  "OtpCode",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    // Email normalise (minuscules, sans espaces) vise par le code.
+    email: varchar("email", { length: 254 }).notNull(),
+    // Jamais le code en clair : SHA-256 hex du code a 7 chiffres.
+    codeHash: varchar("codeHash", { length: 64 }).notNull(),
+    expiresAt: timestamp("expiresAt").notNull(),
+    // Usage unique : renseigne a la validation (ou a l'invalidation).
+    usedAt: timestamp("usedAt"),
+    // Tentatives de validation (verrouillage au-dela du maximum).
+    attempts: integer("attempts").notNull().default(0),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("OtpCode_email_created_idx").on(table.email, table.createdAt),
+  ]
+);
+
+export type OtpCode = InferSelectModel<typeof otpCode>;
+// ============ MODULE MULTI-TENANT (comptes + isolation stricte) ============
+
+// Un compte = un tenant. Chaque utilisateur appartient a exactement un
+// compte ; toutes les donnees metier (employes recrutes, missions)
+// portent le accountId et sont toujours filtrees dessus. Le catalogue
+// des talents et les departements sont un referentiel global partage.
+export const account = pgTable("Account", {
+  id: uuid("id").primaryKey().notNull().defaultRandom(),
+  name: text("name").notNull(),
+  createdAt: timestamp("createdAt").notNull().defaultNow(),
+});
+
+export type Account = InferSelectModel<typeof account>;
+
 // ============ MODULE EMPLOYEES (departements + employes IA) ============
 
 export const department = pgTable("Department", {
-  // Slug stable, cle des libelles i18n (engineering|marketing|research).
+  // Slug stable, cle des libelles i18n
+  // (engineering|research-data|operations).
   id: text("id").primaryKey(),
   createdAt: timestamp("createdAt").notNull().defaultNow(),
 });
 
 export type Department = InferSelectModel<typeof department>;
 
+// Catalogue recrutable : miroir en base des 6 specs du noyau
+// (core/employee/profiles/*.json, lecture seule). Synchronise par
+// syncTalentCatalog() a chaque migration ; jamais edite a la main.
+export const talentProfile = pgTable("TalentProfile", {
+  // Nom de spec noyau (ex: "atlas-software-engineer"), stable.
+  spec: text("spec").primaryKey(),
+  version: varchar("version", { length: 24 }).notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  role: varchar("role", { length: 120 }).notNull(),
+  departmentId: text("departmentId")
+    .notNull()
+    .references(() => department.id, { onDelete: "restrict" }),
+  background: text("background").notNull(),
+  allowedTools: json("allowedTools").notNull().default([]),
+  technologies: json("technologies").notNull().default([]),
+  // Fiche riche : la base est la source de verite (modifications via
+  // PUT /api/talents/[spec], sans migration). Graine initiale depuis
+  // rich-profiles.ts, a l'insertion uniquement (jamais d'ecrasement).
+  overview: text("overview"),
+  responsibilities: json("responsibilities"),
+  capabilities: json("capabilities"),
+  // Outils decrits [{name, description}] ; chaque name DOIT exister
+  // dans allowedTools (verifie par rich-profiles.test.ts).
+  tools: json("tools"),
+  executionEnvironment: json("executionEnvironment"),
+  boundaries: json("boundaries"),
+  deliverables: json("deliverables"),
+  verification: text("verification"),
+  // Profil de consommation estime (tokens, CPU, RAM, disque, reseau).
+  consumptionProfile: json("consumptionProfile"),
+  createdBy: varchar("createdBy", { length: 120 })
+    .notNull()
+    .default("Cofoundator"),
+  updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+});
+
+export type TalentProfile = InferSelectModel<typeof talentProfile>;
+
 export const employee = pgTable(
   "Employee",
   {
     id: uuid("id").primaryKey().notNull().defaultRandom(),
+    // Tenant proprietaire (isolation stricte).
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    // Nature : "chef" (manager auto-provisionne) | "hired" (recrute).
+    kind: varchar("kind", { length: 16 }).notNull().default("hired"),
+    // Spec noyau d'origine (NULL pour le Chef, hors catalogue).
+    talentSpec: text("talentSpec"),
+    specVersion: varchar("specVersion", { length: 24 }),
+    // Identite cryptographique noyau (remplie a la publication).
+    kernelEmployeeId: uuid("kernelEmployeeId"),
     name: varchar("name", { length: 120 }).notNull(),
     role: varchar("role", { length: 120 }).notNull(),
-    // Statut metier : idle | working | completed (valide cote API).
+    // Statut metier : idle | working | completed | terminated (valide cote API).
     status: varchar("status", { length: 20 }).notNull().default("idle"),
     departmentId: text("departmentId")
       .notNull()
       .references(() => department.id, { onDelete: "restrict" }),
+    background: text("background"),
+    createdBy: varchar("createdBy", { length: 120 }),
+    technologies: json("technologies").notNull().default([]),
+    hiredAt: timestamp("hiredAt").notNull().defaultNow(),
+    // Licenciement : statut -> "terminated" + horodatage (ligne conservee, audit).
+    terminatedAt: timestamp("terminatedAt"),
     currentTask: text("currentTask"),
     createdAt: timestamp("createdAt").notNull().defaultNow(),
   },
-  (table) => [index("Employee_department_idx").on(table.departmentId)]
+  (table) => [
+    index("Employee_department_idx").on(table.departmentId),
+    index("Employee_account_idx").on(table.accountId),
+    // Un talent = une instance par compte (NULL = Chef, non concerné).
+    unique("Employee_account_talent_uniq").on(
+      table.accountId,
+      table.talentSpec
+    ),
+  ]
 );
 
 export type Employee = InferSelectModel<typeof employee>;
+
+// ============ MODULE MISSIONS (suivi cote web) ============
+
+// Fiche de suivi d'une mission confiee a un employe du compte.
+// L'execution elle-meme passe par le noyau (core/employee) ; ici on
+// garde la trace (statut, rapport, job noyau) pour l'interface.
+export const mission = pgTable(
+  "Mission",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    employeeId: uuid("employeeId")
+      .notNull()
+      .references(() => employee.id, { onDelete: "restrict" }),
+    title: text("title").notNull(),
+    prompt: text("prompt").notNull(),
+    // Statut : queued | running | succeeded | failed | needs_review.
+    status: varchar("status", { length: 24 }).notNull().default("queued"),
+    report: text("report"),
+    // Trace d'execution : [{tool, ok}] dans l'ordre, prouve ce
+    // qui a vraiment tourne (anti-hallucination).
+    toolCalls: json("toolCalls").notNull().default([]),
+    // Plan annonce par l'agent avant d'agir : [string]. Fait
+    // partie de la reponse (restaure avec le processus).
+    plan: json("plan").notNull().default([]),
+    kernelJobId: text("kernelJobId"),
+    expectFile: text("expectFile"),
+    expectTest: boolean("expectTest").notNull().default(false),
+    createdAt: timestamp("createdAt").notNull().defaultNow(),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => [index("Mission_account_idx").on(table.accountId)]
+);
+
+export type Mission = InferSelectModel<typeof mission>;
+
+// ============ MODULE WORKSPACE (miroir DB des fichiers employe) ============
+
+// Miroir en base du workspace disque d'un employe, scope par session
+// (`EMPLOYEE_WORKSPACES_DIR/<employeeId>/<sessionId>/`). Le disque
+// reste la source de verite pendant un run (l'agent y ecrit) ; cette
+// table est la copie durable en ligne : apres chaque mission, le
+// workspace de la session est synchronise ici (voir
+// lib/engineering/workspace-sync.ts). En cas de redeploiement ou de
+// disque vide, l'IDE lit ce miroir au lieu d'un dossier local.
+// Un (session, chemin) = une ligne (dernier etat connu de la
+// session, pas d'historique) : revisiter une session retrouve SES
+// fichiers, meme si une session plus recente a reecrit les memes
+// chemins dans son propre sandbox.
+export const workspaceFile = pgTable(
+  "WorkspaceFile",
+  {
+    id: uuid("id").primaryKey().notNull().defaultRandom(),
+    accountId: uuid("accountId")
+      .notNull()
+      .references(() => account.id, { onDelete: "cascade" }),
+    employeeId: uuid("employeeId")
+      .notNull()
+      .references(() => employee.id, { onDelete: "cascade" }),
+    // Session (Chat) proprietaire : le sandbox source du fichier.
+    chatId: uuid("chatId")
+      .notNull()
+      .references(() => chat.id, { onDelete: "cascade" }),
+    // Chemin relatif dans le workspace (ex: "src/app.py").
+    path: text("path").notNull(),
+    content: text("content").notNull(),
+    size: integer("size").notNull(),
+    // SHA-256 hex du contenu : la synchro n'ecrit que ce qui a change.
+    sha256: varchar("sha256", { length: 64 }).notNull(),
+    // Derniere mission ayant ecrit ce fichier (NULL si inconnu).
+    missionId: uuid("missionId").references(() => mission.id, {
+      onDelete: "set null",
+    }),
+    updatedAt: timestamp("updatedAt").notNull().defaultNow(),
+  },
+  (table) => [
+    index("WorkspaceFile_account_employee_chat_idx").on(
+      table.accountId,
+      table.employeeId,
+      table.chatId
+    ),
+    unique("WorkspaceFile_account_employee_chat_path_uniq").on(
+      table.accountId,
+      table.employeeId,
+      table.chatId,
+      table.path
+    ),
+  ]
+);
+
+export type WorkspaceFile = InferSelectModel<typeof workspaceFile>;

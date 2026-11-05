@@ -10,7 +10,7 @@ export async function GET() {
   const clientId = process.env.AUTH_TWITTER_ID;
   const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/link/twitter/callback`;
   const state = session.user.id;
-  const codeChallenge = "scientia-labs-link-challenge";
+  const codeChallenge = "employee-platform-link-challenge";
 
   const url = `https://twitter.com/i/oauth2/authorize?response_type=code&client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=users.read%20tweet.read&state=${state}&code_challenge=${codeChallenge}&code_challenge_method=plain&response_mode=query`;
 

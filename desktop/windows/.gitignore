@@ -25,6 +25,7 @@ yarn-error.log*
 /playwright/*
 next-env.d.ts
 tsconfig.tsbuildinfo
+.data/
 .desktop-data/
 .desktop-data-test/
 electron/dist/

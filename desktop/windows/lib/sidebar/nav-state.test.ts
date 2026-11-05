@@ -1,6 +1,6 @@
-// desktop/windows/lib/sidebar/nav-state.test.ts
+// lib/sidebar/nav-state.test.ts
 // Contrat d'etat actif des sections employes.
-// Execution : node --test desktop/windows/lib/sidebar/nav-state.test.ts
+// Execution : node --test lib/sidebar/nav-state.test.ts
 // (runner natif Node >= 22.18, zero dependance).
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";

@@ -1,6 +1,6 @@
 // app/(chat)/api/connectors/route.ts
 import { auth } from "@/app/(auth)/auth";
-import { listProviders } from "@/lib/connectors";
+import { listProviders } from "@/lib/connectors/core/registry";
 import { getConnectorsByUserId } from "@/lib/db/queries";
 import { ChatbotError } from "@/lib/errors";
 

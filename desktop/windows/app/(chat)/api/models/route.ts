@@ -1,7 +1,7 @@
 // app/(chat)/api/models/route.ts
 import { chatModels, type ModelCapabilities } from "@/lib/ai/models";
 
-const deepseekCapabilities: ModelCapabilities = {
+const defaultCapabilities: ModelCapabilities = {
   tools: true,
   vision: false,
   reasoning: false,
@@ -13,7 +13,7 @@ export async function GET() {
   };
 
   const capabilities = Object.fromEntries(
-    chatModels.map((m) => [m.id, deepseekCapabilities])
+    chatModels.map((m) => [m.id, defaultCapabilities])
   );
 
   return Response.json(capabilities, { headers });
