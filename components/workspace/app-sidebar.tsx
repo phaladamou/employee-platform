@@ -4,7 +4,6 @@
 import {
   Building2Icon,
   FileTextIcon,
-  FlaskConicalIcon,
   HistoryIcon,
   MessageCircleIcon,
   MonitorIcon,
@@ -243,15 +242,6 @@ export function AppSidebar() {
       icon: FileTextIcon,
       label: t("artefacts"),
       group: "secondary",
-    },
-    {
-      route: "/simulations",
-      isActive: false,
-      icon: FlaskConicalIcon,
-      label: t("simulations"),
-      group: "secondary",
-      external: true,
-      externalIcon: true,
     },
   ];
 

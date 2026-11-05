@@ -876,5 +876,11 @@
     "colStatus": "Status",
     "paidBadge": "Paid",
     "backToPricing": "Back to pricing"
+  },
+  "computer": {
+    "title": "Computer",
+    "status": "Coming soon",
+    "heading": "This feature isn't working yet",
+    "description": "Computer will let your AI employees act directly on a machine — a virtual PC or your local computer — to operate software, files and workflows on your behalf. We're still working on it, it will be available soon."
   }
 }

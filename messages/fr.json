@@ -876,5 +876,11 @@
     "colStatus": "Statut",
     "paidBadge": "Payé",
     "backToPricing": "Retour aux offres"
+  },
+  "computer": {
+    "title": "Computer",
+    "status": "Bientôt disponible",
+    "heading": "Fonctionnalité pas encore en fonctionnement",
+    "description": "Computer permettra à vos employés IA d'agir directement sur une machine — un PC virtuel ou votre ordinateur local — pour utiliser logiciels, fichiers et workflows à votre place. Nous y travaillons encore, ce sera bientôt disponible."
   }
 }

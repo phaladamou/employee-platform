@@ -876,5 +876,11 @@
     "colStatus": "状态",
     "paidBadge": "已支付",
     "backToPricing": "返回价格页"
+  },
+  "computer": {
+    "title": "Computer",
+    "status": "即将推出",
+    "heading": "该功能尚未上线",
+    "description": "Computer 将让您的 AI 员工直接在一台机器上操作——虚拟电脑或您的本地电脑——代您使用软件、文件和工作流程。我们仍在开发中，即将推出。"
   }
 }
