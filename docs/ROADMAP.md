@@ -60,6 +60,13 @@ Ordered by risk reduction, not by ease.
 
 ## 3. Long-term vision
 
+- **Baseten-served open models (see MODELS.md §4).** Muse Glimmer 30B
+  on a dedicated deployment, evaled against the Spark baseline
+  (calibration + T1–T7), graduated to cost-sensitive workloads
+  first; same path for Llama 4 Maverick/Scout.
+- **Task-based model routing + cost ledger (see MODELS.md §5).**
+  Frontier for plan-and-act, open models for judges/summaries,
+  per-mission price per verified success on employer dashboards.
 - **Signed profiles (upgrade of ADR-003).** Third-party profile authors
   sign their specs; the registry verifies author + integrity, enabling a
   profile ecosystem without trusting the filesystem.

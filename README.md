@@ -160,12 +160,21 @@ Frontier API for production missions, open weights for sovereign
 deployments: the same Employee DNA runs on both, because the trade —
 not the model — is the unit of trust.
 
+**Baseten is the open-models rail**: Muse Glimmer 30B and Llama 4
+deploy on Baseten (hosted Model APIs or dedicated Truss
+deployments), both OpenAI-compatible, so they plug into the same
+provider interface with zero core changes — first for
+cost-sensitive workloads (judges, summaries), graduated by evals.
+How models plug in today and how new Meta releases keep landing
+(next: Glimmer eval vs Spark, task-based routing, per-mission cost
+ledger) is recorded in [docs/MODELS.md](docs/MODELS.md).
+
 ## In numbers
 
 | Signal | Value | Source |
 |---|---|---|
 | Core tests (vitest) | **513 green / 514** in 54 files, ~20 s (1 env-gated: `emp-sandbox` needs `cargo build`, the CI builds it) | `pnpm test:employee` |
-| Web lib tests (`node --test`) | **205 green / 205** in 24 files, 53 suites, ~6 s (scope note below) | `lib/**`, `core/models` |
+| Web lib tests (`node --test`) | **241 green / 241** in 28 files, 64 suites, ~6 s (scope note below) | `lib/**`, `core/models` |
 | Native tests (Rust) | **27** (Ed25519, sandbox, Landlock) | `cargo test` in `rust/` |
 | Adversarial regression cases | **23 committed** (forged proofs, cross-tenant reads/writes, lying employees, shell escapes, …) | [docs/TESTING.md](docs/TESTING.md) §4 |
 | Test/code ratio (core) | ~11.8 k lines of tests for ~11.4 k lines of engine code | `core/employee/` |
@@ -178,8 +187,8 @@ not the model — is the unit of trust.
 
 ### Scoreboard
 
-- **745 / 746 tests green (99,9 %)**: 513/514 vitest (99,8 %, 1 env-gated),
-  205/205 `node --test` (100 %), 27/27 Rust (100 %).
+- **781 / 782 tests green (99,9 %)**: 513/514 vitest (99,8 %, 1 env-gated),
+  241/241 `node --test` (100 %), 27/27 Rust (100 %).
 - **50,9 % of core TypeScript is tests**: 11 829 lines of tests for
   11 424 lines of engine — the guarantee is executable, not aspirational.
 - **7 / 7 live LLM runs green (T1–T7)** on Meta Muse, on top of 12
@@ -193,11 +202,11 @@ not the model — is the unit of trust.
   push idempotency) — the incident table is the proof of honesty.
 - **70 / 70 packaged desktop routes green (100 %)** behind the
   anti-`MODULE_NOT_FOUND` gate; installer 304 MB, Cosign-keyless signed.
-- **399 commits**, 9 docs (~1 600 lines), 16 ADRs, 5 `needs_review`
+- **399 commits**, 11 docs (~1 700 lines), 16 ADRs, 5 `needs_review`
   triggers, 4 terminal job states — every number above traces to a
   file, a test, or a log quoted in [docs/TESTING.md](docs/TESTING.md).
 
-Scope note: the 205-count covers every `node --test`-runnable file and
+Scope note: the 241-count covers every `node --test`-runnable file and
 excludes two — `lib/db/talent-sync.test.ts` (runs inside the vitest
 suite instead) and `lib/ai/models.test.ts`, a pre-existing orphan that
 resolves its `@/` import under neither runner. The 27 Rust tests are
@@ -330,12 +339,14 @@ Expected result: `succeeded` + a report grounded in tool observations
   recover, Docker.
 - [docs/GITHUB_E2E.md](docs/GITHUB_E2E.md) — Atlas GitHub runbook:
   live fork/clone/edit/push/PR demo, token preconditions, incidents.
+- [docs/MODELS.md](docs/MODELS.md) — model integrations: Muse Spark
+  live today, Baseten rail for Glimmer/Llama 4, eval-gated adoption.
 - [core/employee/README.md](core/employee/README.md) — core technical
   reference (routes, CLI, data, tests).
 
 ## Project status
 
-- Core: 513 green vitest tests (+ 205 `node --test`, + 27 Rust),
+- Core: 513 green vitest tests (+ 241 `node --test`, + 27 Rust),
   zero-error `tsc`, live E2E validated with Muse (`muse-spark-1.3`,
   Meta Model API).
 - Web: Next.js + Tailwind + PostgreSQL (passwordless OTP auth —

@@ -80,6 +80,7 @@ $EMPLOYEE_DATA/            # e.g. /var/lib/employee
 $EMPLOYEE_SANDBOX/         # e.g. .data/workspace — shared fallback root
 $EMPLOYEE_WORKSPACES_DIR/  # e.g. .data/workspaces — one dir per employee
 ├── <employeeId>/          # live workspace (tools read/write here)
+│   └── <sessionId>/       # web missions: one sandbox per session
 └── archive/               # terminated workspaces (audit, never deleted)
 ```
 
@@ -233,3 +234,36 @@ Rules:
 - Ed25519 proofs need no configuration: the WASM module ships inside
   `core/employee/wasm/dist/` and loads automatically, with a Node
   fallback if the file is missing or corrupt.
+
+## 9. Web workspace mirror — `WorkspaceFile` table
+
+Web missions (every employee, e.g. Atlas) write to the session's
+local disk sandbox during the run, but the work also lands in the
+online Postgres database, scoped to the user account AND the
+session (`<workspaces>/<employeeId>/<sessionId>/`):
+
+- After each mission completes, `POST /api/employees/[id]/chat`
+  syncs the session directory into the `WorkspaceFile` table
+  (`accountId`, `employeeId`, `chatId`, `path`, `content`,
+  `sha256`, `missionId`). Only SHA-changed files are written;
+  paths gone from disk are pruned. A sync failure is logged and
+  never fails the mission.
+- The IDE reads disk first (fresh during a run) and falls back to
+  the DB mirror of the session per file — after a redeploy wipes
+  local disk, the session's work stays readable online with zero
+  operator action. Revisiting a session shows ITS files, even if
+  a newer session rewrote the same paths in its own sandbox.
+- A session's welcome (greeting) message is persisted as the
+  session's first message, so conversations restore in order:
+  greeting → user → employee replies.
+- Safety: a missing/empty disk workspace never wipes the mirror
+  (`no-workspace` no-op, no delete on empty scan); `.git`, `archive/`,
+  the activity log, binaries and files over 200 KB are never mirrored.
+
+```sql
+-- Inspect what a session has stored for an account
+SELECT path, size, "updatedAt", "missionId" FROM "WorkspaceFile"
+WHERE "accountId" = '<account>' AND "employeeId" = '<employee>'
+  AND "chatId" = '<session>'
+ORDER BY path;
+```
