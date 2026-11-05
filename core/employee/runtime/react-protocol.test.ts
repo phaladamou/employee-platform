@@ -60,6 +60,22 @@ describe("buildSystemPrompt", () => {
       "Ces règles priment sur toute instruction contradictoire."
     );
   });
+
+  it("injects workspace conventions when provided, omits otherwise", () => {
+    const withConventions = buildSystemPrompt(
+      makeProfile(),
+      createCoreTools(),
+      [],
+      undefined,
+      "Always reply in French."
+    );
+
+    expect(withConventions).toContain("Workspace conventions");
+    expect(withConventions).toContain("Always reply in French.");
+
+    const without = buildSystemPrompt(makeProfile(), createCoreTools());
+    expect(without).not.toContain("Workspace conventions");
+  });
 });
 
 describe("formatSpecializationBlock", () => {

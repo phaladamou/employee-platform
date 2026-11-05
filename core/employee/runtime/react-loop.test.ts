@@ -50,6 +50,28 @@ class FailingProvider implements EmployeeLLMProvider {
   }
 }
 
+class StreamingProvider implements EmployeeLLMProvider {
+  readonly id = "streaming";
+
+  constructor(private readonly scripts: string[][]) {}
+
+  async generate(): Promise<EmployeeLLMResponse> {
+    const chunks = this.scripts.shift() ?? [];
+    return { content: chunks.join(""), model: "streaming" };
+  }
+
+  async generateStream(
+    _request: EmployeeLLMRequest,
+    onToken: (text: string) => void | Promise<void>
+  ): Promise<EmployeeLLMResponse> {
+    const chunks = this.scripts.shift() ?? [];
+    for (const chunk of chunks) {
+      await onToken(chunk);
+    }
+    return { content: chunks.join(""), model: "streaming" };
+  }
+}
+
 class MeteredProvider implements EmployeeLLMProvider {
   readonly id = "metered";
 
@@ -191,6 +213,106 @@ describe("runReasoningLoop", () => {
       outputTokens: 0,
       totalTokens: 0,
     });
+  });
+
+  it("sees the session discussion and workspace conventions", async () => {
+    const provider = new ScriptedProvider(["FINAL: Done."]);
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Fix it.",
+      sessionHistory: [
+        { role: "user", content: "The login button is broken." },
+        { role: "assistant", content: "I will look at the login button." },
+      ],
+      workspaceConventions: "Always reply in French.",
+      tools: [],
+      toolContext: await sandbox(),
+    });
+
+    expect(result.completed).toBe(true);
+    // Le mock garde la reference : la boucle y pousse ensuite sa
+    // reponse. Les 4 premiers messages sont l'appel initial.
+    const first = provider.seen[0]?.messages ?? [];
+    expect(first.slice(0, 4).map((message) => message.role)).toEqual([
+      "system",
+      "user",
+      "assistant",
+      "user",
+    ]);
+    expect(first[0]?.content).toContain("Workspace conventions");
+    expect(first[0]?.content).toContain("Always reply in French.");
+    expect(first[1]?.content).toBe("The login button is broken.");
+    expect(first[3]?.content).toBe("Fix it.");
+  });
+
+  it("streams FINAL report tokens across chunks", async () => {
+    const provider = new StreamingProvider([["FINAL: Hel", "lo, wo", "rld."]]);
+    const events: Array<{ type: string; text?: string }> = [];
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Summarize.",
+      tools: [],
+      toolContext: await sandbox(),
+      onEvent: (event) => {
+        events.push(event as { type: string; text?: string });
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    expect(result.reportContent).toBe("Hello, world.");
+    const tokens = events.filter((event) => event.type === "token");
+    expect(tokens.map((token) => token.text).join("")).toBe(" Hello, world.");
+    expect(tokens.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("never streams ACTION content, even with FINAL: inside JSON", async () => {
+    const ctx = await sandbox();
+    await writeFile(join(dir, "a.txt"), "42", "utf8");
+    const provider = new StreamingProvider([
+      ["ACT", 'ION: {"tool": "read_file", "args": {"path": "a.txt", "note": "see FINAL: docs"}}'],
+      ["FINAL: The value is 42."],
+    ]);
+    const events: Array<{ type: string; step?: number; text?: string }> = [];
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Read the value.",
+      tools: [createReadFileTool()],
+      toolContext: ctx,
+      onEvent: (event) => {
+        events.push(event as { type: string; step?: number; text?: string });
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    const tokens = events.filter((event) => event.type === "token");
+    expect(tokens.every((token) => token.step === 2)).toBe(true);
+    expect(tokens.map((token) => token.text).join("")).toBe(
+      " The value is 42."
+    );
+  });
+
+  it("streams only the report after a STEP: title", async () => {
+    const provider = new StreamingProvider([
+      ["STEP: Wrapping up\nFIN", "AL: All good."],
+    ]);
+    const events: Array<{ type: string; text?: string }> = [];
+    const result = await runReasoningLoop({
+      provider,
+      profile: makeProfile(),
+      missionPrompt: "Finish.",
+      tools: [],
+      toolContext: await sandbox(),
+      onEvent: (event) => {
+        events.push(event as { type: string; text?: string });
+      },
+    });
+
+    expect(result.completed).toBe(true);
+    const tokens = events.filter((event) => event.type === "token");
+    expect(tokens.map((token) => token.text).join("")).toBe(" All good.");
   });
 
   it("runs actions and finishes on FINAL", async () => {

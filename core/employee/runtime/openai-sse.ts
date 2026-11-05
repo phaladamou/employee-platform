@@ -1,6 +1,7 @@
-// lib/server/sse-parse.ts
 // Parseur pur des lignes de stream OpenAI ("data: {...}" /
-// "data: [DONE]"). Zero dependance, testable via node --test.
+// "data: [DONE]"). Zero dependance. Sert le provider streaming
+// (FetchLLMProvider.generateStream) : le texte progressif part
+// vers l'UI des sa reception, jamais bufferise integral.
 export interface StreamLine {
   done: boolean;
   text: string;

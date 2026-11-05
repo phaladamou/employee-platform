@@ -1,11 +1,6 @@
-// lib/server/sse-parse.test.ts
-// Contrat du parseur de stream OpenAI (lignes "data: ...").
-// Execution : node --test lib/server/sse-parse.test.ts
-// (fonctions pures uniquement : jamais d'appel LLM ici).
-import { describe, it } from "node:test";
-import assert from "node:assert/strict";
+import { describe, expect, it } from "vitest";
 
-import { parseOpenAIStreamLine, pipeSSEToText } from "./sse-parse.ts";
+import { parseOpenAIStreamLine, pipeSSEToText } from "./openai-sse";
 
 function fakeStream(fragments: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
@@ -37,33 +32,33 @@ async function readChunks(
 describe("parseOpenAIStreamLine", () => {
   it("extracts delta content", () => {
     const line = 'data: {"choices":[{"delta":{"content":"Hello"}}]}';
-    assert.deepEqual(parseOpenAIStreamLine(line), {
+    expect(parseOpenAIStreamLine(line)).toEqual({
       done: false,
       text: "Hello",
     });
   });
 
   it("signals completion on [DONE]", () => {
-    assert.deepEqual(parseOpenAIStreamLine("data: [DONE]"), {
+    expect(parseOpenAIStreamLine("data: [DONE]")).toEqual({
       done: true,
       text: "",
     });
   });
 
   it("ignores non-data lines", () => {
-    assert.deepEqual(parseOpenAIStreamLine(": ping"), {
+    expect(parseOpenAIStreamLine(": ping")).toEqual({
       done: false,
       text: "",
     });
-    assert.deepEqual(parseOpenAIStreamLine(""), { done: false, text: "" });
+    expect(parseOpenAIStreamLine("")).toEqual({ done: false, text: "" });
   });
 
   it("ignores malformed payloads without stopping", () => {
-    assert.deepEqual(parseOpenAIStreamLine("data: not-json"), {
+    expect(parseOpenAIStreamLine("data: not-json")).toEqual({
       done: false,
       text: "",
     });
-    assert.deepEqual(parseOpenAIStreamLine('data: {"choices":[]}'), {
+    expect(parseOpenAIStreamLine('data: {"choices":[]}')).toEqual({
       done: false,
       text: "",
     });
@@ -71,10 +66,7 @@ describe("parseOpenAIStreamLine", () => {
 
   it("stops on upstream error payloads", () => {
     const line = 'data: {"error":{"message":"overloaded"}}';
-    assert.deepEqual(parseOpenAIStreamLine(line), {
-      done: true,
-      text: "",
-    });
+    expect(parseOpenAIStreamLine(line)).toEqual({ done: true, text: "" });
   });
 });
 
@@ -86,8 +78,8 @@ describe("pipeSSEToText", () => {
       "data: [DONE]\n\n";
     const fragments = [sse.slice(0, 20), sse.slice(20, 60), sse.slice(60)];
     const chunks = await readChunks(pipeSSEToText(fakeStream(fragments)));
-    assert.equal(chunks.join(""), "Hello");
-    assert.ok(chunks.length >= 2, `expected >= 2 chunks, got ${chunks.length}`);
+    expect(chunks.join("")).toBe("Hello");
+    expect(chunks.length).toBeGreaterThanOrEqual(2);
   });
 
   it("ignores everything after [DONE]", async () => {
@@ -96,7 +88,7 @@ describe("pipeSSEToText", () => {
       "data: [DONE]\n\n" +
       'data: {"choices":[{"delta":{"content":"B"}}]}\n\n';
     const chunks = await readChunks(pipeSSEToText(fakeStream([sse])));
-    assert.equal(chunks.join(""), "A");
+    expect(chunks.join("")).toBe("A");
   });
 
   it("stops the text on upstream error payloads", async () => {
@@ -104,6 +96,6 @@ describe("pipeSSEToText", () => {
       'data: {"choices":[{"delta":{"content":"A"}}]}\n\n' +
       'data: {"error":{"message":"overloaded"}}\n\n';
     const chunks = await readChunks(pipeSSEToText(fakeStream([sse])));
-    assert.equal(chunks.join(""), "A");
+    expect(chunks.join("")).toBe("A");
   });
 });

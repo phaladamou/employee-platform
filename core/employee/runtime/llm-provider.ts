@@ -33,4 +33,15 @@ export interface LLMCallUsage {
 export interface EmployeeLLMProvider {
   readonly id: string;
   generate(request: EmployeeLLMRequest): Promise<EmployeeLLMResponse>;
+  /**
+   * Generation avec texte progressif (optionnel) : onToken recoit
+   * chaque fragment non vide dans l'ordre (attendu : contre-pression
+   * naturelle), la promesse se resout avec la reponse COMPLETE
+   * (compteurs d'usage souvent absents en flux). Absent = repli sur
+   * generate() : pas de streaming, resultat identique.
+   */
+  generateStream?(
+    request: EmployeeLLMRequest,
+    onToken: (text: string) => void | Promise<void>
+  ): Promise<EmployeeLLMResponse>;
 }

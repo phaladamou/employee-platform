@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import {
   formatToolCalls,
   resolveSpecialization,
+  shouldAnswerDirectly,
   toWebStatus,
 } from "./web-mission-mapping.ts";
 
@@ -74,6 +75,30 @@ describe("resolveSpecialization", () => {
     assert.equal(
       resolveSpecialization({ talentSpec: null, specVersion: "1.0.0" }),
       null
+    );
+  });
+});
+
+describe("shouldAnswerDirectly", () => {
+  it("routes conversational prompts to a direct reply", () => {
+    assert.equal(
+      shouldAnswerDirectly({ forceMission: false, conversational: true }),
+      true
+    );
+  });
+
+  it("forces missions on demand or on mission-like prompts", () => {
+    assert.equal(
+      shouldAnswerDirectly({ forceMission: true, conversational: true }),
+      false
+    );
+    assert.equal(
+      shouldAnswerDirectly({ forceMission: false, conversational: false }),
+      false
+    );
+    assert.equal(
+      shouldAnswerDirectly({ forceMission: true, conversational: false }),
+      false
     );
   });
 });

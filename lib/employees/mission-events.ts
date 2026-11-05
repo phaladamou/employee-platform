@@ -11,7 +11,10 @@
 // l'agent au premier tour), `step` (titre agent + outil + temps de
 // reflexion), `tool_result` qui clot l'etape (fichiers modifies),
 // `final` sur le rapport, `error` terminal. Les numeros d'etape
-// sont en base 1, dans l'ordre.
+// sont en base 1, dans l'ordre. `token` (texte affichable
+// progressif : reponse directe ou rapport final, jamais de
+// protocole) et `conversational_done` (terminale sans mission)
+// completent le fil streaming.
 export interface MissionDiffRow {
   type: "same" | "add" | "del";
   oldNo: number | null;
@@ -63,7 +66,25 @@ export interface MissionDoneMessage {
   sessionId: string;
 }
 
-export type MissionStreamMessage = MissionStreamEvent | MissionDoneMessage;
+/** Fragment de texte affichable (etape 0 = reponse directe). */
+export interface MissionTokenMessage {
+  type: "token";
+  step: number;
+  text: string;
+}
+
+/** Terminale du flux conversationnel (zero outil, zero mission). */
+export interface ConversationalDoneMessage {
+  type: "conversational_done";
+  summary: string;
+  sessionId: string;
+}
+
+export type MissionStreamMessage =
+  | MissionStreamEvent
+  | MissionTokenMessage
+  | MissionDoneMessage
+  | ConversationalDoneMessage;
 
 // Charge utile de la reponse JSON bloquante historique (POST
 // mission sans ?stream=1) : acceptee en repli quand le flux ne
@@ -274,6 +295,19 @@ export function parseMissionMessage(line: string): MissionStreamMessage | null {
       sessionId: data.sessionId,
     };
   }
+  if (data.type === "conversational_done") {
+    if (
+      typeof data.summary !== "string" ||
+      typeof data.sessionId !== "string"
+    ) {
+      return null;
+    }
+    return {
+      type: "conversational_done",
+      summary: data.summary,
+      sessionId: data.sessionId,
+    };
+  }
   const step = asStep(data.step);
   if (step === null) {
     return null;
@@ -321,6 +355,11 @@ export function parseMissionMessage(line: string): MissionStreamMessage | null {
         return null;
       }
       return { type: "error", step, message: data.message };
+    case "token":
+      if (typeof data.text !== "string") {
+        return null;
+      }
+      return { type: "token", step, text: data.text };
     default:
       return null;
   }

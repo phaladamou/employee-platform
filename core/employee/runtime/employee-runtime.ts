@@ -89,6 +89,16 @@ export interface EmployeeRuntimeOptions {
   readonly memory?: EmployeeMemory;
   readonly memoryStore?: EmployeeMemoryStore;
   /**
+   * Tours de session precedant le prompt, transmis tels quels a la
+   * boucle (esprit unique : la mission voit la discussion).
+   */
+  readonly sessionHistory?: ReadonlyArray<{
+    readonly role: "user" | "assistant";
+    readonly content: string;
+  }>;
+  /** Conventions du workspace, transmises telles quelles a la boucle. */
+  readonly workspaceConventions?: string;
+  /**
    * Signal d'annulation : consulte avant chaque pas LLM. Quand il
    * bascule, la mission termine failed "cancelled" (tracee en memoire)
    * et le resultat porte cancelled: true pour que le worker confirme
@@ -256,6 +266,8 @@ export class EmployeeRuntime {
       maxSteps,
       pastExperience,
       systemPrompt,
+      sessionHistory: this.options.sessionHistory,
+      workspaceConventions: this.options.workspaceConventions,
       signal: this.options.signal,
       onEvent: this.options.onEvent,
     });

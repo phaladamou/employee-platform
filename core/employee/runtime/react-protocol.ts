@@ -2,6 +2,7 @@ import type { EmployeeProfile } from "../profile/employee-profile";
 import type { EmployeeProfileSpec } from "../profiles/profile-spec";
 import type { EmployeeTool } from "../tools/tool";
 import { describeComputerDecl } from "../computer/employee-computer";
+import { WORKSPACE_CONVENTIONS_MAX_CHARS } from "./workspace-conventions";
 
 export interface ParsedAction {
   readonly type: "action";
@@ -66,7 +67,8 @@ export function buildSystemPrompt(
   profile: EmployeeProfile,
   tools: readonly EmployeeTool[],
   pastExperience: readonly string[] = [],
-  systemPrompt?: string
+  systemPrompt?: string,
+  workspaceConventions?: string
 ): string {
   const catalog = tools.map(
     (tool) => `- ${tool.name}: ${tool.description} Args: ${tool.argsDescription}`
@@ -79,6 +81,10 @@ export function buildSystemPrompt(
         ? `${entry.slice(0, PAST_EXPERIENCE_MAX_CHARS)}...`
         : entry
     );
+
+  const conventions = (workspaceConventions ?? "")
+    .trim()
+    .slice(0, WORKSPACE_CONVENTIONS_MAX_CHARS);
 
   // Prompt de specialisation (profil) ou repli identite de base.
   const identity =
@@ -110,6 +116,9 @@ export function buildSystemPrompt(
     ...catalog,
     ...(experience.length > 0
       ? ["", "Your previous missions:", ...experience.map((e) => `- ${e}`)]
+      : []),
+    ...(conventions.length > 0
+      ? ["", "Workspace conventions (project rules, follow them):", conventions]
       : []),
     "",
     "Rules:",

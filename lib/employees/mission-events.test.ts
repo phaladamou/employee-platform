@@ -97,6 +97,26 @@ describe("parseMissionMessage", () => {
     );
   });
 
+  it("parses progressive text tokens", () => {
+    assert.deepEqual(
+      parseMissionMessage('{"type":"token","step":0,"text":"Hel"}'),
+      { type: "token", step: 0, text: "Hel" }
+    );
+    assert.deepEqual(
+      parseMissionMessage('{"type":"token","step":4,"text":"lo."}'),
+      { type: "token", step: 4, text: "lo." }
+    );
+  });
+
+  it("parses the conversational terminal payload", () => {
+    assert.deepEqual(
+      parseMissionMessage(
+        '{"type":"conversational_done","summary":"ok","sessionId":"s1"}'
+      ),
+      { type: "conversational_done", summary: "ok", sessionId: "s1" }
+    );
+  });
+
   it("drops malformed lines without throwing", () => {
     for (const line of [
       "",
@@ -115,6 +135,9 @@ describe("parseMissionMessage", () => {
       '{"type":"final","step":2,"title":null}',
       '{"type":"mystery","step":1}',
       '{"type":"done","summary":"ok"}',
+      '{"type":"token","step":1}',
+      '{"type":"token","step":1,"text":42}',
+      '{"type":"conversational_done","summary":"ok"}',
       "[]",
     ]) {
       assert.equal(parseMissionMessage(line), null, line);

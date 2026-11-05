@@ -22,6 +22,8 @@ import { createEmployeeProfile } from "@/core/employee/profile/employee-profile"
 import { loadProfileRegistry } from "@/core/employee/profiles/profile-registry";
 import { EmployeeRuntime } from "@/core/employee/runtime/employee-runtime";
 import { FetchLLMProvider } from "@/core/employee/runtime/fetch-llm-provider";
+import { generateReplyText } from "@/core/employee/runtime/reply-stream";
+import { loadWorkspaceConventions } from "@/core/employee/runtime/workspace-conventions";
 import type { EmployeeLLMProvider } from "@/core/employee/runtime/llm-provider";
 import type { ReactLoopEventHandler } from "@/core/employee/runtime/react-loop";
 import { openFileStores } from "@/core/employee/stores/employee-stores";
@@ -31,6 +33,11 @@ import {
   toStoredToolCalls,
   type ToolCallRecord,
 } from "./employee-conversation-mapping";
+import {
+  SESSION_HISTORY_MAX_CHARS,
+  SESSION_HISTORY_MAX_TURNS,
+  type SessionHistoryTurn,
+} from "./employee-history";
 import { loadUserGithubToken } from "./github-connection";
 import {
   formatToolCalls,
@@ -77,6 +84,54 @@ export interface WebMissionResult {
   plan: string[];
 }
 
+/**
+ * Reponse conversationnelle directe : UN appel LLM, zero outil,
+ * zero boucle. Pour salutations, questions et avis : l'employe
+ * repond au lieu de cloner/lire. L'historique recent garde le
+ * fil des suivis ("et pourquoi ?").
+ */
+export async function runConversationalReply(input: {
+  employeeName: string;
+  employeeRole: string;
+  talentSpec: string | null;
+  history: ReadonlyArray<SessionHistoryTurn>;
+  prompt: string;
+  /** Workspace de session : ses conventions rejoignent le systeme. */
+  workspaceRoot?: string;
+  /** Texte progressif (streaming) : absent = appel bloquant. */
+  onToken?: (text: string) => void | Promise<void>;
+}): Promise<string> {
+  const provider = resolveProvider();
+  const conventions =
+    input.workspaceRoot === undefined
+      ? null
+      : await loadWorkspaceConventions(input.workspaceRoot);
+  const system = [
+    `You are ${input.employeeName}, ${input.employeeRole}.`,
+    ...(input.talentSpec ? [`Specialty: ${input.talentSpec}.`] : []),
+    "Answer conversationally, in the user's language, briefly (a few sentences unless asked for detail).",
+    "You have no tools in this mode: never invent file contents, workspace state, or GitHub data.",
+    "If the question needs inspecting files, the workspace, or GitHub, say so plainly and invite the user to phrase it as a task.",
+    "Past missions live under the History tab, produced files under the Files tab: point there when relevant.",
+    ...(conventions !== null
+      ? ["Workspace conventions (project rules, follow them):", conventions]
+      : []),
+  ].join("\n");
+  const messages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }> = [{ role: "system", content: system }];
+  for (const turn of input.history.slice(-SESSION_HISTORY_MAX_TURNS)) {
+    const text = turn.text.trim().slice(0, SESSION_HISTORY_MAX_CHARS);
+    if (text) {
+      messages.push({ role: turn.role, content: text });
+    }
+  }
+  messages.push({ role: "user", content: input.prompt });
+  const text = await generateReplyText(provider, { messages }, input.onToken);
+  return text.trim();
+}
+
 export async function runWebMission(input: {
   userId: string;
   employeeId: string;
@@ -87,6 +142,8 @@ export async function runWebMission(input: {
   /** Session (Chat) : son sandbox isole recoit le travail. */
   sessionId: string;
   prompt: string;
+  /** Tours precedant le prompt (esprit unique : la mission voit la discussion). */
+  history?: ReadonlyArray<SessionHistoryTurn>;
   /** Observateur live (stream NDJSON) : thinking, etapes, resultats. */
   onEvent?: ReactLoopEventHandler;
   /** Annulation (deconnexion client) : la mission termine "cancelled". */
@@ -123,6 +180,8 @@ export async function runWebMission(input: {
     input.employeeId,
     input.sessionId
   );
+  const workspaceConventions =
+    await loadWorkspaceConventions(workspaceRoot);
   const memory = new EmployeeMemory();
   const memoryStore = openFileStores(
     resolve(process.env.EMPLOYEE_DATA ?? ".data/employee"),
@@ -178,6 +237,11 @@ export async function runWebMission(input: {
     memory,
     memoryStore,
     profiles: registry,
+    sessionHistory: input.history?.map((turn) => ({
+      role: turn.role,
+      content: turn.text,
+    })),
+    workspaceConventions: workspaceConventions ?? undefined,
     onEvent: collectAndForward,
     signal: input.signal,
   });

@@ -13,6 +13,8 @@ import {
 import { diffLines, type DiffRow } from "./file-diff";
 import type { EmployeeLLMMessage, EmployeeLLMProvider } from "./llm-provider";
 import {
+  ACTION_MARKER,
+  FINAL_MARKER,
   buildSystemPrompt,
   formatObservation,
   parsePlanTurn,
@@ -107,7 +109,15 @@ export type ReactLoopEvent =
       readonly title: string | null;
       readonly thoughtMs: number;
     }
-  | { readonly type: "error"; readonly step: number; readonly message: string };
+  | { readonly type: "error"; readonly step: number; readonly message: string }
+  /**
+   * Fragment du rapport FINAL en cours d'ecriture (streaming) :
+   * emis uniquement quand le tour s'avere un FINAL (meme regle
+   * que le parseur : le premier marqueur gagne). Le protocole
+   * (PLAN/ACTION/STEP) ne stream jamais : l'UI n'affiche que du
+   * texte destinable a l'humain.
+   */
+  | { readonly type: "token"; readonly step: number; readonly text: string };
 
 export type ReactLoopEventHandler = (
   event: ReactLoopEvent
@@ -124,6 +134,16 @@ export interface ReactLoopOptions {
   readonly pastExperience?: readonly string[];
   /** Prompt de specialisation (profil), sinon identite du profil. */
   readonly systemPrompt?: string;
+  /**
+   * Tours de session precedant le prompt (esprit unique : la
+   * mission voit la discussion, jamais le prompt seul).
+   */
+  readonly sessionHistory?: ReadonlyArray<{
+    readonly role: "user" | "assistant";
+    readonly content: string;
+  }>;
+  /** Conventions du workspace, injectees bornees dans le systeme. */
+  readonly workspaceConventions?: string;
   /**
    * Signal d'annulation : consulte avant chaque appel LLM. Quand il
    * bascule, la boucle s'interrompt proprement (cancelled: true) sans
@@ -164,6 +184,50 @@ export interface LLMUsageTotal {
 }
 
 /**
+ * Barriere de streaming : accumule les fragments d'un tour et
+ * n'emet que le texte du rapport, et seulement quand le tour
+ * s'avere un FINAL. Meme semantique que le parseur (premier
+ * marqueur gagne) : un "FINAL:" croise dans le JSON d'une ACTION
+ * ne stream jamais (l'ACTION le precede toujours). Decision
+ * monotone : le texte ne fait que s'ajouter a droite, un verdict
+ * pris ne se retourne pas.
+ */
+function createFinalTokenGate(emit: (text: string) => Promise<void>): {
+  push(delta: string): Promise<void>;
+} {
+  let buffer = "";
+  let forwarded = 0;
+  let reportAt = -1;
+  let decidedAction = false;
+
+  return {
+    async push(delta: string): Promise<void> {
+      buffer += delta;
+      if (decidedAction) {
+        return;
+      }
+      if (reportAt === -1) {
+        const actionAt = buffer.indexOf(ACTION_MARKER);
+        const finalAt = buffer.indexOf(FINAL_MARKER);
+        if (finalAt !== -1 && (actionAt === -1 || finalAt < actionAt)) {
+          reportAt = finalAt + FINAL_MARKER.length;
+        } else if (actionAt !== -1) {
+          decidedAction = true;
+          return;
+        } else {
+          return;
+        }
+      }
+      const fresh = buffer.slice(reportAt + forwarded);
+      if (fresh) {
+        forwarded += fresh.length;
+        await emit(fresh);
+      }
+    },
+  };
+}
+
+/**
  * Boucle de raisonnement ReAct : le LLM emet des ACTION (executees par
  * les outils, resultat renvoye en OBSERVATION) jusqu'au FINAL. Bornee en
  * nombre d'appels LLM, resiliente aux outils inconnus, aux formats
@@ -189,9 +253,11 @@ export async function runReasoningLoop(
         options.profile,
         tools,
         options.pastExperience ?? [],
-        options.systemPrompt
+        options.systemPrompt,
+        options.workspaceConventions
       ),
     },
+    ...(options.sessionHistory ?? []),
     { role: "user", content: options.missionPrompt },
   ];
   const toolCalls: ReactToolCall[] = [];
@@ -232,7 +298,18 @@ export async function runReasoningLoop(
     await notify({ type: "thinking", step: steps + 1 });
     const thinkStart = Date.now();
     try {
-      const response = await options.provider.generate({ messages });
+      const provider = options.provider;
+      // Une barriere par tour : son tampon suit le raisonnement
+      // du tour, jamais partage entre deux appels.
+      const gate = createFinalTokenGate(async (text) => {
+        await notify({ type: "token", step: steps + 1, text });
+      });
+      const response =
+        provider.generateStream !== undefined
+          ? await provider.generateStream({ messages }, (delta) =>
+              gate.push(delta)
+            )
+          : await provider.generate({ messages });
       content = response.content;
       inputTokens += response.usage?.inputTokens ?? 0;
       outputTokens += response.usage?.outputTokens ?? 0;

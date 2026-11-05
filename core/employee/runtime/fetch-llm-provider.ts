@@ -4,6 +4,7 @@ import type {
   EmployeeLLMResponse,
   LLMCallUsage,
 } from "./llm-provider";
+import { pipeSSEToText } from "./openai-sse";
 
 export interface FetchLLMConfig {
   readonly apiKey: string;
@@ -84,6 +85,61 @@ export class FetchLLMProvider implements EmployeeLLMProvider {
         typeof data.model === "string" ? data.model : this.config.model,
       ...onlyUsage(data.usage),
     };
+  }
+
+  async generateStream(
+    request: EmployeeLLMRequest,
+    onToken: (text: string) => void | Promise<void>
+  ): Promise<EmployeeLLMResponse> {
+    const url = `${this.config.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${this.config.apiKey}`,
+      },
+      body: JSON.stringify({
+        model: this.config.model,
+        messages: request.messages.map((message) => ({
+          role: message.role,
+          content: message.content,
+        })),
+        temperature: request.temperature ?? this.config.temperature,
+        stream: true,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`LLM request failed: HTTP ${response.status}`);
+    }
+    if (!response.body) {
+      throw new Error("LLM returned an empty response");
+    }
+
+    const reader = pipeSSEToText(response.body).getReader();
+    const decoder = new TextDecoder();
+    let content = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) {
+        break;
+      }
+      const text = decoder.decode(value, { stream: true });
+      if (text) {
+        content += text;
+        await onToken(text);
+      }
+    }
+    content += decoder.decode();
+
+    if (!content) {
+      throw new Error("LLM returned an empty response");
+    }
+
+    // Pas de compteurs en flux (l'API ne les envoie pas par defaut
+    // en SSE) : absence mesuree, jamais zero invente.
+    return { content, model: this.config.model };
   }
 }
 

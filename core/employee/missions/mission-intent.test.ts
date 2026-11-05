@@ -3,7 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   assertAcceptanceForIntent,
   detectMissionIntent,
+  isConversationalPrompt,
   isGithubMission,
+  looksLikeMission,
 } from "./mission-intent";
 
 describe("detectMissionIntent", () => {
@@ -154,5 +156,129 @@ describe("assertAcceptanceForIntent", () => {
           "Read the README file from the clone, then open a PR."
       ).wantsFileCreation
     ).toBe(true);
+  });
+});
+
+describe("isConversationalPrompt", () => {
+  it("answers greetings, thanks and identity directly", () => {
+    for (const prompt of [
+      "Bonjour Atlas !",
+      "salut",
+      "Hello, how are you?",
+      "Merci beaucoup !",
+      "thanks!",
+      "Qui es-tu ?",
+      "Tu es qui ?",
+      "Who are you?",
+      "Que peux-tu faire pour moi ?",
+      "What can you do?",
+      "C'est quoi ton rôle ?",
+      "aide-moi",
+      "help",
+    ]) {
+      expect(isConversationalPrompt(prompt), prompt).toBe(true);
+    }
+  });
+
+  it("answers concept questions directly, even with tool words", () => {
+    for (const prompt of [
+      "C'est quoi un fork ?",
+      "C'est quoi un clone ?",
+      "Tu connais Python ?",
+      "c'est quoi un fichier ?",
+      "Tu as de la mémoire ?",
+      "C'est de l'open source ?",
+      "Tu penses quoi du TypeScript ?",
+      "Explique-moi ce qu'est une PR",
+      "What is a pull request?",
+      "tu peux cloner un projet ?",
+      "Can you clone a project?",
+      "Cloner un repo, c'est possible ?",
+    ]) {
+      expect(isConversationalPrompt(prompt), prompt).toBe(true);
+    }
+  });
+
+  it("routes strong action verbs to missions", () => {
+    for (const prompt of [
+      "Clone phaladamou/employee-platform",
+      "clone le repo",
+      "Clone-moi le repo stp",
+      "Fork octocat/Hello-World",
+      "Push mes changements",
+      "Déploie le projet",
+      "Run the tests",
+      "Lance les tests",
+      "Corrige le bug de login",
+      "Crée un fichier hello.py",
+      "Supprime app.py",
+      "Renomme config.json",
+    ]) {
+      expect(looksLikeMission(prompt), prompt).toBe(true);
+      expect(isConversationalPrompt(prompt), prompt).toBe(false);
+    }
+  });
+
+  it("routes ambiguous verbs only with a scope object", () => {
+    for (const prompt of [
+      "Liste les fichiers",
+      "Montre-moi le code",
+      "Lis app.py",
+      "Analyse le projet",
+      "Explique-moi mon travail",
+      "Vérifie les tests",
+      "Crée une issue",
+      "Ouvre une PR",
+      "Liste mes issues",
+      "Fusionne la PR",
+    ]) {
+      expect(looksLikeMission(prompt), prompt).toBe(true);
+    }
+    for (const prompt of [
+      "Fais-moi la liste des courses",
+      "Montre-moi ce que tu sais faire",
+      "C'est open source ?",
+      "Je teste un truc, t'es là ?",
+      "Explique-moi les pointeurs",
+    ]) {
+      expect(isConversationalPrompt(prompt), prompt).toBe(true);
+    }
+  });
+
+  it("routes file, URL and workspace references to missions", () => {
+    for (const prompt of [
+      "C'est quoi app.py ?",
+      "Regarde https://github.com/owner/repo",
+      "Résume mon travail",
+      "Montre mes fichiers",
+      "Que dit ton journal ?",
+      "Dans mon workspace, quoi de neuf ?",
+    ]) {
+      expect(looksLikeMission(prompt), prompt).toBe(true);
+    }
+  });
+
+  it("never matches across word boundaries", () => {
+    for (const prompt of [
+      "Quel étage ?",
+      "J'adore Montreal",
+      "Tu connais le reporter ?",
+      "Je te donne 3.5 sur 5",
+      "On passe en v1.2 demain ?",
+      "M. Dupont est là ?",
+      "C'est à peu près ça",
+      "Que dit ta mémoire ?",
+      "Le build est cassé, pourquoi ?",
+      "Fais un pull",
+      "L'audit est fini ?",
+      "Le fork du projet date de quand ?",
+    ]) {
+      expect(isConversationalPrompt(prompt), prompt).toBe(true);
+    }
+  });
+
+  it("rejects empty prompts", () => {
+    expect(isConversationalPrompt("")).toBe(false);
+    expect(isConversationalPrompt("   ")).toBe(false);
   });
 });

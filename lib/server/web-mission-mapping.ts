@@ -46,3 +46,13 @@ export function resolveSpecialization(employee: {
   }
   return { name: employee.talentSpec, version: employee.specVersion };
 }
+
+// Point de routage parole / mission : reponse directe quand le
+// prompt est conversationnel (noyau : isConversationalPrompt),
+// sauf mission forcee (bouton "en faire une mission").
+export function shouldAnswerDirectly(input: {
+  forceMission: boolean;
+  conversational: boolean;
+}): boolean {
+  return input.conversational && !input.forceMission;
+}
