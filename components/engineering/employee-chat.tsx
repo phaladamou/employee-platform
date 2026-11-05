@@ -12,6 +12,10 @@ import {
   progressFromRecords,
 } from "@/lib/employees/mission-events";
 import {
+  cacheSessionMessages,
+  readSessionMessages,
+} from "@/lib/employees/session-message-cache";
+import {
   mapSessionHistory,
   type SessionHistoryMessage,
   type SessionHistoryRow,
@@ -36,16 +40,29 @@ export function EmployeeChat({
   onFailedSend: () => void;
 }) {
   const t = useTranslations("employees");
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: "greeting",
-      role: "employee",
-      text: t("chatGreeting", { name: employee.name, role: employee.role }),
-    },
-  ]);
+  const freshGreeting: ChatMessage = {
+    id: "greeting",
+    role: "employee",
+    text: t("chatGreeting", { name: employee.name, role: employee.role }),
+  };
+  // Remontage post-envoi (navigation vers la route session) : la
+  // discussion connue s'affiche aussitot, sans flash (ni
+  // salutation seule, ni temoin de chargement) ; la base revalide
+  // en silence derriere (effet d'historique ci-dessous).
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    sessionId === null
+      ? [{ ...freshGreeting }]
+      : (readSessionMessages(employee.id, sessionId) ?? [
+          { ...freshGreeting },
+        ])
+  );
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyLoading, setHistoryLoading] = useState(
+    () =>
+      sessionId !== null &&
+      readSessionMessages(employee.id, sessionId) === null
+  );
   const [error, setError] = useState<string | null>(null);
   const idRef = useRef(0);
   // Epoques d'envoi : un telechargement d'historique qui se
@@ -54,6 +71,26 @@ export function EmployeeChat({
   const sendEpochRef = useRef(0);
   const sessionIdRef = useRef(sessionId);
   sessionIdRef.current = sessionId;
+  // Miroir synchrone de la liste (les effets et le nettoyage le
+  // lisent : l'etat lui-meme serait perime dans leurs fermetures).
+  const messagesRef = useRef<ChatMessage[]>(messages);
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  // Demontage (navigation post-envoi, changement de session) : la
+  // discussion visible est memorisee sous la session visitee, la
+  // vue suivante s'en sert pour s'afficher sans flash.
+  const cacheEmployeeId = employee.id;
+  useEffect(
+    () => () => {
+      const atId = sessionIdRef.current;
+      if (atId !== null) {
+        cacheSessionMessages(cacheEmployeeId, atId, messagesRef.current);
+      }
+    },
+    [cacheEmployeeId]
+  );
 
   const greeting = (): ChatMessage => ({
     id: "greeting",
@@ -93,7 +130,15 @@ export function EmployeeChat({
       mission.resetPending();
       return;
     }
-    setHistoryLoading(true);
+    const cached = readSessionMessages(employee.id, sessionId);
+    if (cached) {
+      // Discussion connue (remontage, retour de navigation) : elle
+      // s'affiche aussitot, le GET ne fait que la confirmer en
+      // silence (ni flash, ni temoin de chargement).
+      setMessages(cached);
+    } else {
+      setHistoryLoading(true);
+    }
     const url = `/api/employees/${encodeURIComponent(employee.id)}/chat?session=${encodeURIComponent(sessionId)}`;
     fetch(url)
       .then(async (response) => {
@@ -171,10 +216,11 @@ export function EmployeeChat({
     };
   }, [employee.id, employee.name, employee.role, sessionId, t]);
 
-  const appendMessage = (message: Omit<ChatMessage, "id">) => {
+  const appendMessage = (message: Omit<ChatMessage, "id">): ChatMessage => {
     idRef.current += 1;
-    const id = `m${idRef.current}`;
-    setMessages((prev) => [...prev, { ...message, id }]);
+    const full: ChatMessage = { ...message, id: `m${idRef.current}` };
+    setMessages((prev) => [...prev, full]);
+    return full;
   };
 
   // Envoi unique (plus de double mode) : chaque message passe par
@@ -184,7 +230,7 @@ export function EmployeeChat({
   // envoi perime les telechargements d'historique anterieurs (ils
   // ecraseraient les messages optimistes) et, s'il se termine
   // apres une navigation, ne touche ni a la vue ni a l'URL.
-  const sendMissionMessage = async (text: string) => {
+  const sendMissionMessage = async (text: string, forceMission = false) => {
     if (sending) {
       return;
     }
@@ -202,6 +248,8 @@ export function EmployeeChat({
         // (le serveur ne le garde que si la session est vierge).
         greeting:
           sendSessionId === null ? greeting().text : undefined,
+        // Secours routage : le serveur force la boucle outillee.
+        forceMission: forceMission === true ? true : undefined,
       });
       if (
         sendSessionId !== null &&
@@ -213,7 +261,7 @@ export function EmployeeChat({
         return;
       }
       onSessionResolved(result.sessionId);
-      appendMessage({
+      const reply = appendMessage({
         role: "employee",
         text:
           result.needsAcceptance === true
@@ -221,6 +269,14 @@ export function EmployeeChat({
             : (result.summary || t("chatEmptyReply")),
         missionId: result.missionId,
       });
+      // La navigation qui suit remonte le chat : la discussion
+      // complete est memorisee sous la session resolue pour que la
+      // vue suivante s'affiche sans flash (le miroir ne contient
+      // pas encore la reponse, ajoutee explicitement ici).
+      cacheSessionMessages(employee.id, result.sessionId, [
+        ...messagesRef.current,
+        reply,
+      ]);
     } catch (error) {
       if (error instanceof Error && error.name === "AbortError") {
         return;
@@ -265,7 +321,13 @@ export function EmployeeChat({
       return;
     }
     node.scrollTop = node.scrollHeight;
-  }, [mission.running, mission.progress, mission.outcome, messages.length]);
+  }, [
+    mission.running,
+    mission.progress,
+    mission.outcome,
+    mission.draft,
+    messages.length,
+  ]);
 
   const handleScroll = () => {
     const node = scrollRef.current;
@@ -298,7 +360,7 @@ export function EmployeeChat({
             {t("chatHistoryLoading")}
           </p>
         )}
-        {messages.map((message) => (
+        {messages.map((message, index) => (
           <div
             className={cn(
               "max-w-[85%] rounded-lg px-3 py-2 text-[13px] leading-relaxed",
@@ -315,8 +377,40 @@ export function EmployeeChat({
                 {t("missionRef", { id: message.missionId.slice(0, 8) })}
               </span>
             )}
+            {message.role === "employee" &&
+              !message.missionId &&
+              message.id !== "greeting" &&
+              messages
+                .slice(0, index)
+                .some((row) => row.role === "user") && (
+                <button
+                  className="mt-1 block text-left text-[11px] text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+                  data-testid="run-as-mission"
+                  disabled={sending || mission.running}
+                  onClick={() => {
+                    const prior = messages
+                      .slice(0, index)
+                      .reverse()
+                      .find((row) => row.role === "user");
+                    if (prior && !sending && !mission.running) {
+                      void sendMissionMessage(prior.text, true);
+                    }
+                  }}
+                  type="button"
+                >
+                  {t("runAsMission")}
+                </button>
+              )}
           </div>
         ))}
+        {mission.draft && (
+          <div
+            className="max-w-[85%] self-start rounded-lg bg-muted px-3 py-2 text-[13px] leading-relaxed text-foreground"
+            data-testid="employee-draft"
+          >
+            {mission.draft}
+          </div>
+        )}
         {showExecution && (
           <div className="w-full border-t border-border/60 pt-3">
             <MissionExecutionPanel

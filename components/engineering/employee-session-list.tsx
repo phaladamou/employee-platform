@@ -3,6 +3,7 @@
 
 import { PlusIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useEffect, useRef } from "react";
 import useSWR from "swr";
 
 import { Button } from "@/components/ui/button";
@@ -31,14 +32,23 @@ export function EmployeeSessionList({
   onNew: () => void;
 }) {
   const t = useTranslations("employees");
-  const { data, isLoading } = useSWR<{ sessions: EmployeeSessionRow[] }>(
-    [
-      `/api/employees/${encodeURIComponent(employeeId)}/sessions`,
-      refreshKey,
-    ],
-    ([url]: [string, number]) => fetcher(url),
-    { revalidateOnFocus: false }
-  );
+  // Cle STABLE : la liste reste affichee pendant les rafraichis-
+  // sements (stale-while-revalidate). Mettre refreshKey dans la
+  // cle recreait un cache vide a chaque envoi : la liste dispa-
+  // raissait ("chargement") puis reapparaissait. Ici elle se met
+  // a jour en place, le nouveau s'ajoute sans flash.
+  const { data, isLoading, mutate } = useSWR<{
+    sessions: EmployeeSessionRow[];
+  }>(`/api/employees/${encodeURIComponent(employeeId)}/sessions`, fetcher, {
+    revalidateOnFocus: false,
+  });
+  const seenRefreshKey = useRef(refreshKey);
+  useEffect(() => {
+    if (seenRefreshKey.current !== refreshKey) {
+      seenRefreshKey.current = refreshKey;
+      void mutate();
+    }
+  }, [refreshKey, mutate]);
   const sessions = data?.sessions ?? [];
 
   return (

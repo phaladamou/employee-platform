@@ -90,6 +90,7 @@
     "ideTerminalTab": "Terminal",
     "terminalEmpty": "Aucune commande pour l'instant.",
     "missionRetry": "Réessayer",
+    "runAsMission": "En faire une mission",
     "missionInspect": "Inspecter",
     "stepDone": "Terminé",
     "stepRunning": "En cours",

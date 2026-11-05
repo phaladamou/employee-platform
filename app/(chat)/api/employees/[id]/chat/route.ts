@@ -10,6 +10,7 @@ import { NextResponse } from "next/server";
 
 import { auth } from "@/app/(auth)/auth";
 import { InMemoryJobSignal } from "@/core/employee/jobs/job-signal";
+import { isConversationalPrompt } from "@/core/employee/missions/mission-intent";
 import type { ReactLoopEventHandler } from "@/core/employee/runtime/react-loop";
 import {
   createEmployeeSession,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/db/queries";
 import { isMissionStatus } from "@/lib/employees/catalog";
 import { syncWorkspaceToDb } from "@/lib/engineering/workspace-sync";
+import { buildSessionHistory } from "@/lib/server/employee-history";
 import {
   invalidateWorkspaceTree,
   workspacePathOf,
@@ -76,7 +78,11 @@ import {
   partsToText,
   toDisplayRole,
 } from "@/lib/server/employee-conversation-mapping";
-import { runWebMission } from "@/lib/server/run-web-mission";
+import {
+  runConversationalReply,
+  runWebMission,
+} from "@/lib/server/run-web-mission";
+import { shouldAnswerDirectly } from "@/lib/server/web-mission-mapping";
 
 export async function GET(
   request: Request,
@@ -177,6 +183,9 @@ export async function POST(
   // Accueil affiche par le client (deja traduit) : sauvegarde comme
   // premier message si la session est encore vierge (voir ci-dessous).
   const greeting = normalizeGreetingInput(body.greeting);
+  // Bouton "en faire une mission" : court-circuite le routage
+  // conversationnel pour forcer la boucle outillee.
+  const forceMission = body.forceMission === true;
 
   try {
     const accountId = await requireAccountId(session.user.id);
@@ -221,8 +230,111 @@ export async function POST(
       text: message,
     });
 
-    // Mode unique : chaque message passe par la boucle agentique
-    // (plan ecrit, puis execution en direct).
+    // Routage parole / mission : une question simple obtient une
+    // reponse directe (un appel LLM, zero outil, zero mission en
+    // base) au lieu de declencher clone/lecture. JSON bloquant
+    // meme avec ?stream=1 (le client bifurque au content-type).
+    if (
+      shouldAnswerDirectly({
+        forceMission,
+        conversational: isConversationalPrompt(message),
+      })
+    ) {
+      const rows = await getMessagesByChatId({ id: conversation.id });
+      const history = buildSessionHistory(
+        rows.map((row) => ({ role: row.role, text: partsToText(row.parts) })),
+        { excludeLast: true }
+      );
+      const workspaceRoot = workspacePathOf(id, conversation.id);
+      const replyOf = (error: unknown) => {
+        console.error("POST /api/employees/[id]/chat Reply Error:", error);
+        return String(
+          error instanceof Error ? error.message : error
+        ).slice(0, 500);
+      };
+      if (url.searchParams.get("stream") !== "1") {
+        const reply = await runConversationalReply({
+          employeeName: target.name,
+          employeeRole: target.role,
+          talentSpec: target.talentSpec,
+          history,
+          prompt: message,
+          workspaceRoot,
+        }).catch(replyOf);
+        await saveEmployeeMessage({
+          chatId: conversation.id,
+          role: "assistant",
+          text: reply,
+        });
+        return NextResponse.json(
+          {
+            sessionId: conversation.id,
+            mission: null,
+            summary: reply,
+            needsAcceptance: false,
+          },
+          { status: 201 }
+        );
+      }
+      // Streaming : reponse immediate, generation en tache de fond
+      // (attendre ici rebufferiserait tout). Ordre preserve :
+      // la reponse est sauvee APRES le message utilisateur, avant
+      // la ligne terminale. Deconnexion : le flux casse, la base
+      // recoit quand meme la reponse (l'historique reste coherent).
+      const { readable, writable } = new TransformStream();
+      const writer = writable.getWriter();
+      const encoder = new TextEncoder();
+      const writeLine = (value: unknown) =>
+        writer.write(encoder.encode(`${JSON.stringify(value)}\n`));
+      void (async () => {
+        let broken = false;
+        try {
+          const reply = await runConversationalReply({
+            employeeName: target.name,
+            employeeRole: target.role,
+            talentSpec: target.talentSpec,
+            history,
+            prompt: message,
+            workspaceRoot,
+            onToken: async (text) => {
+              try {
+                await writeLine({ type: "token", step: 0, text });
+              } catch {
+                broken = true;
+              }
+            },
+          }).catch(replyOf);
+          await saveEmployeeMessage({
+            chatId: conversation.id,
+            role: "assistant",
+            text: reply,
+          });
+          if (!broken) {
+            await writeLine({
+              type: "conversational_done",
+              summary: reply,
+              sessionId: conversation.id,
+            });
+          }
+        } catch (error) {
+          console.error("Conversational stream write error:", error);
+        } finally {
+          await writer.close().catch(() => {});
+        }
+      })();
+      return new Response(readable, {
+        headers: {
+          "content-type": "application/x-ndjson",
+          "x-employee-session": conversation.id,
+          // Anti-buffering proxies/tunnels : chaque fragment doit
+          // partir au fil de l'eau, jamais retenu jusqu'a la fin.
+          "cache-control": "no-cache, no-transform",
+          "x-accel-buffering": "no",
+        },
+      });
+    }
+
+    // Mission : la boucle agentique (plan ecrit, puis execution).
     const [created] = await createMission({
       accountId,
       employeeId: id,
@@ -238,6 +350,17 @@ export async function POST(
       patch: { status: "running" },
     });
 
+    // Esprit unique : la mission voit la discussion qui l'a
+    // precedee (meme assembleur borne que le chemin direct).
+    const missionRows = await getMessagesByChatId({ id: conversation.id });
+    const missionHistory = buildSessionHistory(
+      missionRows.map((row) => ({
+        role: row.role,
+        text: partsToText(row.parts),
+      })),
+      { excludeLast: true }
+    );
+
     // Execution + persistance partagees par les deux reponses
     // (JSON bloquante et NDJSON) : meme charge utile terminale.
     const cancelSignal = new InMemoryJobSignal();
@@ -251,6 +374,7 @@ export async function POST(
         specVersion: target.specVersion,
         sessionId: conversation.id,
         prompt: message,
+        history: missionHistory,
         onEvent,
         signal: onEvent ? cancelSignal : undefined,
       }).catch((error) => {
@@ -392,6 +516,10 @@ export async function POST(
         headers: {
           "content-type": "application/x-ndjson",
           "x-employee-session": conversation.id,
+          // Anti-buffering proxies/tunnels : chaque evenement doit
+          // partir au fil de l'eau, jamais retenu jusqu'a la fin.
+          "cache-control": "no-cache, no-transform",
+          "x-accel-buffering": "no",
         },
       });
     }

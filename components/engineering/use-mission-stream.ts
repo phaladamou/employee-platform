@@ -8,6 +8,7 @@ import {
   createMissionStreamParser,
   emptyMissionProgress,
   parseLegacyMissionResult,
+  type ConversationalDoneMessage,
   type MissionDoneMessage,
   type MissionProgressState,
 } from "@/lib/employees/mission-events";
@@ -17,6 +18,8 @@ export interface MissionRunResult {
   summary: string;
   needsAcceptance: boolean;
   sessionId: string;
+  /** Reponse directe (zero outil) : etat live inchange. */
+  conversational?: boolean;
 }
 
 export interface MissionOutcome extends MissionRunResult {
@@ -53,6 +56,10 @@ export function useMissionStream(activeSessionId: string | null) {
   const [sessions, setSessions] = useState<
     Record<string, SessionRunState>
   >({});
+  // Texte affichable en cours d'arrivee (reponse directe ou rapport
+  // final) : ephemere, hors seaux (les flux conversationnels
+  // n'ecrivent aucun etat), vide des que le resultat aboutit.
+  const [draft, setDraft] = useState("");
   const controllerRef = useRef<AbortController | null>(null);
   // Epoques de run : un run supplante par un plus recent (double
   // envoi inter-onglets) n'ecrit plus dans l'etat partage.
@@ -98,65 +105,121 @@ export function useMissionStream(activeSessionId: string | null) {
       sessionId,
       message,
       greeting,
+      forceMission,
     }: {
       employeeId: string;
       sessionId: string | null;
       message: string;
       /** Accueil affiche : persiste en premier si session vierge. */
       greeting?: string;
+      /** Bouton "en faire une mission" : boucle outillee imposee. */
+      forceMission?: boolean;
     }): Promise<MissionRunResult> => {
       const controller = new AbortController();
       controllerRef.current = controller;
-      runEpochRef.current += 1;
-      const epoch = runEpochRef.current;
-      const bucketKey = sessionId ?? "";
-      setSessions((prev) => ({
-        ...prev,
-        [bucketKey]: {
-          ...emptySessionRun(),
-          running: true,
-          startedAt: Date.now(),
-          lastPrompt: message,
-        },
-      }));
+      setDraft("");
       const sessionQuery = sessionId
         ? `?session=${encodeURIComponent(sessionId)}&stream=1`
         : "?stream=1";
+      const response = await fetch(
+        `/api/employees/${encodeURIComponent(employeeId)}/chat${sessionQuery}`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            message,
+            ...(greeting ? { greeting } : {}),
+            ...(forceMission ? { forceMission: true } : {}),
+          }),
+          signal: controller.signal,
+        }
+      );
+      if (!response.ok || !response.body) {
+        const detail = await response
+          .text()
+          .then((text) => text.slice(0, 300))
+          .catch(() => "");
+        console.error(
+          `Mission stream failed: HTTP ${response.status} ${detail}`
+        );
+        throw new Error(`mission stream failed: ${response.status}`);
+      }
+      // Reponse conversationnelle (JSON bloquant) : retour immediat,
+      // AUCUNE ecriture d'etat (le panneau et les onglets bougent
+      // seulement pour les vraies missions).
+      if (
+        (response.headers.get("content-type") ?? "").includes(
+          "application/json"
+        )
+      ) {
+        const data: unknown = await response.json().catch(() => null);
+        if (
+          typeof data !== "object" ||
+          data === null ||
+          typeof (data as { summary?: unknown }).summary !== "string" ||
+          typeof (data as { sessionId?: unknown }).sessionId !== "string"
+        ) {
+          throw new Error("conversational reply malformed");
+        }
+        const payload = data as { summary: string; sessionId: string };
+        if (controllerRef.current === controller) {
+          controllerRef.current = null;
+        }
+        return {
+          missionId: undefined,
+          summary: payload.summary,
+          needsAcceptance: false,
+          sessionId: payload.sessionId,
+          conversational: true,
+        };
+      }
+      runEpochRef.current += 1;
+      const epoch = runEpochRef.current;
+      const bucketKey = sessionId ?? "";
+      // Seau paresseux : les flux conversationnels (tokens + ligne
+      // terminale, zero mission) n'ecrivent AUCUN etat, comme le JSON
+      // bloquant historique. Seules les lignes mission reveillent
+      // le seau (progres, panneau, onglets).
+      let bucketReady = false;
+      const ensureBucket = () => {
+        if (!bucketReady) {
+          bucketReady = true;
+          setSessions((prev) => ({
+            ...prev,
+            [bucketKey]: {
+              ...emptySessionRun(),
+              running: true,
+              startedAt: Date.now(),
+              lastPrompt: message,
+            },
+          }));
+        }
+      };
       let done: MissionDoneMessage | null = null;
+      let conversationalDone: ConversationalDoneMessage | null = null;
       let raw = "";
       // Cle du seau final (le seau d'attente migre vers la session
       // resolue) : lue par le finally pour eteindre `running`.
       let finalKey = bucketKey;
       try {
-        const response = await fetch(
-          `/api/employees/${encodeURIComponent(employeeId)}/chat${sessionQuery}`,
-          {
-            method: "POST",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(
-              greeting ? { message, greeting } : { message }
-            ),
-            signal: controller.signal,
-          }
-        );
-        if (!response.ok || !response.body) {
-          const detail = await response
-            .text()
-            .then((text) => text.slice(0, 300))
-            .catch(() => "");
-          console.error(
-            `Mission stream failed: HTTP ${response.status} ${detail}`
-          );
-          throw new Error(`mission stream failed: ${response.status}`);
-        }
         const parser = createMissionStreamParser((line) => {
           if (epoch !== runEpochRef.current) {
             return;
           }
           if (line.type === "done") {
+            ensureBucket();
             done = line;
             return;
           }
+          if (line.type === "conversational_done") {
+            conversationalDone = line;
+            return;
+          }
+          if (line.type === "token") {
+            setDraft((prev) => prev + line.text);
+            return;
+          }
+          ensureBucket();
           const key = bucketKey;
           setSessions((prev) => {
             const bucket = prev[key] ?? emptySessionRun();
@@ -196,7 +259,15 @@ export function useMissionStream(activeSessionId: string | null) {
               needsAcceptance: done.needsAcceptance,
               sessionId: done.sessionId,
             }
-          : legacy && fallbackSession
+          : conversationalDone
+            ? {
+                missionId: undefined,
+                summary: conversationalDone.summary,
+                needsAcceptance: false,
+                sessionId: conversationalDone.sessionId,
+                conversational: true,
+              }
+            : legacy && fallbackSession
             ? {
                 missionId: legacy.mission.id,
                 summary: legacy.summary,
@@ -210,7 +281,9 @@ export function useMissionStream(activeSessionId: string | null) {
           );
           throw new Error("mission stream closed without result");
         }
-        if (epoch === runEpochRef.current) {
+        // Terminale conversationnelle : AUCUNE ecriture de seau
+        // (pas de panneau ni d'onglets pour une reponse directe).
+        if (epoch === runEpochRef.current && !conversationalDone) {
           finalKey = result.sessionId;
           const status = done
             ? done.mission.status
@@ -233,6 +306,9 @@ export function useMissionStream(activeSessionId: string | null) {
         if (controllerRef.current === controller) {
           controllerRef.current = null;
         }
+        // Le resultat (ou l'erreur) prend le relais : le brouillon
+        // s'efface ici, le message complet suit dans le meme rendu.
+        setDraft("");
         if (epoch === runEpochRef.current) {
           const key = finalKey;
           const pending = bucketKey;
@@ -300,6 +376,7 @@ export function useMissionStream(activeSessionId: string | null) {
     elapsed: view.elapsed,
     outcome: view.outcome,
     lastPrompt: view.lastPrompt,
+    draft,
     run,
     restore,
     resetPending,

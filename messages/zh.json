@@ -90,6 +90,7 @@
     "ideTerminalTab": "终端",
     "terminalEmpty": "暂无命令。",
     "missionRetry": "重试",
+    "runAsMission": "作为任务运行",
     "missionInspect": "检查",
     "stepDone": "完成",
     "stepRunning": "运行中",
