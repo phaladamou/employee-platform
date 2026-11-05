@@ -15,6 +15,7 @@ import type { CoreEvent } from "../../contracts/output";
 import { systemPrompt } from "./prompts";
 import type { ChatAgentContext } from "./chat-types";
 import { resolveChatLLM } from "../../models/chat-provider";
+import { chatModel as mockChatModel } from "@/lib/ai/models.mock";
 
 export class ChatAgent implements Agent {
   readonly id = "chat";
@@ -79,7 +80,22 @@ export class ChatAgent implements Agent {
       const modelMessages =
         this.buildModelMessages(agentContext);
 
-      const llm = resolveChatLLM();
+      // Bureau/CI (electron/e2e-chat.mjs) : modele simule, aucun appel
+      // LLM reel. Declencheur inline (meme qu'isTestEnvironment) : core
+      // ne depend pas de lib/constants.
+      const isE2ETest = Boolean(
+        process.env.PLAYWRIGHT_TEST_BASE_URL ||
+          process.env.PLAYWRIGHT ||
+          process.env.CI_PLAYWRIGHT
+      );
+      const llm = isE2ETest
+        ? {
+            baseURL: "mock",
+            apiKey: "mock",
+            model: "mock-model",
+            reasoningEffort: "minimal" as const,
+          }
+        : resolveChatLLM();
       const payloadChars =
         agentContext.systemPrompt.length +
         JSON.stringify(modelMessages).length;
@@ -98,7 +114,7 @@ export class ChatAgent implements Agent {
       });
 
       const result = streamText({
-        model: client.chat(llm.model),
+        model: isE2ETest ? mockChatModel : client.chat(llm.model),
         system: agentContext.systemPrompt,
         messages: modelMessages,
         stopWhen: stepCountIs(5),

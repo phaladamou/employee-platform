@@ -29,10 +29,12 @@ const probeData = path.join(probeDir, "data");
 const PORT = 3222;
 const BASE = `http://127.0.0.1:${PORT}`;
 // Reponses possibles de lib/ai/models.mock (selon le contenu du prompt).
-const MARKERS = [
-  "How can I help you today",
-  "San Francisco is sunny",
-  "mock response for testing",
+// Le mock streame mot par mot : les marqueurs sont des mots isoles
+// (premier + dernier mot de chaque reponse), jamais une phrase contigue.
+const MARKER_SETS = [
+  ["Hello!", "today?"],
+  ["Francisco", "72°F."],
+  ["mock", "testing."],
 ];
 
 let child = null;
@@ -145,7 +147,9 @@ async function postChat(label, urlPath) {
   }
   const { text, timedOut } = await readStream(res, 120000);
   const hasDelta = text.includes("text-delta");
-  const hasMarker = MARKERS.some((m) => text.includes(m));
+  const hasMarker = MARKER_SETS.some((set) =>
+    set.every((m) => text.includes(m))
+  );
   if (timedOut || !hasDelta || !hasMarker) {
     fail(
       label,
